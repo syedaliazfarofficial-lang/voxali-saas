@@ -1,0 +1,466 @@
+{
+    "name": "tools_mark_manual_payment",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "tools/mark_manual_payment",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "mark-manual-payment"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract input with DYNAMIC TENANT\nconst webhookData = $input.first().json;\nconst input = webhookData.body;\n\n// ========== DYNAMIC TENANT ID EXTRACTION (SaaS) ==========\nconst getTenantId = () => {\n  if (input?.tenant_id) return input.tenant_id;\n  if (webhookData.headers?.['x-tenant-id']) return webhookData.headers['x-tenant-id'];\n  if (webhookData.query?.tenant_id) return webhookData.query.tenant_id;\n  throw new Error('tenant_id is required'); // fallback\n};\nconst tenantId = getTenantId();\n\nconst bookingId = input.booking_id;\nconst amount = input.amount;\nconst method = input.method || 'cash';\nconst note = input.note || '';\n\nif (!bookingId) {\n  throw new Error('booking_id is required');\n}\nif (!amount) {\n  throw new Error('amount is required');\n}\n\nreturn { json: { bookingId, amount, method, note, tenantId } };"
+            },
+            "id": "parse-input",
+            "name": "Parse Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "booking_id",
+                            "value": "=eq.{{ $json.bookingId }}"
+                        },
+                        {
+                            "name": "select",
+                            "value": "id"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "check-existing-payment",
+            "name": "Check Existing Payment",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "payment-exists",
+                            "leftValue": "={{ $json.id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "isNotEmpty"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "payment-record-exists",
+            "name": "Payment Record Exists?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract payment ID for update\nconst paymentData = $input.first().json;\nconst payment = Array.isArray(paymentData) ? paymentData[0] : paymentData;\nconst inputData = $('Parse Input').first().json;\n\nreturn {\n  json: {\n    ...inputData,\n    paymentId: payment.id,\n    action: 'update'\n  }\n};"
+            },
+            "id": "prepare-update",
+            "name": "Prepare Update",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments?id=eq.{{ $json.paymentId }}",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "payment_method",
+                            "value": "manual"
+                        },
+                        {
+                            "name": "status",
+                            "value": "completed"
+                        },
+                        {
+                            "name": "amount",
+                            "value": "={{ $json.amount }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "update-payment",
+            "name": "Update Payment Record",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1100,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Create new manual payment record\nconst inputData = $('Parse Input').first().json;\n\nreturn {\n  json: {\n    ...inputData,\n    action: 'create'\n  }\n};"
+            },
+            "id": "prepare-create",
+            "name": "Prepare Create",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "tenant_id",
+                            "value": "={{ $json.tenantId }}"
+                        },
+                        {
+                            "name": "booking_id",
+                            "value": "={{ $json.bookingId }}"
+                        },
+                        {
+                            "name": "payment_method",
+                            "value": "manual"
+                        },
+                        {
+                            "name": "status",
+                            "value": "completed"
+                        },
+                        {
+                            "name": "amount",
+                            "value": "={{ $json.amount }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "create-payment",
+            "name": "Create Payment Record",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1100,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "append",
+                "options": {}
+            },
+            "id": "merge-payment-ops",
+            "name": "Merge Payment Ops",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3,
+            "position": [
+                1320,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings?id=eq.{{ $('Parse Input').item.json.bookingId }}",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "confirmed"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "confirm-booking",
+            "name": "Confirm Booking",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1540,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Success response\nconst inputData = $('Parse Input').first().json;\n\nreturn {\n  json: {\n    ok: true,\n    message: 'Payment marked as paid',\n    booking_id: inputData.bookingId,\n    amount: inputData.amount,\n    method: inputData.method,\n    booking_status: 'confirmed'\n  }\n};"
+            },
+            "id": "success-response",
+            "name": "Success Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1760,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {}
+            },
+            "id": "respond-webhook",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                1980,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Input": {
+            "main": [
+                [
+                    {
+                        "node": "Check Existing Payment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Existing Payment": {
+            "main": [
+                [
+                    {
+                        "node": "Payment Record Exists?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Payment Record Exists?": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Update",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Prepare Create",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Update": {
+            "main": [
+                [
+                    {
+                        "node": "Update Payment Record",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Payment Record": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Payment Ops",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Create": {
+            "main": [
+                [
+                    {
+                        "node": "Create Payment Record",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Payment Record": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Payment Ops",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Merge Payment Ops": {
+            "main": [
+                [
+                    {
+                        "node": "Confirm Booking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Confirm Booking": {
+            "main": [
+                [
+                    {
+                        "node": "Success Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Success Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2026-01-27T05:00:00.000Z",
+    "versionId": "1"
+}

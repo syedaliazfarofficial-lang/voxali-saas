@@ -1,0 +1,405 @@
+{
+    "name": "cron_release_expired_holds",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "test/cron_release_expired_holds",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "test-webhook-trigger",
+            "name": "Test Webhook (Postman)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "test-cron-release-holds"
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "eq.pending_payment"
+                        },
+                        {
+                            "name": "hold_expires_at",
+                            "value": "=lt.{{ new Date().toISOString() }}"
+                        },
+                        {
+                            "name": "select",
+                            "value": "id,client_id,start_at"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "json"
+                        }
+                    }
+                }
+            },
+            "id": "get-expired-holds",
+            "name": "Get Expired Holds",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const expired = $input.first().json;\nconst expiredArray = Array.isArray(expired) ? expired : (expired?.id ? [expired] : []);\n\nif (expiredArray.length === 0) {\n  return { json: { hasExpired: false, count: 0 } };\n}\n\n// Extract IDs for batch update\nconst ids = expiredArray.map(b => b.id);\n\nreturn {\n  json: {\n    hasExpired: true,\n    count: ids.length,\n    bookingIds: ids,\n    idsFilter: ids.map(id => `\"${id}\"`).join(',')\n  }\n};"
+            },
+            "id": "check-expired",
+            "name": "Check Expired",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.hasExpired }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "has-expired",
+            "name": "Has Expired?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "value": "=in.({{ $json.idsFilter }})"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\n  \"status\": \"cancelled\",\n  \"notes\": \"Auto-cancelled: payment hold expired\"\n}",
+                "options": {}
+            },
+            "id": "cancel-expired",
+            "name": "Cancel Expired Bookings",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// After cancelling expired bookings, check waitlist for matching entries\nconst count = $('Check Expired').first().json.count;\n\n// Log the cleanup\nconsole.log(`Released ${count} expired booking hold(s)`);\n\nreturn { json: { released: count, status: 'done' } };"
+            },
+            "id": "log-cleanup",
+            "name": "Log Cleanup",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1100,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/waitlist",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "eq.waiting"
+                        },
+                        {
+                            "name": "preferred_date",
+                            "value": "=gte.{{ new Date().toISOString().split('T')[0] }}"
+                        },
+                        {
+                            "name": "select",
+                            "value": "id,client_name,client_phone,client_email,preferred_date,service_ids"
+                        },
+                        {
+                            "name": "limit",
+                            "value": "5"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "json"
+                        }
+                    }
+                }
+            },
+            "id": "get-waitlist",
+            "name": "Get Waitlist Entries",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1320,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// For each waitlist entry, we'd ideally check availability and notify\n// Simplified: just mark them for notification\nconst waitlist = $input.first().json;\nconst entries = Array.isArray(waitlist) ? waitlist : (waitlist?.id ? [waitlist] : []);\n\nif (entries.length === 0) {\n  return { json: { notified: 0 } };\n}\n\n// Return entries to notify (would integrate with notification workflow)\nreturn entries.map(entry => ({\n  json: {\n    waitlistId: entry.id,\n    clientName: entry.client_name,\n    clientPhone: entry.client_phone,\n    clientEmail: entry.client_email,\n    preferredDate: entry.preferred_date,\n    notificationType: 'slot_available'\n  }\n}));"
+            },
+            "id": "prepare-notifications",
+            "name": "Prepare Notifications",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1540,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://ali-n8n.mywire.org/webhook/notifications/send",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"clientName\": \"{{ $json.clientName }}\",\n  \"clientPhone\": \"{{ $json.clientPhone }}\",\n  \"clientEmail\": \"{{ $json.clientEmail }}\",\n  \"notificationType\": \"waitlist_slot_available\",\n  \"preferredDate\": \"{{ $json.preferredDate }}\"\n}",
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "text"
+                        }
+                    }
+                }
+            },
+            "id": "notify-waitlist",
+            "name": "Notify Waitlist",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1760,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/waitlist",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "value": "=eq.{{ $('Prepare Notifications').item.json.waitlistId }}"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"status\": \"contacted\"\n}",
+                "options": {}
+            },
+            "id": "update-waitlist-status",
+            "name": "Mark Notified",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1980,
+                -100
+            ]
+        }
+    ],
+    "connections": {
+        "Test Webhook (Postman)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Expired Holds",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Expired Holds": {
+            "main": [
+                [
+                    {
+                        "node": "Check Expired",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Expired": {
+            "main": [
+                [
+                    {
+                        "node": "Has Expired?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Expired?": {
+            "main": [
+                [
+                    {
+                        "node": "Cancel Expired Bookings",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Cancel Expired Bookings": {
+            "main": [
+                [
+                    {
+                        "node": "Log Cleanup",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Cleanup": {
+            "main": [
+                [
+                    {
+                        "node": "Get Waitlist Entries",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Waitlist Entries": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Notifications",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Notifications": {
+            "main": [
+                [
+                    {
+                        "node": "Notify Waitlist",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Notify Waitlist": {
+            "main": [
+                [
+                    {
+                        "node": "Mark Notified",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2026-01-27T09:15:00.000Z",
+    "versionId": "1"
+}

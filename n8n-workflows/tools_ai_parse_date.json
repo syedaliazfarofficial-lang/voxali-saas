@@ -1,0 +1,140 @@
+{
+    "name": "tools_ai_parse_date",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "tools/ai_parse_date",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "ai-parse-date"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse Input\nconst webhookData = $input.first().json;\nconst input = webhookData.body || webhookData;\n\nconst text = input.text || input.date_text || '';\nconst tenantId = input.tenant_id || webhookData.headers?.['x-tenant-id'] || null;\n\nif (!text) {\n  throw new Error('text is required (e.g. \"next friday 3pm\")');\n}\n\n// Get current date for context\nconst now = new Date();\nconst days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];\nconst today = now.toISOString().split('T')[0];\nconst dayName = days[now.getDay()];\n\nreturn {\n  json: {\n    text,\n    tenantId,\n    today,\n    dayName\n  }\n};\n"
+            },
+            "id": "parse-input",
+            "name": "Parse Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.groq.com/openai/v1/chat/completions",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_GROQ_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a date/time parser for a salon booking system. Today is {{ $json.dayName }} {{ $json.today }}. The salon operates from 09:00 to 19:00, Monday to Saturday. Sunday is closed.\\n\\nParse the user's natural language date/time into structured JSON. Return ONLY valid JSON with these fields:\\n- date: YYYY-MM-DD format\\n- time: HH:MM format (24h)\\n- day_name: name of the day\\n- is_valid: true if within salon hours, false otherwise\\n- confidence: 0.0 to 1.0\\n- reason: brief explanation if invalid\\n\\nExamples:\\n- 'next friday 3pm' → {\\\"date\\\":\\\"2026-02-20\\\",\\\"time\\\":\\\"15:00\\\",\\\"day_name\\\":\\\"Friday\\\",\\\"is_valid\\\":true,\\\"confidence\\\":0.95}\\n- 'tomorrow morning' → {\\\"date\\\":\\\"2026-02-17\\\",\\\"time\\\":\\\"10:00\\\",\\\"day_name\\\":\\\"Tuesday\\\",\\\"is_valid\\\":true,\\\"confidence\\\":0.7}\\n- 'sunday 2pm' → {\\\"date\\\":\\\"2026-02-22\\\",\\\"time\\\":\\\"14:00\\\",\\\"day_name\\\":\\\"Sunday\\\",\\\"is_valid\\\":false,\\\"confidence\\\":0.9,\\\"reason\\\":\\\"Salon is closed on Sundays\\\"}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.text }}\"\n    }\n  ],\n  \"temperature\": 0,\n  \"max_tokens\": 200\n}",
+                "options": {}
+            },
+            "id": "groq-api",
+            "name": "Groq AI - Parse Date",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract and validate AI response\nconst input = $('Parse Input').first().json;\nconst groqResponse = $input.first().json;\n\ntry {\n  const aiContent = groqResponse.choices[0].message.content;\n  const parsed = JSON.parse(aiContent);\n  \n  return {\n    json: {\n      ok: true,\n      original_text: input.text,\n      parsed: {\n        date: parsed.date,\n        time: parsed.time,\n        day_name: parsed.day_name || '',\n        is_valid: parsed.is_valid !== false,\n        confidence: parsed.confidence || 0.5,\n        reason: parsed.reason || null\n      },\n      tenant_id: input.tenantId,\n      tokens_used: groqResponse.usage?.total_tokens || 0\n    }\n  };\n} catch (e) {\n  return {\n    json: {\n      ok: false,\n      original_text: input.text,\n      error: 'Could not parse date from text',\n      raw_response: groqResponse.choices?.[0]?.message?.content || 'No response'\n    }\n  };\n}\n"
+            },
+            "id": "format-response",
+            "name": "Format Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {}
+            },
+            "id": "respond",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                880,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Input": {
+            "main": [
+                [
+                    {
+                        "node": "Groq AI - Parse Date",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Groq AI - Parse Date": {
+            "main": [
+                [
+                    {
+                        "node": "Format Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

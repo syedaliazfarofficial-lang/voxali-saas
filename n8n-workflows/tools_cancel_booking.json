@@ -1,0 +1,315 @@
+{
+    "name": "tools_cancel_booking",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "tools/cancel_booking",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "cancel-booking"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract booking_id + DYNAMIC TENANT\nconst webhookData = $input.first().json;\nconst input = webhookData.body;\n\nconst getTenantId = () => {\n  if (input?.tenant_id) return input.tenant_id;\n  if (webhookData.headers?.['x-tenant-id']) return webhookData.headers['x-tenant-id'];\n  if (webhookData.query?.tenant_id) return webhookData.query.tenant_id;\n  throw new Error('tenant_id is required');\n};\nconst tenantId = getTenantId();\n\nconst bookingId = input.booking_id;\n\nif (!bookingId) {\n  throw new Error('booking_id is required');\n}\n\nreturn { json: { bookingId, tenantId } };"
+            },
+            "id": "parse-input",
+            "name": "Parse Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "value": "=eq.{{ $json.bookingId }}"
+                        },
+                        {
+                            "name": "tenant_id",
+                            "value": "=eq.{{ $json.tenantId }}"
+                        },
+                        {
+                            "name": "select",
+                            "value": "id,client_id,start_at,status"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "get-booking",
+            "name": "Get Booking",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "booking-exists",
+                            "leftValue": "={{ $input.all().length }}",
+                            "rightValue": 0,
+                            "operator": {
+                                "type": "number",
+                                "operation": "gt"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "check-booking-exists",
+            "name": "Booking Exists?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings?id=eq.{{ $('Parse Input').item.json.bookingId }}&tenant_id=eq.{{ $('Parse Input').item.json.tenantId }}",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "cancelled"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "update-booking-status",
+            "name": "Cancel Booking",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Booking cancelled - prepare notification data\nconst bookingData = $('Get Booking').first().json;\nconst booking = Array.isArray(bookingData) ? bookingData[0] : bookingData;\n\nreturn {\n  json: {\n    ok: true,\n    message: 'Booking cancelled successfully',\n    booking_id: booking.id,\n    client_name: booking.clients?.full_name,\n    client_phone: booking.clients?.phone,\n    client_email: booking.clients?.email,\n    original_start_at: booking.start_at\n  }\n};"
+            },
+            "id": "prepare-success",
+            "name": "Prepare Success Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1100,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Booking not found\nreturn {\n  json: {\n    ok: false,\n    error: 'Booking not found',\n    booking_id: $('Parse Input').first().json.bookingId\n  }\n};"
+            },
+            "id": "not-found-response",
+            "name": "Not Found Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "append",
+                "options": {}
+            },
+            "id": "merge-response",
+            "name": "Merge Response",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3,
+            "position": [
+                1320,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {}
+            },
+            "id": "respond-webhook",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                1540,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Input": {
+            "main": [
+                [
+                    {
+                        "node": "Get Booking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Booking": {
+            "main": [
+                [
+                    {
+                        "node": "Booking Exists?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Booking Exists?": {
+            "main": [
+                [
+                    {
+                        "node": "Cancel Booking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Not Found Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Cancel Booking": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Success Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Success Response": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Not Found Response": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Response",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Merge Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2026-01-27T05:00:00.000Z",
+    "versionId": "1"
+}

@@ -1,0 +1,180 @@
+{
+    "name": "error_handler",
+    "nodes": [
+        {
+            "parameters": {
+                "events": [
+                    "workflow"
+                ],
+                "options": {}
+            },
+            "id": "error-trigger",
+            "name": "Error Trigger",
+            "type": "n8n-nodes-base.errorTrigger",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract error details from the trigger\nconst errorData = $input.first().json;\n\nconst execution = errorData.execution || {};\nconst workflow = errorData.workflow || {};\nconst error = execution.error || {};\n\n// Get the failed node info\nlet failedNodeName = 'Unknown';\nlet failedNodeType = 'Unknown';\nlet inputData = null;\n\ntry {\n  const resultData = execution.data?.resultData;\n  if (resultData?.error?.node) {\n    failedNodeName = resultData.error.node.name || 'Unknown';\n    failedNodeType = resultData.error.node.type || 'Unknown';\n  }\n  // Try to get input data from the last run\n  const runData = resultData?.runData;\n  if (runData) {\n    const nodeNames = Object.keys(runData);\n    if (nodeNames.length > 0) {\n      const lastNode = nodeNames[nodeNames.length - 1];\n      const lastRunEntry = runData[lastNode]?.[0];\n      inputData = lastRunEntry?.data?.main?.[0]?.[0]?.json || null;\n    }\n  }\n} catch(e) {\n  // Ignore parse errors\n}\n\nconst errorMessage = error.message || execution.error?.message || 'Unknown error';\nconst workflowName = workflow.name || 'Unknown Workflow';\nconst executionId = execution.id || 'N/A';\nconst timestamp = new Date().toISOString();\n\n// Determine severity\nlet severity = 'error';\nif (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {\n  severity = 'warning';\n} else if (errorMessage.includes('authentication') || errorMessage.includes('403') || errorMessage.includes('401')) {\n  severity = 'critical';\n}\n\nreturn {\n  json: {\n    workflowName,\n    failedNodeName,\n    failedNodeType,\n    errorMessage,\n    severity,\n    executionId,\n    timestamp,\n    inputData: inputData ? JSON.stringify(inputData).substring(0, 500) : null,\n    smsMessage: `⚠️ VOXALI ERROR\\n${workflowName}\\nNode: ${failedNodeName}\\n${errorMessage.substring(0, 100)}\\nID: ${executionId}`\n  }\n};\n"
+            },
+            "id": "parse-error",
+            "name": "Parse Error Details",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/error_logs",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"workflow_name\": \"{{ $json.workflowName }}\",\n  \"node_name\": \"{{ $json.failedNodeName }}\",\n  \"error_message\": \"{{ $json.errorMessage }}\",\n  \"error_type\": \"workflow_error\",\n  \"severity\": \"{{ $json.severity }}\",\n  \"input_data\": {{ $json.inputData ? $json.inputData : 'null' }}\n}",
+                "options": {}
+            },
+            "id": "log-to-db",
+            "name": "Log Error to DB",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Basic QUMwMTE2OGY1YzI0MTViMjIwNDBkOGNkNDY4N2ExZWQ0ZTo2ZjViM2E2YjQ0OWVjZWUxYzQxNmFhMjY3NjE0ZDM4Yg=="
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "string",
+                "body": "=From=%2B16592174925&To=%2B923313616722&Body={{ encodeURIComponent($('Parse Error Details').first().json.smsMessage) }}",
+                "options": {}
+            },
+            "id": "send-sms-alert",
+            "name": "Send SMS Alert",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                660,
+                0
+            ],
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.smtp2go.com/v3/email/send",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"sender\": \"Voxali Alerts <voxaliofficial@gmail.com>\",\n  \"to\": [\"voxaliofficial@gmail.com\"],\n  \"subject\": \"⚠️ Voxali Error: {{ $('Parse Error Details').first().json.workflowName }}\",\n  \"html_body\": \"<div style='font-family:Arial;max-width:600px;margin:0 auto'><h2 style='color:#dc2626'>⚠️ Workflow Error Alert</h2><table style='width:100%;border-collapse:collapse'><tr style='background:#fee2e2'><td style='padding:8px;font-weight:bold'>Workflow</td><td style='padding:8px'>{{ $('Parse Error Details').first().json.workflowName }}</td></tr><tr><td style='padding:8px;font-weight:bold'>Failed Node</td><td style='padding:8px'>{{ $('Parse Error Details').first().json.failedNodeName }}</td></tr><tr style='background:#fef2f2'><td style='padding:8px;font-weight:bold'>Error</td><td style='padding:8px;color:#dc2626'>{{ $('Parse Error Details').first().json.errorMessage }}</td></tr><tr><td style='padding:8px;font-weight:bold'>Severity</td><td style='padding:8px'>{{ $('Parse Error Details').first().json.severity }}</td></tr><tr style='background:#fef2f2'><td style='padding:8px;font-weight:bold'>Execution ID</td><td style='padding:8px'>{{ $('Parse Error Details').first().json.executionId }}</td></tr><tr><td style='padding:8px;font-weight:bold'>Time</td><td style='padding:8px'>{{ $('Parse Error Details').first().json.timestamp }}</td></tr></table><p style='margin-top:16px;color:#666'>Check <a href='https://ali-n8n.mywire.org'>n8n Dashboard</a> for details.</p></div>\"\n}",
+                "options": {}
+            },
+            "id": "send-email-alert",
+            "name": "Send Email Alert",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                660,
+                150
+            ],
+            "continueOnFail": true
+        }
+    ],
+    "connections": {
+        "Error Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Error Details",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Error Details": {
+            "main": [
+                [
+                    {
+                        "node": "Log Error to DB",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Error to DB": {
+            "main": [
+                [
+                    {
+                        "node": "Send SMS Alert",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Send Email Alert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

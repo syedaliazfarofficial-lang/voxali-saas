@@ -1,0 +1,140 @@
+{
+    "name": "tools_ai_summarize_notes",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "tools/ai_summarize_notes",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "ai-summarize-notes"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse Input\nconst webhookData = $input.first().json;\nconst input = webhookData.body || webhookData;\n\nconst notes = input.notes || input.text || '';\nconst clientName = input.client_name || 'Client';\nconst tenantId = input.tenant_id || webhookData.headers?.['x-tenant-id'] || null;\n\nif (!notes) {\n  throw new Error('notes text is required');\n}\n\nreturn {\n  json: { notes, clientName, tenantId }\n};\n"
+            },
+            "id": "parse-input",
+            "name": "Parse Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.groq.com/openai/v1/chat/completions",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_GROQ_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an assistant for a salon. Summarize client notes into a brief, actionable summary for the stylist. Focus on:\\n- Allergies or sensitivities\\n- Style preferences\\n- Previous issues or complaints\\n- Special requests\\n\\nKeep it under 50 words. Be concise and professional. Return ONLY JSON: {\\\"summary\\\": \\\"...\\\", \\\"alerts\\\": [\\\"allergy: ammonia\\\"], \\\"mood\\\": \\\"positive/neutral/concerned\\\"}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Client: {{ $json.clientName }}\\nNotes: {{ $json.notes }}\"\n    }\n  ],\n  \"temperature\": 0,\n  \"max_tokens\": 200\n}",
+                "options": {}
+            },
+            "id": "groq-api",
+            "name": "Groq AI - Summarize",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Format AI response\nconst input = $('Parse Input').first().json;\nconst groqResponse = $input.first().json;\n\ntry {\n  const aiContent = groqResponse.choices[0].message.content;\n  const parsed = JSON.parse(aiContent);\n  \n  return {\n    json: {\n      ok: true,\n      client_name: input.clientName,\n      summary: parsed.summary || aiContent,\n      alerts: parsed.alerts || [],\n      mood: parsed.mood || 'neutral',\n      original_length: input.notes.length,\n      tokens_used: groqResponse.usage?.total_tokens || 0\n    }\n  };\n} catch (e) {\n  // If AI doesn't return JSON, use raw text as summary\n  return {\n    json: {\n      ok: true,\n      client_name: input.clientName,\n      summary: groqResponse.choices?.[0]?.message?.content || 'Unable to summarize',\n      alerts: [],\n      mood: 'neutral'\n    }\n  };\n}\n"
+            },
+            "id": "format-response",
+            "name": "Format Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {}
+            },
+            "id": "respond",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                880,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Input": {
+            "main": [
+                [
+                    {
+                        "node": "Groq AI - Summarize",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Groq AI - Summarize": {
+            "main": [
+                [
+                    {
+                        "node": "Format Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

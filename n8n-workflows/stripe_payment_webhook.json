@@ -1,0 +1,332 @@
+{
+    "name": "stripe_payment_webhook",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "stripe/payment",
+                "options": {
+                    "rawBody": true
+                }
+            },
+            "id": "webhook-trigger",
+            "name": "Stripe Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "stripe-webhook",
+            "notes": "Configure Stripe Dashboard to send checkout.session.completed events to this URL"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse Stripe webhook event\nconst body = $input.first().json.body || $input.first().json;\n\n// Check if this is a checkout.session.completed event\nif (body.type !== 'checkout.session.completed') {\n  return {\n    json: {\n      skip: true,\n      eventType: body.type,\n      message: 'Event type not handled'\n    }\n  };\n}\n\nconst session = body.data?.object || {};\n\nreturn {\n  json: {\n    skip: false,\n    eventType: body.type,\n    sessionId: session.id,\n    paymentStatus: session.payment_status,\n    bookingId: session.metadata?.booking_id,\n    paymentId: session.metadata?.payment_id,\n    customerEmail: session.customer_email,\n    amountTotal: session.amount_total / 100\n  }\n};"
+            },
+            "id": "parse-webhook",
+            "name": "Parse Stripe Event",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "should-process",
+                            "leftValue": "={{ $json.skip }}",
+                            "rightValue": false,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "should-process",
+            "name": "Should Process?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments?id=eq.{{ $json.paymentId }}",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "completed"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "update-payment-status",
+            "name": "Update Payment Status",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                660,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings?id=eq.{{ $('Parse Stripe Event').item.json.bookingId }}",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "value": "confirmed"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "confirm-booking",
+            "name": "Confirm Booking",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "value": "=eq.{{ $('Parse Stripe Event').item.json.bookingId }}"
+                        },
+                        {
+                            "name": "select",
+                            "value": "id,start_at,end_at,stylist_id,clients!client_id(name,phone,email)"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "get-booking-details",
+            "name": "Get Booking Details",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1100,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Prepare notification data\nconst bookingData = $input.first().json;\nconst booking = Array.isArray(bookingData) ? bookingData[0] : bookingData;\nconst stripeData = $('Parse Stripe Event').first().json;\n\nreturn {\n  json: {\n    bookingId: booking.id,\n    clientName: booking.clients?.name,\n    clientPhone: booking.clients?.phone,\n    clientEmail: booking.clients?.email,\n    stylistId: booking.stylist_id,\n    startAt: booking.start_at,\n    endAt: booking.end_at,\n    amountPaid: stripeData.amountTotal,\n    notificationType: 'payment_confirmed'\n  }\n};"
+            },
+            "id": "prepare-notification",
+            "name": "Prepare Notification Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1320,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://ali-n8n.mywire.org/webhook/notifications/send",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "text"
+                        }
+                    }
+                }
+            },
+            "id": "trigger-notification",
+            "name": "Trigger Notification",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1540,
+                -100
+            ],
+            "notes": "Calls the notification workflow to send SMS + Email"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Skip - return acknowledgment\nreturn { json: { received: true } };"
+            },
+            "id": "skip-ack",
+            "name": "Skip Acknowledgment",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                660,
+                100
+            ]
+        }
+    ],
+    "connections": {
+        "Stripe Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Stripe Event",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Stripe Event": {
+            "main": [
+                [
+                    {
+                        "node": "Should Process?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Should Process?": {
+            "main": [
+                [
+                    {
+                        "node": "Update Payment Status",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Skip Acknowledgment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Payment Status": {
+            "main": [
+                [
+                    {
+                        "node": "Confirm Booking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Confirm Booking": {
+            "main": [
+                [
+                    {
+                        "node": "Get Booking Details",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Booking Details": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Notification Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Notification Data": {
+            "main": [
+                [
+                    {
+                        "node": "Trigger Notification",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2026-01-27T05:00:00.000Z",
+    "versionId": "1"
+}

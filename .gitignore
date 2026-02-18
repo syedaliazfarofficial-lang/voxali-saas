@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+.next/
+
+# Environment variables (SECRETS - never upload!)
+.env
+.env.local
+.env.production
+.env.*.local
+
+# API Keys & Credentials (CRITICAL - never upload!)
+docs/credentials/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Logs
+*.log
+npm-debug.log*

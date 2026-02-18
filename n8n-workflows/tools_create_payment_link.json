@@ -1,0 +1,623 @@
+{
+    "name": "tools_create_payment_link",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "tools/create_payment_link",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "create-payment-link"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract booking_id + DYNAMIC TENANT\nconst webhookData = $input.first().json;\nconst input = webhookData.body;\n\n// ========== DYNAMIC TENANT ID EXTRACTION (SaaS) ==========\nconst getTenantId = () => {\n  if (input?.tenant_id) return input.tenant_id;\n  if (webhookData.headers?.['x-tenant-id']) return webhookData.headers['x-tenant-id'];\n  if (webhookData.query?.tenant_id) return webhookData.query.tenant_id;\n  return null; // Will be fetched from booking if not provided\n};\n\nconst tenantId = getTenantId();\nconst bookingId = input?.booking_id;\n\nif (!bookingId) {\n  throw new Error('booking_id is required');\n}\n\nreturn { json: { bookingId, tenantId } };"
+            },
+            "id": "parse-input",
+            "name": "Parse Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "booking_id",
+                            "value": "=eq.{{ $json.bookingId }}"
+                        },
+                        {
+                            "name": "select",
+                            "value": "id,booking_id,amount,status,stripe_payment_id"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "get-payment",
+            "name": "Get Payment Record",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ],
+            "alwaysOutputData": true,
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "payment-exists",
+                            "leftValue": "={{ $json.id }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "exists"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "check-payment-exists",
+            "name": "Payment Exists?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Check if Stripe payment already exists\nconst paymentData = $('Get Payment Record').first().json;\nconst payment = Array.isArray(paymentData) ? paymentData[0] : paymentData;\n\nif (payment.stripe_payment_id) {\n  // Already has a stripe session\n  return {\n    json: {\n      ok: true,\n      stripe_payment_id: payment.stripe_payment_id,\n      status: payment.status,\n      message: 'Existing payment session found'\n    }\n  };\n}\n\n// Need to create new Stripe Checkout session\nreturn {\n  json: {\n    paymentId: payment.id,\n    bookingId: payment.booking_id,\n    amount: payment.amount,\n    currency: 'USD',\n    clientName: 'Customer',\n    clientEmail: null,\n    needsStripeCall: true\n  }\n};"
+            },
+            "id": "check-existing-link",
+            "name": "Check Existing Link",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                880,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "needs-stripe",
+                            "leftValue": "={{ $json.needsStripeCall }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "needs-stripe-call",
+            "name": "Needs Stripe Call?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                1100,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.stripe.com/v1/checkout/sessions",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_STRIPE_SECRET_KEY"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/x-www-form-urlencoded"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "form-urlencoded",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "mode",
+                            "value": "payment"
+                        },
+                        {
+                            "name": "success_url",
+                            "value": "https://luxe-aurea.com/payment-success?session_id={CHECKOUT_SESSION_ID}"
+                        },
+                        {
+                            "name": "cancel_url",
+                            "value": "https://luxe-aurea.com/payment-cancelled"
+                        },
+                        {
+                            "name": "line_items[0][price_data][currency]",
+                            "value": "={{ $json.currency.toLowerCase() }}"
+                        },
+                        {
+                            "name": "line_items[0][price_data][product_data][name]",
+                            "value": "Luxe Aurea Salon - Appointment Deposit"
+                        },
+                        {
+                            "name": "line_items[0][price_data][unit_amount]",
+                            "value": "={{ Math.round($json.amount * 100) }}"
+                        },
+                        {
+                            "name": "line_items[0][quantity]",
+                            "value": "1"
+                        },
+                        {
+                            "name": "metadata[booking_id]",
+                            "value": "={{ $json.bookingId }}"
+                        },
+                        {
+                            "name": "metadata[payment_id]",
+                            "value": "={{ $json.paymentId }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "create-stripe-session",
+            "name": "Create Stripe Checkout",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1320,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Update payment record with Stripe session info\nconst stripeResponse = $input.first().json;\nlet paymentId;\ntry { paymentId = $('Check Existing Link').first().json.paymentId; } catch(e) {}\nif (!paymentId) { try { paymentId = $('Prep New Payment').first().json.paymentId; } catch(e) {} }\n\nreturn {\n  json: {\n    paymentId: paymentId,\n    paymentLink: stripeResponse.url,\n    sessionId: stripeResponse.id\n  }\n};"
+            },
+            "id": "extract-stripe-url",
+            "name": "Extract Stripe URL",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1540,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "PATCH",
+                "url": "=https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments?id=eq.{{ $json.paymentId }}",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "stripe_payment_id",
+                            "value": "={{ $json.sessionId }}"
+                        },
+                        {
+                            "name": "payment_link",
+                            "value": "={{ $json.paymentLink }}"
+                        },
+                        {
+                            "name": "status",
+                            "value": "pending"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "update-payment-record",
+            "name": "Save Payment Link",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1760,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Return new payment link\nconst extractData = $('Extract Stripe URL').first().json;\n\nreturn {\n  json: {\n    ok: true,\n    payment_link: extractData.paymentLink,\n    status: 'pending',\n    message: 'Payment link created successfully'\n  }\n};"
+            },
+            "id": "new-link-response",
+            "name": "New Link Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1980,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Return existing payment link (already set in json)\nreturn $input.first();"
+            },
+            "id": "existing-link-response",
+            "name": "Existing Link Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1320,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings?id=eq.{{ $('Parse Input').first().json.bookingId }}&select=id,tenant_id",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "get-booking-tenant",
+            "name": "Get Booking Tenant",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"booking_id\": \"{{ $('Parse Input').first().json.bookingId }}\",\n  \"amount\": 50,\n  \"provider\": \"stripe\",\n  \"status\": \"pending\",\n  \"currency\": \"USD\",\n  \"tenant_id\": \"{{ $json.tenant_id }}\"\n}",
+                "options": {}
+            },
+            "id": "create-payment-record",
+            "name": "Create Payment Record",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1100,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Prepare data for Stripe checkout after creating payment\nconst payment = $input.first().json;\nconst p = Array.isArray(payment) ? payment[0] : payment;\nconst amt = Number(p.amount) || 50;\n\nreturn {\n  json: {\n    paymentId: p.id,\n    bookingId: p.booking_id,\n    amount: amt,\n    currency: 'USD',\n    clientName: 'Customer',\n    clientEmail: null,\n    needsStripeCall: true\n  }\n};"
+            },
+            "id": "prep-new-payment",
+            "name": "Prep New Payment",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1320,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "append",
+                "options": {}
+            },
+            "id": "merge-response",
+            "name": "Merge Response",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3,
+            "position": [
+                2200,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {}
+            },
+            "id": "respond-webhook",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                2420,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Input": {
+            "main": [
+                [
+                    {
+                        "node": "Get Payment Record",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Payment Record": {
+            "main": [
+                [
+                    {
+                        "node": "Payment Exists?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Payment Exists?": {
+            "main": [
+                [
+                    {
+                        "node": "Check Existing Link",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Get Booking Tenant",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Booking Tenant": {
+            "main": [
+                [
+                    {
+                        "node": "Create Payment Record",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Payment Record": {
+            "main": [
+                [
+                    {
+                        "node": "Prep New Payment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prep New Payment": {
+            "main": [
+                [
+                    {
+                        "node": "Create Stripe Checkout",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Existing Link": {
+            "main": [
+                [
+                    {
+                        "node": "Needs Stripe Call?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Needs Stripe Call?": {
+            "main": [
+                [
+                    {
+                        "node": "Create Stripe Checkout",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Existing Link Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Stripe Checkout": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Stripe URL",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Stripe URL": {
+            "main": [
+                [
+                    {
+                        "node": "Save Payment Link",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Payment Link": {
+            "main": [
+                [
+                    {
+                        "node": "New Link Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "New Link Response": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Existing Link Response": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Response",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Not Found Response": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Response",
+                        "type": "main",
+                        "index": 2
+                    }
+                ]
+            ]
+        },
+        "Merge Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2026-01-27T05:00:00.000Z",
+    "versionId": "1"
+}

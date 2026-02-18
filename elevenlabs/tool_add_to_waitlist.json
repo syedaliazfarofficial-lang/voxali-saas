@@ -1,0 +1,110 @@
+{
+    "type": "webhook",
+    "name": "add_to_waitlist",
+    "description": "Add a client to the waitlist when no appointment slots are available on their preferred date. They will be notified by text message if a slot opens up.",
+    "disable_interruptions": false,
+    "force_pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "tool_error_handling_mode": "auto",
+    "execution_mode": "immediate",
+    "api_schema": {
+        "url": "https://ali-n8n.mywire.org/webhook/tools/add_to_waitlist?tenant_id=e3cd6ecc-2670-425b-9e80-6874896d32d0",
+        "method": "POST",
+        "path_params_schema": [],
+        "query_params_schema": [],
+        "request_body_schema": {
+            "id": "body",
+            "type": "object",
+            "description": "Waitlist entry details",
+            "properties": [
+                {
+                    "id": "client_name",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Customer full name",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "client_phone",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Customer phone number with country code. Example: +12125551234",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "service_id",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "UUID of the service the client wants",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "preferred_date",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Preferred date in YYYY-MM-DD format",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "preferred_time_window",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Preferred time of day: morning, afternoon, evening, or anytime",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": [
+                        "morning",
+                        "afternoon",
+                        "evening",
+                        "anytime"
+                    ],
+                    "is_system_provided": false,
+                    "required": false
+                },
+                {
+                    "id": "preferred_staff_id",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Optional UUID of preferred stylist",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": false
+                }
+            ],
+            "required": false,
+            "value_type": "llm_prompt"
+        },
+        "request_headers": [
+            {
+                "name": "X-TOOLS-KEY",
+                "value": "LUXE-AUREA-SECRET-2026",
+                "type": "value"
+            }
+        ],
+        "auth_connection": null
+    },
+    "assignments": [],
+    "response_timeout_secs": 20,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    }
+}

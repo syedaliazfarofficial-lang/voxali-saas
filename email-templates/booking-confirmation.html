@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Confirmation - Luxe Aurea Salon</title>
+    <style>
+        :root {
+            --bg-body: #121212;
+            --bg-card: #1E1E1E;
+            --primary: #D4AF37;
+            --primary-soft: #F4E285;
+            --primary-hover: #B8860B;
+            --text-main: #EAEAEA;
+            --text-muted: #A0A0A0;
+            --border: #333333;
+            --success: #10B981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            padding: 20px;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--bg-body);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1E1E1E 0%, #2A2A2A 100%);
+            border-bottom: 2px solid var(--primary);
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-soft) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .header-subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 16px;
+            color: #000;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+        }
+
+        .content {
+            padding: 40px 30px;
+            background: var(--bg-body);
+        }
+
+        .greeting {
+            font-size: 18px;
+            color: var(--text-main);
+            margin-bottom: 20px;
+        }
+
+        .greeting strong {
+            color: var(--primary);
+        }
+
+        .intro-text {
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .booking-card {
+            background: var(--bg-card);
+            border-left: 3px solid var(--primary);
+            padding: 24px;
+            border-radius: 8px;
+            margin: 24px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .booking-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .booking-row:last-child {
+            border-bottom: none;
+        }
+
+        .label {
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .value {
+            color: var(--text-main);
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .value strong {
+            color: var(--primary-soft);
+        }
+
+        .section-title {
+            color: var(--text-main);
+            font-size: 18px;
+            margin: 28px 0 16px;
+            font-weight: 600;
+        }
+
+        .service-item {
+            background: var(--bg-card);
+            padding: 16px;
+            border-radius: 8px;
+            margin: 12px 0;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .service-name {
+            font-weight: 600;
+            color: var(--primary-soft);
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .service-details {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .payment-section {
+            background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary) 100%);
+            padding: 28px;
+            border-radius: 12px;
+            margin: 24px 0;
+            color: #000;
+            text-align: center;
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .payment-section h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .payment-amount {
+            font-size: 38px;
+            font-weight: 700;
+            margin: 12px 0;
+            letter-spacing: 1px;
+        }
+
+        .payment-note {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 14px 36px;
+            background: #000;
+            color: var(--primary);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 15px;
+            transition: all 0.3s;
+            border: 2px solid #000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .info-box {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 24px 0;
+            border: 1px solid var(--border);
+        }
+
+        .info-box h4 {
+            color: var(--primary);
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .info-box ul {
+            list-style: none;
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .info-box li:before {
+            content: "✓ ";
+            color: var(--success);
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .footer {
+            background: #0a0a0a;
+            padding: 30px;
+            text-align: center;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-logo {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-soft) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        .footer-tagline {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-style: italic;
+            margin-bottom: 16px;
+        }
+
+        .contact-info {
+            font-size: 13px;
+            line-height: 1.8;
+            margin: 16px 0;
+        }
+
+        .contact-info a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .social-links {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .social-links a {
+            display: inline-block;
+            margin: 0 10px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 13px;
+            transition: color 0.3s;
+        }
+
+        .social-links a:hover {
+            color: var(--primary);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">LUXE AUREA</div>
+            <div class="header-subtitle">Premium Salon & Spa</div>
+            <div class="status-badge">✓ Booking Confirmed</div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="greeting">
+                Hello <strong>Sarah Ahmed</strong>,
+            </div>
+            <p class="intro-text">
+                Thank you for choosing Luxe Aurea Salon! Your appointment has been confirmed. We look forward to
+                providing you with an exceptional beauty experience.
+            </p>
+
+            <!-- Booking Details -->
+            <div class="booking-card">
+                <div class="booking-row">
+                    <span class="label">📅 Date & Time</span>
+                    <span class="value"><strong>Saturday, Feb 1, 2026 at 2:00 PM</strong></span>
+                </div>
+                <div class="booking-row">
+                    <span class="label">⏱️ Duration</span>
+                    <span class="value">45 minutes</span>
+                </div>
+                <div class="booking-row">
+                    <span class="label">💇 Stylist</span>
+                    <span class="value">Emma Watson</span>
+                </div>
+                <div class="booking-row">
+                    <span class="label">📍 Location</span>
+                    <span class="value">Manhattan Midtown, New York</span>
+                </div>
+                <div class="booking-row">
+                    <span class="label">🆔 Booking ID</span>
+                    <span class="value" style="font-family: monospace; font-size: 12px;">LA-2026-A7B9</span>
+                </div>
+            </div>
+
+            <!-- Services -->
+            <h3 class="section-title">Your Services</h3>
+            <div class="service-item">
+                <div class="service-name">✨ Signature Haircut & Styling</div>
+                <div class="service-details">35 min service + 10 min styling • $145</div>
+            </div>
+
+            <!-- Payment Section -->
+            <div class="payment-section">
+                <h3>💳 Payment Required</h3>
+                <div class="payment-amount">$45</div>
+                <div class="payment-note">Deposit to confirm (Total: $145 - Balance due at salon)</div>
+                <a href="https://payment.luxeaurea.com/pay/LA-2026-A7B9" class="btn">Pay Securely Now</a>
+            </div>
+
+            <!-- Important Information -->
+            <div class="info-box">
+                <h4>📌 Important Information</h4>
+                <ul>
+                    <li>Please complete payment within 15 minutes to secure your slot</li>
+                    <li>Arrive 10 minutes early for a complimentary consultation</li>
+                    <li>Free cancellation up to 24 hours before appointment</li>
+                    <li>Complimentary refreshments during your visit</li>
+                </ul>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-top: 24px;">
+                Questions? Contact us at <strong style="color: var(--primary);">+1 (212) 555-0123</strong> or reply to
+                this email.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-logo">LUXE AUREA</div>
+            <div class="footer-tagline">"Where Elegance Meets Excellence"</div>
+            <div class="contact-info">
+                📞 <a href="tel:+12125550123">+1 (212) 555-0123</a><br>
+                📧 <a href="mailto:appointments@luxeaurea.com">appointments@luxeaurea.com</a><br>
+                📍 245 West 55th Street, Manhattan, New York, NY 10019<br>
+                🕐 Mon-Sun: 9:00 AM - 8:00 PM (EST)
+            </div>
+            <div class="social-links">
+                <a href="#">Instagram</a> •
+                <a href="#">Facebook</a> •
+                <a href="#">WhatsApp</a>
+            </div>
+            <div style="margin-top: 16px; font-size: 11px; color: #666;">
+                © 2026 Luxe Aurea Salon. All rights reserved.
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

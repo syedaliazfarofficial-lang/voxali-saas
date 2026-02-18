@@ -1,0 +1,72 @@
+{
+    "type": "webhook",
+    "name": "reschedule_booking",
+    "description": "Reschedule an existing appointment to a new date and time. Ask the customer for their booking details and new preferred time.",
+    "disable_interruptions": false,
+    "force_pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "tool_error_handling_mode": "auto",
+    "execution_mode": "immediate",
+    "api_schema": {
+        "url": "https://ali-n8n.mywire.org/webhook/tools/reschedule_booking?tenant_id=e3cd6ecc-2670-425b-9e80-6874896d32d0",
+        "method": "POST",
+        "path_params_schema": [],
+        "query_params_schema": [],
+        "request_body_schema": {
+            "id": "body",
+            "type": "object",
+            "description": "Rescheduling details",
+            "properties": [
+                {
+                    "id": "booking_id",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "UUID of the booking to reschedule",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "new_date",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "New appointment date in YYYY-MM-DD format",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "new_time",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "New appointment time in HH:MM format (24-hour). Example: 15:00 for 3pm",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                }
+            ],
+            "required": false,
+            "value_type": "llm_prompt"
+        },
+        "request_headers": [
+            {
+                "name": "X-TOOLS-KEY",
+                "value": "LUXE-AUREA-SECRET-2026",
+                "type": "value"
+            }
+        ],
+        "auth_connection": null
+    },
+    "assignments": [],
+    "response_timeout_secs": 20,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    }
+}

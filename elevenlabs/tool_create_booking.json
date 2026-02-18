@@ -1,0 +1,130 @@
+{
+    "type": "webhook",
+    "name": "create_booking",
+    "description": "Create a new appointment booking at Luxe Aurea Salon. Use AFTER check_availability confirms a slot is available. Collect client name, phone, service, date, time, and stylist before calling.",
+    "disable_interruptions": false,
+    "force_pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "tool_error_handling_mode": "auto",
+    "execution_mode": "immediate",
+    "api_schema": {
+        "url": "https://ali-n8n.mywire.org/webhook/tools/create_booking?tenant_id=e3cd6ecc-2670-425b-9e80-6874896d32d0",
+        "method": "POST",
+        "path_params_schema": [],
+        "query_params_schema": [],
+        "request_body_schema": {
+            "id": "body",
+            "type": "object",
+            "description": "Booking details for salon appointment",
+            "properties": [
+                {
+                    "id": "client_name",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Customer full name",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "client_phone",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Customer phone number with country code. Example: +12125551234",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "service_id",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "UUID of the service to book. Get this from check_availability response",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "stylist_id",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "UUID of the selected stylist. Get this from check_availability response",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "date",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Appointment date in YYYY-MM-DD format. Example: 2026-03-01",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "time",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Appointment time in HH:MM format (24-hour). Example: 14:00 for 2pm",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "payment_method",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Payment method. Use pay_at_salon for walk-in payment, or stripe for online deposit",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": [
+                        "pay_at_salon",
+                        "stripe"
+                    ],
+                    "is_system_provided": false,
+                    "required": false
+                },
+                {
+                    "id": "notes",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Special requests or notes. Example: allergic to ammonia, prefers quiet atmosphere",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": false
+                }
+            ],
+            "required": false,
+            "value_type": "llm_prompt"
+        },
+        "request_headers": [
+            {
+                "name": "X-TOOLS-KEY",
+                "value": "LUXE-AUREA-SECRET-2026",
+                "type": "value"
+            }
+        ],
+        "auth_connection": null
+    },
+    "assignments": [],
+    "response_timeout_secs": 20,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    }
+}

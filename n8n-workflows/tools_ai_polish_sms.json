@@ -1,0 +1,140 @@
+{
+    "name": "tools_ai_polish_sms",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "tools/ai_polish_sms",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "ai-polish-sms"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse Input\nconst webhookData = $input.first().json;\nconst input = webhookData.body || webhookData;\n\nconst message = input.message || input.text || '';\nconst tone = input.tone || 'friendly'; // friendly, professional, casual\nconst salonName = input.salon_name || 'our salon';\nconst tenantId = input.tenant_id || webhookData.headers?.['x-tenant-id'] || null;\n\nif (!message) {\n  throw new Error('message text is required');\n}\n\nreturn {\n  json: { message, tone, salonName, tenantId }\n};\n"
+            },
+            "id": "parse-input",
+            "name": "Parse Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.groq.com/openai/v1/chat/completions",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_GROQ_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You polish SMS messages for a salon called {{ $json.salonName }}. Tone: {{ $json.tone }}.\\n\\nRules:\\n- Keep under 160 characters (1 SMS segment)\\n- Use emojis sparingly (max 2)\\n- Be warm but professional\\n- Include salon name if space allows\\n- Do NOT add links or numbers the original doesn't have\\n\\nReturn ONLY JSON: {\\\"polished\\\": \\\"...\\\", \\\"char_count\\\": 120, \\\"segment_count\\\": 1}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.message }}\"\n    }\n  ],\n  \"temperature\": 0.3,\n  \"max_tokens\": 200\n}",
+                "options": {}
+            },
+            "id": "groq-api",
+            "name": "Groq AI - Polish SMS",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Format AI response\nconst input = $('Parse Input').first().json;\nconst groqResponse = $input.first().json;\n\ntry {\n  const aiContent = groqResponse.choices[0].message.content;\n  const parsed = JSON.parse(aiContent);\n  \n  return {\n    json: {\n      ok: true,\n      original: input.message,\n      polished: parsed.polished || aiContent,\n      char_count: parsed.char_count || (parsed.polished || aiContent).length,\n      segment_count: parsed.segment_count || 1,\n      tone: input.tone,\n      tokens_used: groqResponse.usage?.total_tokens || 0\n    }\n  };\n} catch (e) {\n  return {\n    json: {\n      ok: true,\n      original: input.message,\n      polished: groqResponse.choices?.[0]?.message?.content || input.message,\n      tone: input.tone\n    }\n  };\n}\n"
+            },
+            "id": "format-response",
+            "name": "Format Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {}
+            },
+            "id": "respond",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                880,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Input": {
+            "main": [
+                [
+                    {
+                        "node": "Groq AI - Polish SMS",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Groq AI - Polish SMS": {
+            "main": [
+                [
+                    {
+                        "node": "Format Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

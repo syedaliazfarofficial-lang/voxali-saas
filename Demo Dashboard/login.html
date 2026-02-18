@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Luxe Aurea Manager</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --gold: #D4AF37;
+            --gold-dark: #B8860B;
+            --black: #0d0d0d;
+            --dark: #1a1a1a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--black);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-image:
+                radial-gradient(ellipse at top, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom, rgba(184, 134, 11, 0.05) 0%, transparent 50%);
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--dark);
+            border-radius: 24px;
+            padding: 50px 40px;
+            border: 1px solid #333;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+
+        .logo h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 3px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 12px;
+            letter-spacing: 4px;
+            margin-top: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-label {
+            display: block;
+            color: #888;
+            font-size: 13px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 16px 20px;
+            background: #252525;
+            border: 1px solid #333;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: #555;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            border: none;
+            border-radius: 12px;
+            color: var(--black);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-msg {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            padding: 12px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #555;
+            font-size: 13px;
+        }
+
+        .footer a {
+            color: var(--gold);
+            text-decoration: none;
+        }
+
+        .forgot-password {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .forgot-password a {
+            color: #888;
+            font-size: 13px;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .forgot-password a:hover {
+            color: var(--gold);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo">
+                <div class="logo-icon">✨</div>
+                <h1>LUXE AUREA</h1>
+                <p>MANAGER PORTAL</p>
+            </div>
+
+            <div class="error-msg" id="errorMsg">Invalid email or password. Please try again.</div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" class="form-input" id="email" placeholder="Enter your email" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-input" id="password" placeholder="Enter your password" required>
+                </div>
+
+                <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
+            </form>
+
+            <div class="forgot-password">
+                <a href="#"
+                    onclick="alert('🔐 Password Reset Request\n\nFor security reasons, password reset is handled by support team.\n\n📞 Call: +1 (555) 123-4567\n📧 Email: support@voxali.com\n\nWe will reset your password within 5 minutes!')">Forgot
+                    password?</a>
+            </div>
+
+            <div class="footer">
+                <p>Powered by <a href="#">VoxAli Agency</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Valid users with roles
+        const VALID_USERS = [
+            { email: 'owner@luxeaurea.com', password: 'luxe2026', name: 'Sarah (Owner)', role: 'owner' },
+            { email: 'admin@luxeaurea.com', password: 'admin123', name: 'Admin', role: 'admin' },
+            { email: 'alex@luxeaurea.com', password: 'stylist123', name: 'Alex', role: 'stylist' },
+            { email: 'sarah@luxeaurea.com', password: 'stylist123', name: 'Sarah Martinez', role: 'stylist' },
+            { email: 'manager@luxeaurea.com', password: 'manager123', name: 'Manager', role: 'manager' }
+        ];
+
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value.toLowerCase().trim();
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const btn = document.getElementById('loginBtn');
+
+            btn.textContent = 'Signing in...';
+            btn.disabled = true;
+            errorMsg.style.display = 'none';
+
+            setTimeout(() => {
+                const user = VALID_USERS.find(u => u.email === email && u.password === password);
+
+                if (user) {
+                    localStorage.setItem('luxeAureaAuth', 'true');
+                    localStorage.setItem('luxeAureaUser', JSON.stringify({
+                        email: user.email,
+                        name: user.name,
+                        role: user.role,
+                        loginTime: new Date().toISOString()
+                    }));
+                    window.location.href = 'index.html';
+                } else {
+                    errorMsg.style.display = 'block';
+                    btn.textContent = 'Sign In';
+                    btn.disabled = false;
+                }
+            }, 1000);
+        });
+
+        if (localStorage.getItem('luxeAureaAuth') === 'true') {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+
+</html>

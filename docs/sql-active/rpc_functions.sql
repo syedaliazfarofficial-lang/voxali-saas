@@ -1,0 +1,2 @@
+-- Placeholder file for helper SQL functions
+-- Will be filled with rpc_create_tenant_and_owner and other helpers

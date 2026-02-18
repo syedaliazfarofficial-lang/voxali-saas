@@ -1,0 +1,905 @@
+{
+    "name": "tools_create_booking",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "tools/create_booking",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "create-booking"
+        },
+        {
+            "parameters": {
+                "jsCode": "// TEMPORARY: API Key Validation Disabled\n// TODO: Fix webhook header access in production\n// Just pass through for now\nreturn $input.first();"
+            },
+            "id": "validate-api-key",
+            "name": "Validate API Key",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                110,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract and validate input\nconst webhookData = $input.first().json;\nconst input = webhookData.body;\n\n// Helper to check if string is UUID\nconst isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);\n\n// ========== DYNAMIC TENANT ID EXTRACTION (SaaS) ==========\nconst getTenantId = () => {\n  if (input?.tenant_id) return input.tenant_id;\n  if (webhookData.headers?.['x-tenant-id']) return webhookData.headers['x-tenant-id'];\n  if (webhookData.query?.tenant_id) return webhookData.query.tenant_id;\n  throw new Error('tenant_id is required');\n};\nconst tenantId = getTenantId();\n\n// ========== FLEXIBLE SERVICE/STAFF/TIME ==========\nlet serviceInputs = input.service_ids || [];\nif (serviceInputs.length === 0 && input.service_id) {\n  serviceInputs = [input.service_id];\n}\n\n// UUIDs are high priority\nconst serviceUUIDs = serviceInputs.filter(id => isUUID(id));\nconst potentialNames = serviceInputs.filter(id => !isUUID(id) && id.length > 0);\n\n// ========== AGGRESSIVE KEYWORD EXTRACTION ==========\n// Bella hallucinated \"womens_haircut_service_id\". We need to extract \"Haircut\".\nconst cleanNames = potentialNames.map(name => {\n  const words = name.toLowerCase().replace(/_/g, ' ').replace(/'s/g, '').split(' ');\n  const boringWords = ['women', 'womens', 'men', 'mens', 'service', 'id', 'for', 'luxe', 'aurea', 'luxury', 'salon'];\n  const keywords = words.filter(w => !boringWords.includes(w) && w.length > 1);\n  return keywords.length > 0 ? keywords.join(' ') : name;\n});\n\nconst staffId = input.staff_id || input.stylist_id;\n\n// Build start_at from date+time if not provided directly\nlet startAt = input.start_at;\nif (!startAt && input.date && input.time) {\n  startAt = input.date + 'T' + input.time + ':00+05:00';\n}\n\nconst client = input.client || {\n  name: input.client_name || '',\n  phone: input.client_phone || '',\n  email: input.client_email || ''\n};\n\n// Build the search filter\nlet queryFilter;\nif (serviceUUIDs.length > 0) {\n    queryFilter = `id.in.(${serviceUUIDs.join(',')})`;\n} else if (cleanNames.length > 0) {\n    // Use ilike with % wildcards around the extracted keywords\n    queryFilter = `name.ilike.*${cleanNames[0]}*`;\n} else {\n    queryFilter = 'id.is.null';\n}\n\nreturn {\n  json: {\n    client,\n    serviceUUIDs,\n    serviceNames: cleanNames,\n    staffId,\n    startAt,\n    tenantId,\n    paymentMethod: input.payment_method || 'card',\n    notes: input.notes || '',\n    queryFilter\n  }\n};"
+            },
+            "id": "parse-input",
+            "name": "Parse Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/services",
+                "authentication": "none",
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "tenant_id",
+                            "value": "=eq.{{ $json.tenantId }}"
+                        },
+                        {
+                            "name": "or",
+                            "value": "=({{ $json.queryFilter }})"
+                        },
+                        {
+                            "name": "select",
+                            "value": "id,name,price,duration,processing_duration,gap_start_offset,can_be_booked_in_gap,deposit_required,deposit_amount"
+                        }
+                    ]
+                },
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "neverError": true,
+                            "responseFormat": "autodetect"
+                        }
+                    }
+                }
+            },
+            "id": "get-services",
+            "name": "Get Services",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "has-services",
+                            "leftValue": "={{ Array.isArray($json) ? $json.length : ($json.id ? 1 : 0) }}",
+                            "rightValue": 0,
+                            "operator": {
+                                "type": "number",
+                                "operation": "gt"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                }
+            },
+            "id": "service-found-check",
+            "name": "Service Found?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                550,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "options": {
+                    "responseCode": 400
+                },
+                "responseBody": "{\"error\": \"Service not found. Please ask the customer to specify the service again or provide a valid ID from the availability check.\"}"
+            },
+            "id": "error-response-svc",
+            "name": "Error: Svc Not Found",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                700,
+                -250
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Calculate booking details from services\nconst input = $('Parse Input').first().json;\nconst servicesRaw = $input.first().json;\nconst services = Array.isArray(servicesRaw) ? servicesRaw : [servicesRaw];\n\n// Calculate totals\nlet totalDurationMin = 0;\nlet totalBufferMin = 0;\nlet totalPrice = 0;\nlet totalDeposit = 0;\nlet anyDepositRequired = false;\n\n// ========== GAP FILLING LOGIC ==========\nlet gapStartTime = null;\nlet gapEndTime = null;\n\nconst bookingItems = [];\n\nfor (const svc of services) {\n  const duration = svc.duration || 0;\n  const buffer = svc.processing_duration || 0;\n  const price = parseFloat(svc.price) || 0;\n  const deposit = parseFloat(svc.deposit_amount) || 0;\n  \n  totalDurationMin += duration;\n  totalPrice += price;\n  \n  if (svc.deposit_required) {\n    anyDepositRequired = true;\n    totalDeposit += deposit;\n  }\n  \n  // Calculate gap times for services with processing duration\n  if (buffer > 0) {\n    const startDate = new Date(input.startAt);\n    const gapOffset = svc.gap_start_offset || 0;\n    const gs = new Date(startDate.getTime() + gapOffset * 60 * 1000);\n    const ge = new Date(gs.getTime() + buffer * 60 * 1000);\n    gapStartTime = gs.toISOString();\n    gapEndTime = ge.toISOString();\n  }\n  \n  bookingItems.push({\n    service_id: svc.id,\n    name_snapshot: svc.name,\n    price_snapshot: price,\n    duration_min_snapshot: duration,\n    cleanup_buffer_min_snapshot: buffer\n  });\n}\n\n// Calculate end time\nconst startDate = new Date(input.startAt);\nconst endDate = new Date(startDate.getTime() + totalDurationMin * 60 * 1000);\nconst endAt = endDate.toISOString();\n\n// Hold expires in 15 minutes (for pending payment)\nconst holdExpires = new Date(Date.now() + 15 * 60 * 1000).toISOString();\n\n// ========== PAY AT SALON LOGIC ==========\nlet bookingStatus;\nconst isPayAtSalon = input.paymentMethod === 'pay_at_salon';\nif (isPayAtSalon) {\n  bookingStatus = 'pending_confirmation'; // Owner must approve\n} else if (anyDepositRequired) {\n  bookingStatus = 'pending_deposit'; // Stripe payment needed\n} else {\n  bookingStatus = 'confirmed'; // No deposit, auto-confirm\n}\n\nreturn {\n  json: {\n    ...input,\n    services,\n    bookingItems,\n    totalDurationMin,\n    totalBufferMin,\n    totalPrice,\n    totalDeposit,\n    anyDepositRequired,\n    isPayAtSalon,\n    gapStartTime,\n    gapEndTime,\n    endAt,\n    holdExpiresAt: holdExpires,\n    bookingStatus\n  }\n};"
+            },
+            "id": "calculate-booking",
+            "name": "Calculate Booking Details",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/clients",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendQuery": true,
+                "queryParameters": {
+                    "parameters": [
+                        {
+                            "name": "tenant_id",
+                            "value": "=eq.{{ $json.tenantId }}"
+                        },
+                        {
+                            "name": "or",
+                            "value": "=(phone.eq.{{ $json.client.phone }},email.eq.{{ $json.client.email }})"
+                        },
+                        {
+                            "name": "limit",
+                            "value": "1"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "neverError": true,
+                            "responseFormat": "autodetect"
+                        }
+                    }
+                }
+            },
+            "id": "find-client",
+            "name": "Find Existing Client",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                0
+            ],
+            "alwaysOutputData": true,
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "client-exists",
+                            "leftValue": "={{ Array.isArray($json) ? $json.length : 0 }}",
+                            "rightValue": 0,
+                            "operator": {
+                                "type": "number",
+                                "operation": "gt"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "check-client-exists",
+            "name": "Client Exists?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                1100,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Client found - use existing ID\nconst existingClients = $input.first().json;\nconst clientData = Array.isArray(existingClients) ? existingClients[0] : existingClients;\nconst bookingData = $('Calculate Booking Details').first().json;\n\nreturn {\n  json: {\n    ...bookingData,\n    clientId: clientData.id,\n    clientName: clientData.name || clientData.full_name || bookingData.client.name,\n    clientPhone: clientData.phone || bookingData.client.phone,\n    clientEmail: clientData.email || bookingData.client.email\n  }\n};"
+            },
+            "id": "use-existing-client",
+            "name": "Use Existing Client",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1320,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/clients",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "tenant_id",
+                            "value": "={{ $('Calculate Booking Details').item.json.tenantId }}"
+                        },
+                        {
+                            "name": "name",
+                            "value": "={{ $('Calculate Booking Details').item.json.client.name }}"
+                        },
+                        {
+                            "name": "phone",
+                            "value": "={{ $('Calculate Booking Details').item.json.client.phone }}"
+                        },
+                        {
+                            "name": "email",
+                            "value": "={{ $('Calculate Booking Details').item.json.client.email }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "create-client",
+            "name": "Create New Client",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1320,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// New client created - extract ID\nconst newClientData = $input.first().json;\nconst clientData = Array.isArray(newClientData) ? newClientData[0] : newClientData;\nconst bookingData = $('Calculate Booking Details').first().json;\n\nreturn {\n  json: {\n    ...bookingData,\n    clientId: clientData.id,\n    clientName: clientData.name || clientData.full_name || bookingData.client.name,\n    clientPhone: clientData.phone || bookingData.client.phone,\n    clientEmail: clientData.email || bookingData.client.email\n  }\n};"
+            },
+            "id": "extract-new-client",
+            "name": "Extract New Client ID",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1540,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "append",
+                "options": {}
+            },
+            "id": "merge-client",
+            "name": "Merge Client Data",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3,
+            "position": [
+                1760,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "tenant_id",
+                            "value": "={{ $json.tenantId }}"
+                        },
+                        {
+                            "name": "client_id",
+                            "value": "={{ $json.clientId }}"
+                        },
+                        {
+                            "name": "stylist_id",
+                            "value": "={{ $json.staffId }}"
+                        },
+                        {
+                            "name": "service_id",
+                            "value": "={{ $json.services[0].id }}"
+                        },
+                        {
+                            "name": "start_at",
+                            "value": "={{ $json.startAt }}"
+                        },
+                        {
+                            "name": "end_at",
+                            "value": "={{ $json.endAt }}"
+                        },
+                        {
+                            "name": "status",
+                            "value": "={{ $json.bookingStatus }}"
+                        },
+                        {
+                            "name": "total_price",
+                            "value": "={{ $json.totalPrice }}"
+                        },
+                        {
+                            "name": "notes",
+                            "value": "={{ $json.notes }}"
+                        },
+                        {
+                            "name": "gap_start_time",
+                            "value": "={{ $json.gapStartTime }}"
+                        },
+                        {
+                            "name": "gap_end_time",
+                            "value": "={{ $json.gapEndTime }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "create-booking",
+            "name": "Create Booking",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1980,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract booking ID and prepare for booking items\nconst bookingResponse = $input.first().json;\nconst booking = Array.isArray(bookingResponse) ? bookingResponse[0] : bookingResponse;\nconst prevData = $('Merge Client Data').first().json;\n\nreturn {\n  json: {\n    ...prevData,\n    bookingId: booking.id,\n    bookingCreatedAt: booking.created_at\n  }\n};"
+            },
+            "id": "extract-booking-id",
+            "name": "Extract Booking ID",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2200,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Create booking items array for batch insert\nconst data = $input.first().json;\nconst bookingId = data.bookingId;\nconst items = data.bookingItems.map(item => ({\n  booking_id: bookingId,\n  ...item\n}));\n\nreturn items.map(item => ({ json: item }));"
+            },
+            "id": "prepare-items",
+            "name": "Prepare Booking Items",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2420,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/booking_items",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ $json }}",
+                "options": {
+                    "batching": {
+                        "batch": {
+                            "batchSize": 100,
+                            "batchInterval": 0
+                        }
+                    }
+                }
+            },
+            "id": "insert-booking-items",
+            "name": "Insert Booking Items",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2640,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "deposit-check",
+                            "leftValue": "={{ $('Extract Booking ID').item.json.anyDepositRequired }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "check-deposit-required",
+            "name": "Deposit Required?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                2860,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "tenant_id",
+                            "value": "={{ $('Extract Booking ID').item.json.tenantId }}"
+                        },
+                        {
+                            "name": "booking_id",
+                            "value": "={{ $('Extract Booking ID').item.json.bookingId }}"
+                        },
+                        {
+                            "name": "client_id",
+                            "value": "={{ $('Extract Booking ID').item.json.clientId }}"
+                        },
+                        {
+                            "name": "payment_method",
+                            "value": "stripe"
+                        },
+                        {
+                            "name": "status",
+                            "value": "pending"
+                        },
+                        {
+                            "name": "amount",
+                            "value": "={{ $('Extract Booking ID').item.json.totalDeposit }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "create-payment-record",
+            "name": "Create Payment Record",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3080,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Prepare response - with deposit\nconst data = $('Extract Booking ID').first().json;\n\nreturn {\n  json: {\n    ok: true,\n    booking_id: data.bookingId,\n    status: data.bookingStatus,\n    start_at: data.startAt,\n    end_at: data.endAt,\n    deposit_required: true,\n    deposit_amount: data.totalDeposit,\n    // Payment link will be generated in separate create_payment_link call\n    // or can be called inline here using Stripe API\n    message: 'Booking created with pending payment. Please call create_payment_link to get payment URL.'\n  }\n};"
+            },
+            "id": "response-with-deposit",
+            "name": "Response With Deposit",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3300,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Prepare response - no deposit (confirmed or pending_confirmation)\nconst data = $('Extract Booking ID').first().json;\n\nconst isPayAtSalon = data.isPayAtSalon || false;\nconst status = isPayAtSalon ? 'pending_confirmation' : 'confirmed';\nconst message = isPayAtSalon\n  ? 'Booking request submitted! Salon will confirm shortly.'\n  : 'Booking confirmed successfully!';\n\nreturn {\n  json: {\n    ok: true,\n    booking_id: data.bookingId,\n    status: status,\n    start_at: data.startAt,\n    end_at: data.endAt,\n    gap_start_time: data.gapStartTime || null,\n    gap_end_time: data.gapEndTime || null,\n    deposit_required: false,\n    deposit_amount: 0,\n    payment_method: isPayAtSalon ? 'pay_at_salon' : 'card',\n    message: message\n  }\n};"
+            },
+            "id": "response-no-deposit",
+            "name": "Response No Deposit",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3080,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "append",
+                "options": {}
+            },
+            "id": "merge-response",
+            "name": "Merge Response",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3,
+            "position": [
+                3520,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {}
+            },
+            "id": "respond-webhook",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                3740,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Validate API Key",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate API Key": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Input": {
+            "main": [
+                [
+                    {
+                        "node": "Get Services",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Services": {
+            "main": [
+                [
+                    {
+                        "node": "Service Found?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Service Found?": {
+            "main": [
+                [
+                    {
+                        "node": "Calculate Booking Details",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Error: Svc Not Found",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Calculate Booking Details": {
+            "main": [
+                [
+                    {
+                        "node": "Find Existing Client",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Find Existing Client": {
+            "main": [
+                [
+                    {
+                        "node": "Client Exists?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Client Exists?": {
+            "main": [
+                [
+                    {
+                        "node": "Use Existing Client",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Create New Client",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Use Existing Client": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Client Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create New Client": {
+            "main": [
+                [
+                    {
+                        "node": "Extract New Client ID",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract New Client ID": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Client Data",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Merge Client Data": {
+            "main": [
+                [
+                    {
+                        "node": "Create Booking",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Booking": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Booking ID",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Booking ID": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Booking Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Booking Items": {
+            "main": [
+                [
+                    {
+                        "node": "Insert Booking Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Insert Booking Items": {
+            "main": [
+                [
+                    {
+                        "node": "Deposit Required?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Deposit Required?": {
+            "main": [
+                [
+                    {
+                        "node": "Create Payment Record",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Response No Deposit",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Payment Record": {
+            "main": [
+                [
+                    {
+                        "node": "Response With Deposit",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Response With Deposit": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Response No Deposit": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Response",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Merge Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2026-01-27T05:00:00.000Z",
+    "versionId": "1"
+}

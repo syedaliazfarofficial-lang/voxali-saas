@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Reminder - Luxe Aurea Salon</title>
+    <style>
+        :root {
+            --bg-body: #121212;
+            --bg-card: #1E1E1E;
+            --primary: #D4AF37;
+            --primary-soft: #F4E285;
+            --primary-hover: #B8860B;
+            --text-main: #EAEAEA;
+            --text-muted: #A0A0A0;
+            --border: #333333;
+            --warning: #F59E0B;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            padding: 20px;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: var(--bg-body);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1E1E1E 0%, #2A2A2A 100%);
+            border-bottom: 2px solid var(--warning);
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-soft) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header-subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .urgent-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-top: 16px;
+            color: #fff;
+            animation: pulse 2s infinite;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 0.9;
+            }
+        }
+
+        .content {
+            padding: 40px 30px;
+            background: var(--bg-body);
+        }
+
+        .greeting {
+            font-size: 18px;
+            color: var(--text-main);
+            margin-bottom: 20px;
+        }
+
+        .greeting strong {
+            color: var(--primary);
+        }
+
+        .intro-text {
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .timer-box {
+            background: linear-gradient(135deg, #4a1515 0%, #7f1d1d 100%);
+            padding: 28px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 24px 0;
+            border: 2px solid #991b1b;
+            box-shadow: 0 6px 20px rgba(127, 29, 29, 0.4);
+        }
+
+        .timer-label {
+            font-size: 13px;
+            color: #fecaca;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .timer-value {
+            font-size: 42px;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .payment-section {
+            background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary) 100%);
+            padding: 32px;
+            border-radius: 12px;
+            margin: 24px 0;
+            color: #000;
+            text-align: center;
+            box-shadow: 0 8px 24px rgba(212, 175, 55, 0.4);
+        }
+
+        .payment-section h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .payment-amount {
+            font-size: 46px;
+            font-weight: 700;
+            margin: 16px 0;
+            letter-spacing: 1px;
+        }
+
+        .payment-note {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .btn-large {
+            display: inline-block;
+            padding: 18px 48px;
+            background: #000;
+            color: var(--primary-soft);
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 18px;
+            transition: all 0.3s;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            border: 2px solid #000;
+        }
+
+        .btn-large:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .booking-card {
+            background: var(--bg-card);
+            border-left: 3px solid var(--primary);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 24px 0;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .booking-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .booking-row:last-child {
+            border-bottom: none;
+        }
+
+        .label {
+            font-weight: 600;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .value {
+            color: var(--text-main);
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .warning-box {
+            background: #2a1f0a;
+            border: 2px solid var(--warning);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 24px 0;
+        }
+
+        .warning-box p {
+            color: #fbbf24;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .warning-box strong {
+            color: #fff;
+        }
+
+        .footer {
+            background: #0a0a0a;
+            padding: 30px;
+            text-align: center;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-logo {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-soft) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+
+        .contact-info {
+            font-size: 13px;
+            line-height: 1.8;
+            margin: 16px 0;
+        }
+
+        .contact-info a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">LUXE AUREA</div>
+            <div class="header-subtitle">Premium Salon & Spa</div>
+            <div class="urgent-badge">⚠️ URGENT: Payment Required</div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="greeting">
+                Hello <strong>Sarah Ahmed</strong>,
+            </div>
+            <p class="intro-text">
+                Your appointment at Luxe Aurea Salon is reserved, but we need your deposit payment to confirm the
+                booking.
+            </p>
+
+            <!-- Timer -->
+            <div class="timer-box">
+                <div class="timer-label">⏰ Time Remaining</div>
+                <div class="timer-value">10 Minutes</div>
+            </div>
+
+            <!-- Payment Section -->
+            <div class="payment-section">
+                <h3>💳 Complete Payment Now</h3>
+                <div class="payment-amount">$45</div>
+                <div class="payment-note">Secure deposit payment (Total service: $145)</div>
+                <a href="https://payment.luxeaurea.com/pay/LA-2026-A7B9" class="btn-large">Pay Securely Now →</a>
+            </div>
+
+            <!-- Booking Details -->
+            <div class="booking-card">
+                <div class="booking-row">
+                    <span class="label">📅 Appointment</span>
+                    <span class="value">Saturday, Feb 1, 2026 at 2:00 PM</span>
+                </div>
+                <div class="booking-row">
+                    <span class="label">💇 Service</span>
+                    <span class="value">Signature Haircut & Styling</span>
+                </div>
+                <div class="booking-row">
+                    <span class="label">💇 Stylist</span>
+                    <span class="value">Emma Watson</span>
+                </div>
+                <div class="booking-row">
+                    <span class="label">🆔 Booking ID</span>
+                    <span class="value" style="font-family: monospace; font-size: 12px;">LA-2026-A7B9</span>
+                </div>
+            </div>
+
+            <!-- Warning -->
+            <div class="warning-box">
+                <p>
+                    <strong>⚠️ Important Notice:</strong> Your booking will be <strong>automatically cancelled</strong>
+                    if payment is not received within <strong>15 minutes</strong>. This premium time slot will be
+                    released to other clients.
+                </p>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-top: 24px;">
+                Payment issues? Contact us immediately at <strong style="color: var(--primary);">+1 (212)
+                    555-0123</strong>
+                and we'll assist you right away.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="footer-logo">LUXE AUREA</div>
+            <div class="contact-info">
+                📞 <a href="tel:+12125550123">+1 (212) 555-0123</a><br>
+                📧 <a href="mailto:appointments@luxeaurea.com">appointments@luxeaurea.com</a><br>
+                📍 245 West 55th Street, Manhattan, New York, NY 10019<br>
+                🕐 Mon-Sun: 9:00 AM - 8:00 PM (EST)
+            </div>
+            <div style="margin-top: 16px; font-size: 11px; color: #666;">
+                © 2026 Luxe Aurea Salon. All rights reserved.
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

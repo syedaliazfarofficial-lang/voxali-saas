@@ -1,0 +1,178 @@
+{
+  "name": "tools_check_availability",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tools/check_availability",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "504a8f50-90ec-468d-87df-2e4683de1d1f",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        112
+      ],
+      "webhookId": "check-availability"
+    },
+    {
+      "parameters": {
+        "jsCode": "// X-TOOLS-KEY Security Validation\nconst headers = $input.first().json.headers || {};\nconst providedKey = headers['x-tools-key'] || headers['X-TOOLS-KEY'] || '';\nconst expectedKey = 'YOUR_TOOLS_API_KEY';\nif (providedKey !== expectedKey) {\n  throw new Error('Unauthorized: Invalid or missing X-TOOLS-KEY header');\n}\nreturn $input.first();"
+      },
+      "id": "db4065d7-c5b3-4d75-bf2f-2ab55418d78f",
+      "name": "Validate API Key",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ROBUST Parse Input - DYNAMIC TENANT\nconst inputData = $input.first().json;\n\n// ========== DYNAMIC TENANT ID EXTRACTION ==========\nconst getTenantId = () => {\n  if (inputData.body?.tenant_id) return inputData.body.tenant_id;\n  if (inputData.headers?.['x-tenant-id']) return inputData.headers['x-tenant-id'];\n  if (inputData.query?.tenant_id) return inputData.query.tenant_id;\n  throw new Error('tenant_id is required');\n};\nconst tenantId = getTenantId();\n\n// ========== EXTRACT DATE AND SERVICES ==========\nlet date = null;\nlet serviceIds = [];\nlet staffId = null;\n\nif (inputData.body?.date) {\n  date = inputData.body.date;\n  serviceIds = inputData.body.service_ids || [];\n  staffId = inputData.body.staff_id || null;\n} else if (typeof inputData.body === 'string') {\n  try {\n    const parsed = JSON.parse(inputData.body);\n    date = parsed.date;\n    serviceIds = parsed.service_ids || [];\n    staffId = parsed.staff_id || null;\n  } catch(e) {}\n} else if (inputData.date) {\n  date = inputData.date;\n  serviceIds = inputData.service_ids || [];\n  staffId = inputData.staff_id || null;\n}\n\nif (!date) {\n  throw new Error('date is required (YYYY-MM-DD format)');\n}\n\nreturn {\n  json: {\n    tenantId,\n    date,\n    serviceIds,\n    staffId\n  }\n};\n"
+      },
+      "id": "9045f782-5d2b-4fd6-8909-bcd94ccae066",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -224,
+        112
+      ],
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/rpc/get_available_slots",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"p_tenant_id\": \"{{ $json.tenantId }}\",\n  \"p_date\": \"{{ $json.date }}\",\n  \"p_service_ids\": {{ $json.serviceIds.length > 0 ? JSON.stringify($json.serviceIds) : 'null' }},\n  \"p_staff_id\": {{ $json.staffId ? '\"' + $json.staffId + '\"' : 'null' }},\n  \"p_slot_interval\": 30\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "rpc-get-available-slots",
+      "name": "Get Available Slots (RPC)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        112
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "rJKjxCNvZtN6t6uv",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format response from SQL function\nconst result = $input.first().json;\n\nif (!result || !result.ok) {\n  return {\n    json: {\n      ok: false,\n      error: result?.error || result?.message || 'Failed to get available slots',\n      date: result?.date || 'unknown',\n      slots: []\n    }\n  };\n}\n\n// Check if closed\nif (result.is_closed) {\n  return {\n    json: {\n      ok: false,\n      error: \"We're closed on this day. Please try another date.\",\n      date: result.date,\n      slots: []\n    }\n  };\n}\n\nconst allSlots = result.slots || [];\n// Return top 3 slots for AI voice (keep response fast)\nconst topSlots = allSlots.slice(0, 3);\n\nreturn {\n  json: {\n    ok: true,\n    date: result.date,\n    total_minutes: result.total_duration_min,\n    slots: topSlots,\n    all_slots_count: allSlots.length\n  }\n};"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "3776c360-f7e4-418f-b182-49c71c73d1fe",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        448,
+        112
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate API Key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate API Key": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Get Available Slots (RPC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Slots (RPC)": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "738e59eb-e3e2-4bc0-ae64-88dc1914e828",
+  "meta": {
+    "instanceId": "1f48d4f0960007cfcf8cab100d91d9beb13a26dd5016f2ca3ce1e7976c75c1d2"
+  },
+  "id": "MB_CBdSxQL92mBQDnh6pj",
+  "tags": []
+}

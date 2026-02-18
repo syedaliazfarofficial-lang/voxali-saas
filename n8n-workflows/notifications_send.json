@@ -1,0 +1,346 @@
+{
+    "name": "notifications_send",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "notifications/send",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                0
+            ],
+            "webhookId": "notifications-send"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse notification request\nconst input = $input.first().json.body || $input.first().json;\n\nconst notificationType = input.notificationType || 'booking_confirmation';\nconst clientName = input.clientName || 'Valued Customer';\nconst clientPhone = input.clientPhone;\nconst clientEmail = input.clientEmail;\nconst staffName = input.staffName || 'Your Stylist';\nconst startAt = input.startAt;\nconst bookingId = input.bookingId;\nconst paymentLink = input.paymentLink;\nconst amountPaid = input.amountPaid;\n\n// Format date for display\nlet formattedDate = '';\nlet formattedTime = '';\nif (startAt) {\n  const date = new Date(startAt);\n  formattedDate = date.toLocaleDateString('en-US', { \n    weekday: 'long', \n    month: 'long', \n    day: 'numeric',\n    year: 'numeric'\n  });\n  formattedTime = date.toLocaleTimeString('en-US', { \n    hour: 'numeric', \n    minute: '2-digit',\n    hour12: true \n  });\n}\n\nreturn {\n  json: {\n    notificationType,\n    clientName,\n    clientPhone,\n    clientEmail,\n    staffName,\n    startAt,\n    formattedDate,\n    formattedTime,\n    bookingId,\n    paymentLink,\n    amountPaid\n  }\n};"
+            },
+            "id": "parse-input",
+            "name": "Parse Input",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\nconst { notificationType, clientName, formattedDate, formattedTime, staffName, paymentLink, amountPaid, bookingId } = data;\nconst preferredDate = data.preferredDate || formattedDate;\n\nconst header = (badge, borderColor) => `<div style=\"background:linear-gradient(135deg,#1E1E1E,#2A2A2A);border-bottom:2px solid ${borderColor};padding:40px 30px;text-align:center\"><div style=\"font-size:32px;font-weight:700;color:#D4AF37;letter-spacing:1px\">LUXE AUREA</div><div style=\"color:#A0A0A0;font-size:14px;letter-spacing:2px;text-transform:uppercase\">Premium Salon &amp; Spa</div><div style=\"display:inline-block;background:${badge.bg};padding:8px 20px;border-radius:20px;font-size:13px;font-weight:600;margin-top:16px;color:${badge.color}\">${badge.text}</div></div>`;\n\nconst bookingCard = `<div style=\"background:#1E1E1E;border-left:3px solid #D4AF37;padding:20px;border-radius:8px;margin:24px 0\"><div style=\"display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #333\"><span style=\"color:#A0A0A0;font-weight:600;font-size:14px\">📅 Date &amp; Time</span><span style=\"color:#EAEAEA;font-size:14px\">${formattedDate} at ${formattedTime}</span></div><div style=\"display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #333\"><span style=\"color:#A0A0A0;font-weight:600;font-size:14px\">💇 Stylist</span><span style=\"color:#EAEAEA;font-size:14px\">${staffName}</span></div><div style=\"display:flex;justify-content:space-between;padding:10px 0\"><span style=\"color:#A0A0A0;font-weight:600;font-size:14px\">🆔 Booking ID</span><span style=\"color:#EAEAEA;font-size:12px;font-family:monospace\">${bookingId ? bookingId.substring(0,8) : 'N/A'}</span></div></div>`;\n\nconst footer = `<div style=\"background:#0a0a0a;padding:30px;text-align:center;border-top:1px solid #333\"><div style=\"font-size:22px;font-weight:700;color:#D4AF37;margin-bottom:12px\">LUXE AUREA</div><div style=\"color:#A0A0A0;font-size:13px;line-height:1.8\">📞 +1 (212) 555-0123<br>📧 appointments@luxeaurea.com<br>🕐 Mon-Sun: 9:00 AM - 8:00 PM</div><div style=\"margin-top:16px;font-size:11px;color:#666\">© 2026 Luxe Aurea Salon. All rights reserved.</div></div>`;\n\nconst wrap = (content) => `<!DOCTYPE html><html><head><meta charset=UTF-8></head><body style=\"font-family:Segoe UI,Tahoma,sans-serif;background:#0f0f0f;padding:20px\"><div style=\"max-width:600px;margin:0 auto;background:#121212;border-radius:16px;overflow:hidden;border:1px solid #333\">${content}${footer}</div></body></html>`;\n\nlet smsMessage = '';\nlet emailSubject = '';\nlet emailBody = '';\n\nswitch (notificationType) {\n  case 'booking_pending_payment':\n    smsMessage = `Hi ${clientName}! Your appointment at Luxe Aurea for ${formattedDate} at ${formattedTime} is reserved. Complete payment within 15 min to confirm: ${paymentLink}`;\n    emailSubject = 'Complete Your Booking at Luxe Aurea';\n    emailBody = wrap(\n      header({text:'⚠️ URGENT: Payment Required', bg:'linear-gradient(135deg,#dc2626,#f87171)', color:'#fff'}, '#F59E0B') +\n      `<div style=\"padding:40px 30px;background:#121212\"><div style=\"font-size:18px;color:#EAEAEA;margin-bottom:20px\">Hello <strong style=\"color:#D4AF37\">${clientName}</strong>,</div><p style=\"color:#A0A0A0;line-height:1.6;margin-bottom:24px\">Your appointment at Luxe Aurea Salon is reserved, but we need your deposit payment to confirm the booking.</p><div style=\"background:linear-gradient(135deg,#4a1515,#7f1d1d);padding:28px;border-radius:12px;text-align:center;margin:24px 0;border:2px solid #991b1b\"><div style=\"font-size:13px;color:#fecaca;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px\">⏰ Time Remaining</div><div style=\"font-size:42px;font-weight:700;color:#fff\">15 Minutes</div></div><div style=\"background:linear-gradient(135deg,#B8860B,#D4AF37);padding:32px;border-radius:12px;margin:24px 0;color:#000;text-align:center\"><h3 style=\"font-size:20px;margin-bottom:8px;font-weight:700\">💳 Complete Payment Now</h3><div style=\"font-size:46px;font-weight:700;margin:16px 0\">$50</div><div style=\"font-size:14px;opacity:0.9;margin-bottom:20px\">Secure deposit payment</div><a href=\"${paymentLink}\" style=\"display:inline-block;padding:18px 48px;background:#000;color:#F4E285;text-decoration:none;border-radius:10px;font-weight:700;font-size:18px\">Pay Securely Now →</a></div>${bookingCard}<div style=\"background:#2a1f0a;border:2px solid #F59E0B;padding:20px;border-radius:8px;margin:24px 0\"><p style=\"color:#fbbf24;font-size:14px;line-height:1.6\"><strong style=\"color:#fff\">⚠️ Important Notice:</strong> Your booking will be <strong style=\"color:#fff\">automatically cancelled</strong> if payment is not received within <strong style=\"color:#fff\">15 minutes</strong>.</p></div></div>`\n    );\n    break;\n\n  case 'booking_confirmation':\n    smsMessage = `Hi ${clientName}! Your appointment at Luxe Aurea is confirmed for ${formattedDate} at ${formattedTime} with ${staffName}. See you soon! ✨`;\n    emailSubject = 'Your Luxe Aurea Appointment is Confirmed!';\n    emailBody = wrap(\n      header({text:'✓ Booking Confirmed', bg:'linear-gradient(135deg,#D4AF37,#B8860B)', color:'#000'}, '#D4AF37') +\n      `<div style=\"padding:40px 30px;background:#121212\"><div style=\"font-size:18px;color:#EAEAEA;margin-bottom:20px\">Hello <strong style=\"color:#D4AF37\">${clientName}</strong>,</div><p style=\"color:#A0A0A0;line-height:1.6;margin-bottom:24px\">Thank you for choosing Luxe Aurea Salon! Your appointment has been confirmed.</p>${bookingCard}<div style=\"background:#1E1E1E;padding:20px;border-radius:8px;margin:24px 0;border:1px solid #333\"><h4 style=\"color:#D4AF37;font-size:16px;margin-bottom:12px\">📌 Important Information</h4><ul style=\"list-style:none;color:#A0A0A0;font-size:14px;line-height:1.8;padding:0\"><li>✓ Arrive 10 minutes early for consultation</li><li>✓ Free cancellation up to 24 hours before</li><li>✓ Complimentary refreshments during your visit</li></ul></div></div>`\n    );\n    break;\n\n  case 'payment_confirmed':\n    smsMessage = `Hi ${clientName}! Payment of $${amountPaid} received for your Luxe Aurea appointment on ${formattedDate} at ${formattedTime}. Booking confirmed! ✨`;\n    emailSubject = 'Payment Received - Booking Confirmed!';\n    emailBody = wrap(\n      header({text:'✓ Payment Received', bg:'linear-gradient(135deg,#10B981,#059669)', color:'#fff'}, '#10B981') +\n      `<div style=\"padding:40px 30px;background:#121212\"><div style=\"font-size:18px;color:#EAEAEA;margin-bottom:20px\">Hello <strong style=\"color:#D4AF37\">${clientName}</strong>,</div><p style=\"color:#A0A0A0;line-height:1.6;margin-bottom:24px\">We have received your payment. Your booking is now fully confirmed!</p><div style=\"background:linear-gradient(135deg,#065f46,#10B981);padding:28px;border-radius:12px;text-align:center;margin:24px 0;color:#fff\"><div style=\"font-size:14px;opacity:0.9;margin-bottom:8px\">Amount Paid</div><div style=\"font-size:42px;font-weight:700\">$${amountPaid}</div></div>${bookingCard}</div>`\n    );\n    break;\n\n  case 'booking_cancelled':\n    smsMessage = `Hi ${clientName}, your appointment at Luxe Aurea for ${formattedDate} has been cancelled. We hope to see you again soon!`;\n    emailSubject = 'Appointment Cancelled - Luxe Aurea';\n    emailBody = wrap(\n      header({text:'✕ Booking Cancelled', bg:'linear-gradient(135deg,#dc2626,#b91c1c)', color:'#fff'}, '#dc2626') +\n      `<div style=\"padding:40px 30px;background:#121212\"><div style=\"font-size:18px;color:#EAEAEA;margin-bottom:20px\">Hello <strong style=\"color:#D4AF37\">${clientName}</strong>,</div><p style=\"color:#A0A0A0;line-height:1.6;margin-bottom:24px\">Your appointment for ${formattedDate} at ${formattedTime} has been cancelled.</p>${bookingCard}<p style=\"color:#A0A0A0;font-size:14px;line-height:1.6;margin-top:24px\">We hope to see you again soon! To rebook, visit our website or call us.</p></div>`\n    );\n    break;\n\n  case 'booking_rescheduled':\n    smsMessage = `Hi ${clientName}! Your Luxe Aurea appointment has been rescheduled to ${formattedDate} at ${formattedTime} with ${staffName}. See you then! ✨`;\n    emailSubject = 'Appointment Rescheduled - Luxe Aurea';\n    emailBody = wrap(\n      header({text:'🔄 Rescheduled', bg:'linear-gradient(135deg,#3B82F6,#2563EB)', color:'#fff'}, '#3B82F6') +\n      `<div style=\"padding:40px 30px;background:#121212\"><div style=\"font-size:18px;color:#EAEAEA;margin-bottom:20px\">Hello <strong style=\"color:#D4AF37\">${clientName}</strong>,</div><p style=\"color:#A0A0A0;line-height:1.6;margin-bottom:24px\">Your appointment has been rescheduled to a new date and time.</p>${bookingCard}</div>`\n    );\n    break;\n\n  case 'waitlist_slot_available':\n    smsMessage = `Hi ${clientName}! Great news - a slot opened up at Luxe Aurea near your preferred date ${preferredDate}. Call us now to book! ✨`;\n    emailSubject = 'A Slot Opened Up at Luxe Aurea!';\n    emailBody = wrap(\n      header({text:'🎉 Slot Available!', bg:'linear-gradient(135deg,#D4AF37,#B8860B)', color:'#000'}, '#D4AF37') +\n      `<div style=\"padding:40px 30px;background:#121212\"><div style=\"font-size:18px;color:#EAEAEA;margin-bottom:20px\">Hello <strong style=\"color:#D4AF37\">${clientName}</strong>,</div><p style=\"color:#A0A0A0;line-height:1.6;margin-bottom:24px\">Great news! A cancellation freed up a slot near your preferred date of <strong style=\"color:#EAEAEA\">${preferredDate}</strong>.</p><div style=\"background:#1E1E1E;padding:20px;border-radius:8px;text-align:center;margin:24px 0\"><p style=\"color:#D4AF37;font-size:18px\">📞 Call us now: +1 (212) 555-0123</p></div></div>`\n    );\n    break;\n\n  default:\n    smsMessage = `Hi ${clientName}! This is Luxe Aurea Salon. Thank you for choosing us!`;\n    emailSubject = 'Message from Luxe Aurea';\n    emailBody = wrap(`<div style=\"padding:40px 30px\"><p style=\"color:#EAEAEA\">Dear ${clientName},</p><p style=\"color:#A0A0A0\">Thank you for choosing Luxe Aurea Salon!</p></div>`);\n}\n\nreturn { json: { ...data, smsMessage, emailSubject, emailBody } };"
+            },
+            "id": "generate-content",
+            "name": "Generate Message Content",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "has-phone",
+                            "leftValue": "={{ $json.clientPhone }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEquals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "has-phone",
+            "name": "Has Phone?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                660,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.twilio.com/2010-04-01/Accounts/YOUR_TWILIO_ACCOUNT_SID/Messages.json",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Basic QUMwMTE2OGY1YzI0MTViMjIwNDBkOGNkNDY4N2ExZWQ0ZTo2ZjViM2E2YjQ0OWVjZWUxYzQxNmFhMjY3NjE0ZDM4Yg=="
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "form-urlencoded",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "From",
+                            "value": "+16592174925"
+                        },
+                        {
+                            "name": "To",
+                            "value": "={{ $json.clientPhone }}"
+                        },
+                        {
+                            "name": "Body",
+                            "value": "={{ $json.smsMessage }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "send-sms",
+            "name": "Send SMS (Twilio)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "has-email",
+                            "leftValue": "={{ $json.clientEmail }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEquals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "has-email",
+            "name": "Has Email?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                660,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.resend.com/emails",
+                "authentication": "none",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer re_MjMbvem8_5CS5nNWBfvBcUaTqYTe46WZZ"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"from\": \"Luxe Aurea <onboarding@resend.dev>\",\n  \"to\": [\"syedaliazfarofficial@gmail.com\"],\n  \"subject\": \"{{ $json.emailSubject }}\",\n  \"html\": \"{{ $json.emailBody.replace(/\\n/g, '').replace(/\"/g, '\\\\\"') }}\"\n}",
+                "options": {}
+            },
+            "id": "send-email",
+            "name": "Send Email (Resend)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "mode": "append",
+                "options": {}
+            },
+            "id": "merge-results",
+            "name": "Merge Results",
+            "type": "n8n-nodes-base.merge",
+            "typeVersion": 3,
+            "position": [
+                1100,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Return success response\nreturn {\n  json: {\n    ok: true,\n    message: 'Notifications sent',\n    sms_sent: true,\n    email_sent: true\n  }\n};"
+            },
+            "id": "success-response",
+            "name": "Success Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1320,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ $json }}",
+                "options": {}
+            },
+            "id": "respond-webhook",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                1540,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Input",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Input": {
+            "main": [
+                [
+                    {
+                        "node": "Generate Message Content",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate Message Content": {
+            "main": [
+                [
+                    {
+                        "node": "Has Phone?",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Has Email?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Phone?": {
+            "main": [
+                [
+                    {
+                        "node": "Send SMS (Twilio)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Send SMS (Twilio)": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Email?": {
+            "main": [
+                [
+                    {
+                        "node": "Send Email (Resend)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Send Email (Resend)": {
+            "main": [
+                [
+                    {
+                        "node": "Merge Results",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Merge Results": {
+            "main": [
+                [
+                    {
+                        "node": "Success Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Success Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [],
+    "triggerCount": 0,
+    "updatedAt": "2026-01-27T05:00:00.000Z",
+    "versionId": "1"
+}
