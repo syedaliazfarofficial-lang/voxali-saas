@@ -20,7 +20,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// TEMPORARY: API Key Validation Disabled\n// TODO: Fix webhook header access in production\n// Just pass through for now\nreturn $input.first();"
+                "jsCode": "// ========== STRICT API KEY VALIDATION ==========\n// Key stored in n8n Environment Variable: TOOLS_API_KEY\nconst headers = $input.first().json.headers || {};\nconst providedKey = headers['x-tools-key'] || headers['X-TOOLS-KEY'] || '';\nconst expectedKey = $env.TOOLS_API_KEY;\n\nif (!expectedKey) {\n  throw new Error('FATAL: TOOLS_API_KEY environment variable is not set in n8n.');\n}\nif (providedKey !== expectedKey) {\n  throw new Error('Unauthorized: Invalid or missing X-TOOLS-KEY header');\n}\nreturn $input.first();"
             },
             "id": "validate-api-key",
             "name": "Validate API Key",
@@ -33,7 +33,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// Extract and validate input\nconst webhookData = $input.first().json;\nconst input = webhookData.body;\n\n// Helper to check if string is UUID\nconst isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);\n\n// ========== DYNAMIC TENANT ID EXTRACTION (SaaS) ==========\nconst getTenantId = () => {\n  if (input?.tenant_id) return input.tenant_id;\n  if (webhookData.headers?.['x-tenant-id']) return webhookData.headers['x-tenant-id'];\n  if (webhookData.query?.tenant_id) return webhookData.query.tenant_id;\n  throw new Error('tenant_id is required');\n};\nconst tenantId = getTenantId();\n\n// ========== FLEXIBLE SERVICE/STAFF/TIME ==========\nlet serviceInputs = input.service_ids || [];\nif (serviceInputs.length === 0 && input.service_id) {\n  serviceInputs = [input.service_id];\n}\n\n// UUIDs are high priority\nconst serviceUUIDs = serviceInputs.filter(id => isUUID(id));\nconst potentialNames = serviceInputs.filter(id => !isUUID(id) && id.length > 0);\n\n// ========== AGGRESSIVE KEYWORD EXTRACTION ==========\n// Bella hallucinated \"womens_haircut_service_id\". We need to extract \"Haircut\".\nconst cleanNames = potentialNames.map(name => {\n  const words = name.toLowerCase().replace(/_/g, ' ').replace(/'s/g, '').split(' ');\n  const boringWords = ['women', 'womens', 'men', 'mens', 'service', 'id', 'for', 'luxe', 'aurea', 'luxury', 'salon'];\n  const keywords = words.filter(w => !boringWords.includes(w) && w.length > 1);\n  return keywords.length > 0 ? keywords.join(' ') : name;\n});\n\nconst staffId = input.staff_id || input.stylist_id;\n\n// Build start_at from date+time if not provided directly\nlet startAt = input.start_at;\nif (!startAt && input.date && input.time) {\n  startAt = input.date + 'T' + input.time + ':00+05:00';\n}\n\nconst client = input.client || {\n  name: input.client_name || '',\n  phone: input.client_phone || '',\n  email: input.client_email || ''\n};\n\n// Build the search filter\nlet queryFilter;\nif (serviceUUIDs.length > 0) {\n    queryFilter = `id.in.(${serviceUUIDs.join(',')})`;\n} else if (cleanNames.length > 0) {\n    // Use ilike with % wildcards around the extracted keywords\n    queryFilter = `name.ilike.*${cleanNames[0]}*`;\n} else {\n    queryFilter = 'id.is.null';\n}\n\nreturn {\n  json: {\n    client,\n    serviceUUIDs,\n    serviceNames: cleanNames,\n    staffId,\n    startAt,\n    tenantId,\n    paymentMethod: input.payment_method || 'card',\n    notes: input.notes || '',\n    queryFilter\n  }\n};"
+                "jsCode": "// Extract and validate input\nconst webhookData = $input.first().json;\nconst input = webhookData.body;\n\n// Helper to check if string is UUID\nconst isUUID = (str) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);\n\n// ========== STRICT TENANT ID EXTRACTION + VALIDATION ==========\nconst getTenantId = () => {\n  const tid = input?.tenant_id || webhookData.headers?.['x-tenant-id'] || webhookData.query?.tenant_id;\n  if (!tid) {\n    throw new Error('FATAL: tenant_id is REQUIRED. Send via body, x-tenant-id header, or query param.');\n  }\n  if (!isUUID(tid)) {\n    throw new Error('FATAL: tenant_id must be a valid UUID. Received: ' + tid);\n  }\n  return tid;\n};\nconst tenantId = getTenantId();\n\n// ========== FLEXIBLE SERVICE/STAFF/TIME ==========\nlet serviceInputs = input.service_ids || [];\nif (serviceInputs.length === 0 && input.service_id) {\n  serviceInputs = [input.service_id];\n}\n\n// UUIDs are high priority\nconst serviceUUIDs = serviceInputs.filter(id => isUUID(id));\nconst potentialNames = serviceInputs.filter(id => !isUUID(id) && id.length > 0);\n\n// ========== AGGRESSIVE KEYWORD EXTRACTION ==========\n// Bella hallucinated \"womens_haircut_service_id\". We need to extract \"Haircut\".\nconst cleanNames = potentialNames.map(name => {\n  const words = name.toLowerCase().replace(/_/g, ' ').replace(/'s/g, '').split(' ');\n  const boringWords = ['women', 'womens', 'men', 'mens', 'service', 'id', 'for', 'luxe', 'aurea', 'luxury', 'salon'];\n  const keywords = words.filter(w => !boringWords.includes(w) && w.length > 1);\n  return keywords.length > 0 ? keywords.join(' ') : name;\n});\n\nconst staffId = input.staff_id || input.stylist_id;\n\n// Build start_at from date+time if not provided directly\nlet startAt = input.start_at;\nif (!startAt && input.date && input.time) {\n  startAt = input.date + 'T' + input.time + ':00+05:00';\n}\n\nconst client = input.client || {\n  name: input.client_name || '',\n  phone: input.client_phone || '',\n  email: input.client_email || ''\n};\n\n// Build the search filter\nlet queryFilter;\nif (serviceUUIDs.length > 0) {\n    queryFilter = `id.in.(${serviceUUIDs.join(',')})`;\n} else if (cleanNames.length > 0) {\n    // Use ilike with % wildcards around the extracted keywords\n    queryFilter = `name.ilike.*${cleanNames[0]}*`;\n} else {\n    queryFilter = 'id.is.null';\n}\n\nreturn {\n  json: {\n    client,\n    serviceUUIDs,\n    serviceNames: cleanNames,\n    staffId,\n    startAt,\n    tenantId,\n    paymentMethod: input.payment_method || 'card',\n    notes: input.notes || '',\n    queryFilter\n  }\n};"
             },
             "id": "parse-input",
             "name": "Parse Input",
@@ -48,7 +48,8 @@
             "parameters": {
                 "method": "GET",
                 "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/services",
-                "authentication": "none",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
                 "sendQuery": true,
                 "queryParameters": {
                     "parameters": [
@@ -63,19 +64,6 @@
                         {
                             "name": "select",
                             "value": "id,name,price,duration,processing_duration,gap_start_offset,can_be_booked_in_gap,deposit_required,deposit_amount"
-                        }
-                    ]
-                },
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "apikey",
-                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
-                        },
-                        {
-                            "name": "Authorization",
-                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
                         }
                     ]
                 },
@@ -96,7 +84,13 @@
                 440,
                 0
             ],
-            "alwaysOutputData": true
+            "alwaysOutputData": true,
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "supabase-service-role",
+                    "name": "Supabase Service Role"
+                }
+            }
         },
         {
             "parameters": {
@@ -162,20 +156,8 @@
             "parameters": {
                 "method": "GET",
                 "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/clients",
-                "authentication": "none",
-                "sendHeaders": true,
-                "headerParameters": {
-                    "parameters": [
-                        {
-                            "name": "apikey",
-                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
-                        },
-                        {
-                            "name": "Authorization",
-                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
-                        }
-                    ]
-                },
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
                 "sendQuery": true,
                 "queryParameters": {
                     "parameters": [
@@ -211,7 +193,13 @@
                 0
             ],
             "alwaysOutputData": true,
-            "continueOnFail": true
+            "continueOnFail": true,
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "supabase-service-role",
+                    "name": "Supabase Service Role"
+                }
+            }
         },
         {
             "parameters": {
@@ -262,21 +250,14 @@
             "parameters": {
                 "method": "POST",
                 "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/clients",
-                "authentication": "none",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
                         {
                             "name": "Prefer",
                             "value": "return=representation"
-                        },
-                        {
-                            "name": "apikey",
-                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
-                        },
-                        {
-                            "name": "Authorization",
-                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
                         }
                     ]
                 },
@@ -310,7 +291,13 @@
             "position": [
                 1320,
                 100
-            ]
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "supabase-service-role",
+                    "name": "Supabase Service Role"
+                }
+            }
         },
         {
             "parameters": {
@@ -343,21 +330,14 @@
             "parameters": {
                 "method": "POST",
                 "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/bookings",
-                "authentication": "none",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
                         {
                             "name": "Prefer",
                             "value": "return=representation"
-                        },
-                        {
-                            "name": "apikey",
-                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
-                        },
-                        {
-                            "name": "Authorization",
-                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
                         }
                     ]
                 },
@@ -419,7 +399,13 @@
             "position": [
                 1980,
                 0
-            ]
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "supabase-service-role",
+                    "name": "Supabase Service Role"
+                }
+            }
         },
         {
             "parameters": {
@@ -451,21 +437,14 @@
             "parameters": {
                 "method": "POST",
                 "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/booking_items",
-                "authentication": "none",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
                         {
                             "name": "Prefer",
                             "value": "return=representation"
-                        },
-                        {
-                            "name": "apikey",
-                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
-                        },
-                        {
-                            "name": "Authorization",
-                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
                         }
                     ]
                 },
@@ -488,7 +467,13 @@
             "position": [
                 2640,
                 0
-            ]
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "supabase-service-role",
+                    "name": "Supabase Service Role"
+                }
+            }
         },
         {
             "parameters": {
@@ -526,21 +511,14 @@
             "parameters": {
                 "method": "POST",
                 "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/rest/v1/payments",
-                "authentication": "none",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
                         {
                             "name": "Prefer",
                             "value": "return=representation"
-                        },
-                        {
-                            "name": "apikey",
-                            "value": "YOUR_SUPABASE_SERVICE_ROLE_KEY"
-                        },
-                        {
-                            "name": "Authorization",
-                            "value": "Bearer YOUR_SUPABASE_SERVICE_ROLE_KEY"
                         }
                     ]
                 },
@@ -582,7 +560,13 @@
             "position": [
                 3080,
                 -100
-            ]
+            ],
+            "credentials": {
+                "httpHeaderAuth": {
+                    "id": "supabase-service-role",
+                    "name": "Supabase Service Role"
+                }
+            }
         },
         {
             "parameters": {

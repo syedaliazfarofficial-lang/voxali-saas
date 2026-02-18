@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-const QUERY_TIMEOUT_MS = 5000;
+const QUERY_TIMEOUT_MS = 3000;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -65,32 +65,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
     }
 
-    // Try to query profile from DB, with timeout. Returns profile data or null.
+    // PARALLEL profile query — fires both at once, returns whichever succeeds first
     const queryProfile = async (userId: string): Promise<Record<string, unknown> | null> => {
-        // Try by `id` first
-        try {
-            const { data, error } = await raceTimeout(
-                Promise.resolve(supabase.from('profiles').select('*').eq('id', userId).single()),
-                QUERY_TIMEOUT_MS,
-                'profiles.id'
-            );
-            if (data && !error) return data;
-        } catch (e) {
-            console.warn('[AuthContext] Profile by id:', (e as Error).message);
+        const queryById = raceTimeout(
+            Promise.resolve(supabase.from('profiles').select('*').eq('id', userId).single()),
+            QUERY_TIMEOUT_MS, 'profiles.id'
+        );
+        const queryByUserId = raceTimeout(
+            Promise.resolve(supabase.from('profiles').select('*').eq('user_id', userId).single()),
+            QUERY_TIMEOUT_MS, 'profiles.user_id'
+        );
+
+        const results = await Promise.allSettled([queryById, queryByUserId]);
+
+        for (const result of results) {
+            if (result.status === 'fulfilled') {
+                const { data, error } = result.value;
+                if (data && !error) return data;
+            }
         }
 
-        // Try by `user_id` as fallback
-        try {
-            const { data, error } = await raceTimeout(
-                Promise.resolve(supabase.from('profiles').select('*').eq('user_id', userId).single()),
-                QUERY_TIMEOUT_MS,
-                'profiles.user_id'
-            );
-            if (data && !error) return data;
-        } catch (e) {
-            console.warn('[AuthContext] Profile by user_id:', (e as Error).message);
-        }
-
+        console.warn('[AuthContext] Both profile queries failed');
         return null;
     };
 
