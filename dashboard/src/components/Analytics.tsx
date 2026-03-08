@@ -22,8 +22,8 @@ import {
     Pie,
     Cell,
 } from 'recharts';
-import { supabase } from '../lib/supabase';
-import { TENANT_ID } from '../config/constants';
+import { supabase, supabaseAdmin } from '../lib/supabase';
+import { useTenant } from '../context/TenantContext';
 
 interface RevDay { day: string; revenue: number; booking_count: number }
 interface ServiceRow { service_name: string; booking_count: number; total_revenue: number }
@@ -41,6 +41,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export const Analytics: React.FC = () => {
+    const { tenantId } = useTenant();
     const [revData, setRevData] = useState<RevDay[]>([]);
     const [services, setServices] = useState<ServiceRow[]>([]);
     const [statuses, setStatuses] = useState<StatusRow[]>([]);
@@ -48,27 +49,74 @@ export const Analytics: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     const fetchAll = useCallback(async () => {
-        if (!TENANT_ID) return;
+        if (!tenantId) return;
         setLoading(true);
         try {
-            const [revRes, svcRes, stRes] = await Promise.all([
-                supabase.rpc('rpc_analytics_revenue', { p_tenant_id: TENANT_ID, p_days: days }),
-                supabase.rpc('rpc_analytics_services', { p_tenant_id: TENANT_ID }),
-                supabase.rpc('rpc_analytics_statuses', { p_tenant_id: TENANT_ID }),
-            ]);
-            if (revRes.data) setRevData((revRes.data as RevDay[]).map(r => ({
-                day: new Date(r.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                revenue: Number(r.revenue),
-                booking_count: Number(r.booking_count),
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+
+            // Fetch all bookings for the date range
+            const { data: bookings } = await supabaseAdmin
+                .from('bookings')
+                .select('id, start_time, total_price, status, service_id, services(name)')
+                .eq('tenant_id', tenantId)
+                .gte('start_time', startDate.toISOString())
+                .not('status', 'eq', 'cancelled');
+
+            // 1) Revenue by day
+            const dayMap: Record<string, { revenue: number; booking_count: number }> = {};
+            for (let i = 0; i <= days; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - days + i);
+                const key = d.toISOString().split('T')[0];
+                dayMap[key] = { revenue: 0, booking_count: 0 };
+            }
+            (bookings || []).forEach((b: any) => {
+                const key = new Date(b.start_time).toISOString().split('T')[0];
+                if (dayMap[key]) {
+                    dayMap[key].revenue += Number(b.total_price) || 0;
+                    dayMap[key].booking_count += 1;
+                }
+            });
+            setRevData(Object.entries(dayMap).map(([day, v]) => ({
+                day: new Date(day + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                revenue: v.revenue,
+                booking_count: v.booking_count,
             })));
-            if (svcRes.data) setServices((svcRes.data as ServiceRow[]).map(s => ({ ...s, total_revenue: Number(s.total_revenue), booking_count: Number(s.booking_count) })));
-            if (stRes.data) setStatuses((stRes.data as StatusRow[]).map(s => ({ ...s, count: Number(s.count) })));
+
+            // 2) Top services
+            const svcMap: Record<string, { booking_count: number; total_revenue: number }> = {};
+            (bookings || []).forEach((b: any) => {
+                const name = b.services?.name || 'Unknown';
+                if (!svcMap[name]) svcMap[name] = { booking_count: 0, total_revenue: 0 };
+                svcMap[name].booking_count += 1;
+                svcMap[name].total_revenue += Number(b.total_price) || 0;
+            });
+            setServices(Object.entries(svcMap)
+                .map(([service_name, v]) => ({ service_name, ...v }))
+                .sort((a, b) => b.total_revenue - a.total_revenue)
+                .slice(0, 10));
+
+            // 3) All statuses (not just filtered by date)
+            const { data: allBookings } = await supabaseAdmin
+                .from('bookings')
+                .select('status')
+                .eq('tenant_id', tenantId);
+
+            const statusMap: Record<string, number> = {};
+            (allBookings || []).forEach((b: any) => {
+                statusMap[b.status] = (statusMap[b.status] || 0) + 1;
+            });
+            setStatuses(Object.entries(statusMap)
+                .map(([status, count]) => ({ status, count }))
+                .sort((a, b) => b.count - a.count));
+
         } catch (err) {
             console.error('Analytics fetch error:', err);
         } finally {
             setLoading(false);
         }
-    }, [days]);
+    }, [days, tenantId]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 

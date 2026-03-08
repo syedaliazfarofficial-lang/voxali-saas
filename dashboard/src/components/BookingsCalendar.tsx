@@ -1,10 +1,11 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
     Plus, Clock, Scissors, Loader2, X, UserPlus,
-    ChevronLeft, ChevronRight, Calendar as CalendarIcon, List, DollarSign
+    Calendar as CalendarIcon, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { TENANT_ID } from '../config/constants';
+import { useTenant } from '../context/TenantContext';
+import { useAuth } from '../context/AuthContext';
 import { showToast } from './ui/ToastNotification';
 
 interface Staff { id: string; full_name: string; role: string; color: string; }
@@ -12,8 +13,9 @@ interface Service { id: string; name: string; duration: number; price: number; }
 interface Booking {
     id: string; stylist_id: string; client_name: string; service_name: string;
     start_hour: number; duration_hours: number; status: string;
-    start_at: string; date_label: string; price: number;
-    payment_status: string; source: string;
+    start_time: string; date_label: string; price: number;
+    is_gap_booking: boolean;
+    deposit_amount: number; deposit_paid_amount: number; payment_status: string;
 }
 
 type ViewMode = 'today' | 'weekly' | 'monthly';
@@ -32,32 +34,58 @@ const statusColors: Record<string, { bg: string; text: string; border: string }>
 };
 
 // Helper: get date range based on view mode
-function getDateRange(view: ViewMode): { start: Date; end: Date; label: string } {
+function getDateRange(view: ViewMode, offset: number = 0): { start: Date; end: Date; label: string } {
     const now = new Date();
     if (view === 'today') {
-        const start = new Date(now); start.setHours(0, 0, 0, 0);
-        const end = new Date(now); end.setHours(23, 59, 59, 999);
-        return { start, end, label: now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) };
+        const target = new Date(now);
+        target.setDate(target.getDate() + offset);
+        const start = new Date(target); start.setHours(0, 0, 0, 0);
+        const end = new Date(target); end.setHours(23, 59, 59, 999);
+        return { start, end, label: target.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) };
     }
     if (view === 'weekly') {
-        const dayOfWeek = now.getDay();
-        const start = new Date(now);
-        start.setDate(now.getDate() - dayOfWeek);
+        const target = new Date(now);
+        target.setDate(target.getDate() + (offset * 7));
+        const dayOfWeek = target.getDay();
+        const start = new Date(target);
+        start.setDate(target.getDate() - dayOfWeek);
         start.setHours(0, 0, 0, 0);
         const end = new Date(start);
         end.setDate(start.getDate() + 6);
         end.setHours(23, 59, 59, 999);
         const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const endLabel = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         return { start, end, label: `${startLabel} - ${endLabel}` };
     }
     // monthly
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    return { start, end, label: now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) };
+    const target = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    const start = new Date(target.getFullYear(), target.getMonth(), 1);
+    const end = new Date(target.getFullYear(), target.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start, end, label: target.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) };
+}
+
+// Helper: convert UTC time to salon timezone hour (for grid positioning)
+function toSalonHour(isoString: string, tz: string): number {
+    const dt = new Date(isoString);
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(dt);
+    const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+    const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+    return h + m / 60;
+}
+
+// Helper: format time in salon timezone as AM/PM
+function toSalonTimeStr(isoString: string, tz: string): string {
+    return new Date(isoString).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+// Helper: format date label in salon timezone
+function toSalonDateLabel(isoString: string, tz: string): string {
+    return new Date(isoString).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 export const BookingsCalendar: React.FC = () => {
+    const { tenantId, timezone } = useTenant();
+    const { staffId, isStaff } = useAuth();
     const [staff, setStaff] = useState<Staff[]>([]);
     const [services, setServices] = useState<Service[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
@@ -65,6 +93,7 @@ export const BookingsCalendar: React.FC = () => {
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('today');
+    const [dateOffset, setDateOffset] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Walk-in form
@@ -72,103 +101,213 @@ export const BookingsCalendar: React.FC = () => {
     const [wPhone, setWPhone] = useState('');
     const [wService, setWService] = useState('');
     const [wStylist, setWStylist] = useState('');
-    const [wTime, setWTime] = useState('');
+    // Get current time in salon's timezone
+    const getSalonTime = () => {
+        const tz = timezone || 'America/New_York';
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+        const h = parts.find(p => p.type === 'hour')?.value || '12';
+        const m = parts.find(p => p.type === 'minute')?.value || '00';
+        return `${h}:${m}`;
+    };
+    const [wStartTime, setWStartTime] = useState(getSalonTime());
+    const [wEndTime, setWEndTime] = useState('');
 
     const fetchData = useCallback(async () => {
-        if (!TENANT_ID) return;
+        if (!tenantId) return;
         setLoading(true);
 
         // Fetch staff
         const { data: staffData } = await supabase
             .from('staff').select('id, full_name, role, color')
-            .eq('tenant_id', TENANT_ID).eq('is_active', true).order('created_at');
+            .eq('tenant_id', tenantId).eq('is_active', true).order('created_at');
 
         // Fetch services
         const { data: svcData } = await supabase
             .from('services').select('id, name, duration, price')
-            .eq('tenant_id', TENANT_ID).eq('is_active', true).order('name');
+            .eq('tenant_id', tenantId).eq('is_active', true).order('name');
 
         // Fetch bookings for the selected date range
-        const { start, end } = getDateRange(viewMode);
+        const { start, end } = getDateRange(viewMode, dateOffset);
         const { data: bookData } = await supabase
             .from('bookings').select(`
-                id, stylist_id, status, start_at, end_at, total_price, payment_status, source,
+                id, stylist_id, status, start_time, end_time, total_price, is_gap_booking,
+                deposit_amount, deposit_paid_amount, payment_status,
                 clients(name), services(name)
             `)
-            .eq('tenant_id', TENANT_ID)
-            .gte('start_at', start.toISOString())
-            .lte('start_at', end.toISOString())
-            .not('status', 'eq', 'cancelled')
-            .order('start_at');
+            .eq('tenant_id', tenantId)
+            .gte('start_time', start.toISOString())
+            .lte('start_time', end.toISOString())
+            .order('start_time');
+
+        // RBAC: Staff users only see their own bookings
+        if (isStaff && staffId) {
+            const { data: filteredData } = await supabase
+                .from('bookings').select(`
+                    id, stylist_id, status, start_time, end_time, total_price, is_gap_booking,
+                    deposit_amount, deposit_paid_amount, payment_status,
+                    clients(name), services(name)
+                `)
+                .eq('tenant_id', tenantId)
+                .eq('stylist_id', staffId)
+                .gte('start_time', start.toISOString())
+                .lte('start_time', end.toISOString())
+                .order('start_time');
+            if (filteredData) {
+                const tz = timezone || 'America/Chicago';
+                setBookings(filteredData.map((b: any) => {
+                    const startDt = new Date(b.start_time);
+                    const endDt = new Date(b.end_time);
+                    return {
+                        id: b.id,
+                        stylist_id: b.stylist_id,
+                        client_name: b.clients?.name || 'Walk-in',
+                        service_name: b.services?.name || 'Service',
+                        start_hour: toSalonHour(b.start_time, tz),
+                        duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
+                        status: b.status,
+                        start_time: b.start_time,
+                        date_label: toSalonDateLabel(b.start_time, tz),
+                        price: b.total_price || 0,
+                        is_gap_booking: b.is_gap_booking || false,
+                        deposit_amount: b.deposit_amount || 0,
+                        deposit_paid_amount: b.deposit_paid_amount || 0,
+                        payment_status: b.payment_status || 'unpaid',
+                    };
+                }));
+            }
+            if (staffData) setStaff(staffData);
+            if (svcData) setServices(svcData);
+            setLoading(false);
+            return;
+        }
 
         if (staffData) setStaff(staffData);
         if (svcData) setServices(svcData);
         if (bookData) {
+            const tz = timezone || 'America/Chicago';
             setBookings(bookData.map((b: any) => {
-                const startDt = new Date(b.start_at);
-                const endDt = new Date(b.end_at);
+                const startDt = new Date(b.start_time);
+                const endDt = new Date(b.end_time);
                 return {
                     id: b.id,
                     stylist_id: b.stylist_id,
                     client_name: b.clients?.name || 'Walk-in',
                     service_name: b.services?.name || 'Service',
-                    start_hour: startDt.getHours() + startDt.getMinutes() / 60,
+                    start_hour: toSalonHour(b.start_time, tz),
                     duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
                     status: b.status,
-                    start_at: b.start_at,
-                    date_label: startDt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+                    start_time: b.start_time,
+                    date_label: toSalonDateLabel(b.start_time, tz),
                     price: b.total_price || 0,
+                    is_gap_booking: b.is_gap_booking || false,
+                    deposit_amount: b.deposit_amount || 0,
+                    deposit_paid_amount: b.deposit_paid_amount || 0,
                     payment_status: b.payment_status || 'unpaid',
-                    source: b.source || 'phone',
                 };
             }));
         }
         setLoading(false);
-    }, [viewMode]);
+    }, [viewMode, dateOffset, isStaff, staffId, tenantId, timezone]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
+    // Auto-calc end time when service or start time changes
+    const selectedService = services.find(s => s.id === wService);
+    const calcEndTime = (start: string, dur: number) => {
+        const [h, m] = start.split(':').map(Number);
+        const total = h * 60 + m + dur;
+        return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+    };
+
+    // Update end time when service changes
+    React.useEffect(() => {
+        if (selectedService && wStartTime) {
+            setWEndTime(calcEndTime(wStartTime, selectedService.duration));
+        }
+    }, [wService, wStartTime]);
+
     const handleWalkin = async () => {
-        if (!wName || !wPhone || !wService || !wStylist) return;
+        if (!wName || !wPhone || !wService || !wStylist || !selectedService) return;
         setSaving(true);
 
-        let startTime: string;
-        if (wTime) {
-            const [h, m] = wTime.split(':').map(Number);
-            const dt = new Date(); dt.setHours(h, m, 0, 0);
-            startTime = dt.toISOString();
-        } else {
-            startTime = new Date().toISOString();
-        }
+        try {
+            // Build start/end timestamps in salon timezone
+            const tz = timezone || 'America/New_York';
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+            const startISO = new Date(`${today}T${wStartTime}:00`).toISOString();
+            const endISO = wEndTime
+                ? new Date(`${today}T${wEndTime}:00`).toISOString()
+                : new Date(new Date(`${today}T${wStartTime}:00`).getTime() + selectedService.duration * 60000).toISOString();
 
-        const { data, error } = await supabase.rpc('rpc_add_walkin', {
-            p_tenant_id: TENANT_ID,
-            p_client_name: wName,
-            p_client_phone: wPhone,
-            p_service_id: wService,
-            p_stylist_id: wStylist,
-            p_start_time: startTime,
-        });
+            // Step 1: Upsert client
+            const { data: existingClient } = await supabase
+                .from('clients')
+                .select('id')
+                .eq('tenant_id', tenantId)
+                .eq('phone', wPhone)
+                .maybeSingle();
 
-        if (!error && data?.success) {
+            let clientId: string;
+            if (existingClient) {
+                clientId = existingClient.id;
+            } else {
+                const { data: newClient, error: clientErr } = await supabase
+                    .from('clients')
+                    .insert({ tenant_id: tenantId, name: wName, phone: wPhone })
+                    .select('id')
+                    .single();
+                if (clientErr || !newClient) throw new Error(clientErr?.message || 'Failed to create client');
+                clientId = newClient.id;
+            }
+
+            // Step 2: Insert booking
+            const { error: bookErr } = await supabase
+                .from('bookings')
+                .insert({
+                    tenant_id: tenantId,
+                    client_id: clientId,
+                    stylist_id: wStylist,
+                    service_id: wService,
+                    start_time: startISO,
+                    end_time: endISO,
+                    total_price: selectedService.price,
+                    status: 'confirmed',
+                });
+
+            if (bookErr) throw new Error(bookErr.message);
+
             showToast('Walk-in booked!');
             setShowModal(false);
-            setWName(''); setWPhone(''); setWService(''); setWStylist(''); setWTime('');
+            setWName(''); setWPhone(''); setWService(''); setWStylist('');
+            setWStartTime(getSalonTime());
+            setWEndTime('');
             fetchData();
-        } else {
-            showToast(data?.error || error?.message || 'Failed', 'error');
+        } catch (err: any) {
+            showToast(err.message || 'Failed', 'error');
         }
         setSaving(false);
     };
 
-    // Confirm payment handler
-    const handleConfirmPayment = async (bookingId: string) => {
+    // Status cycling: confirmed → checked_in → completed
+    // pending_deposit CANNOT advance (must pay first)
+    const STATUS_FLOW: Record<string, string> = {
+        pending: 'confirmed',
+        confirmed: 'checked_in',
+        checked_in: 'completed',
+    };
+    const handleStatusCycle = async (bookingId: string, currentStatus: string) => {
+        if (currentStatus === 'pending_deposit') {
+            showToast('Deposit payment required before advancing', 'error');
+            return;
+        }
+        const nextStatus = STATUS_FLOW[currentStatus];
+        if (!nextStatus) return; // completed or unknown — no next status
         const { error } = await supabase
             .from('bookings')
-            .update({ payment_status: 'paid' })
+            .update({ status: nextStatus })
             .eq('id', bookingId);
         if (!error) {
-            showToast('Payment confirmed!');
+            showToast(`Status → ${nextStatus.replace('_', ' ')}`);
             fetchData();
         } else {
             showToast('Failed: ' + error.message, 'error');
@@ -183,8 +322,12 @@ export const BookingsCalendar: React.FC = () => {
         return acc;
     }, {});
 
-    const { label: rangeLabel } = getDateRange(viewMode);
-    const displayStaff = staff.slice(0, 5);
+    const { label: rangeLabel } = getDateRange(viewMode, dateOffset);
+    // For staff users, show only their column; for owners/managers show up to 5
+    const displayStaff = isStaff && staffId
+        ? staff.filter(s => s.id === staffId)
+        : staff.slice(0, 5);
+    // Fix: use staff_id instead of stylist_id for filtering
 
     if (loading) {
         return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-luxe-gold animate-spin" /></div>;
@@ -202,7 +345,7 @@ export const BookingsCalendar: React.FC = () => {
                         {(['today', 'weekly', 'monthly'] as ViewMode[]).map(mode => (
                             <button
                                 key={mode}
-                                onClick={() => setViewMode(mode)}
+                                onClick={() => { setViewMode(mode); setDateOffset(0); }}
                                 className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${viewMode === mode
                                     ? 'bg-luxe-gold text-luxe-obsidian shadow-lg'
                                     : 'text-white/50 hover:text-white hover:bg-white/5'
@@ -212,17 +355,45 @@ export const BookingsCalendar: React.FC = () => {
                             </button>
                         ))}
                     </div>
+                    {/* Date Navigation */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setDateOffset(prev => prev - 1)}
+                            className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                            title="Previous"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        {dateOffset !== 0 && (
+                            <button
+                                onClick={() => setDateOffset(0)}
+                                className="px-3 py-1 rounded-lg bg-luxe-gold/20 border border-luxe-gold/30 text-luxe-gold text-xs font-bold hover:bg-luxe-gold/30 transition-all"
+                            >
+                                Today
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setDateOffset(prev => prev + 1)}
+                            className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                            title="Next"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
                     {/* Date Label */}
                     <span className="text-sm text-white/40 font-medium hidden md:block">{rangeLabel}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setShowModal(true)}
-                        className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                    >
-                        <Plus className="w-5 h-5" />
-                        <span className="text-sm">ADD WALK-IN</span>
-                    </button>
+                    {/* Walk-in button: hidden for staff */}
+                    {!isStaff && (
+                        <button
+                            onClick={() => setShowModal(true)}
+                            className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        >
+                            <Plus className="w-5 h-5" />
+                            <span className="text-sm">ADD WALK-IN</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -264,10 +435,11 @@ export const BookingsCalendar: React.FC = () => {
                                     ))}
                                     {bookings.filter(b => b.stylist_id === s.id).map(b => {
                                         const colors = statusColors[b.status] || statusColors.pending;
+                                        const isCancelled = b.status === 'cancelled';
                                         return (
                                             <div
                                                 key={b.id}
-                                                className={`absolute left-1 right-1 rounded-xl p-3 border shadow-2xl transition-all hover:scale-[1.02] cursor-pointer group z-10 ${colors.bg} ${colors.text} ${colors.border}`}
+                                                className={`absolute left-1 right-1 rounded-xl p-3 border shadow-2xl transition-all hover:scale-[1.02] cursor-pointer group z-10 ${colors.bg} ${colors.text} ${colors.border} ${isCancelled ? 'opacity-45 line-through' : ''}`}
                                                 style={{
                                                     top: `${(b.start_hour - 8) * 80}px`,
                                                     height: `${Math.max(b.duration_hours * 80, 40)}px`
@@ -282,7 +454,7 @@ export const BookingsCalendar: React.FC = () => {
                                                 </div>
                                                 <div className="mt-auto pt-1 flex items-center justify-between">
                                                     <span className="text-[9px] font-bold opacity-50">
-                                                        {Math.floor(b.start_hour)}:{String(Math.round((b.start_hour % 1) * 60)).padStart(2, '0')}
+                                                        {toSalonTimeStr(b.start_time, timezone || 'America/Chicago')}
                                                     </span>
                                                     <span className="text-[8px] font-bold uppercase opacity-60">{b.status.replace('_', ' ')}</span>
                                                 </div>
@@ -318,10 +490,12 @@ export const BookingsCalendar: React.FC = () => {
                                 <div className="space-y-2">
                                     {dayBookings.map(b => {
                                         const colors = statusColors[b.status] || statusColors.pending;
-                                        const timeStr = `${Math.floor(b.start_hour)}:${String(Math.round((b.start_hour % 1) * 60)).padStart(2, '0')}`;
+                                        const isCancelled = b.status === 'cancelled';
+                                        const tz = timezone || 'America/Chicago';
+                                        const timeStr = toSalonTimeStr(b.start_time, tz);
                                         const stylist = staff.find(s => s.id === b.stylist_id);
                                         return (
-                                            <div key={b.id} className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-white/5 ${colors.border} bg-white/[0.02]`}>
+                                            <div key={b.id} className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-white/5 ${colors.border} bg-white/[0.02] ${isCancelled ? 'opacity-45 line-through' : ''}`}>
                                                 {/* Time */}
                                                 <div className="w-14 text-center shrink-0">
                                                     <p className="text-sm font-black text-white/70">{timeStr}</p>
@@ -344,37 +518,80 @@ export const BookingsCalendar: React.FC = () => {
                                                     <span className="text-xs text-white/40 hidden lg:block">{stylist?.full_name?.split(' ')[0] || '—'}</span>
                                                 </div>
                                                 {/* Price */}
-                                                <div className="text-right shrink-0 w-16">
+                                                <div className="text-right shrink-0 w-14">
                                                     <p className="text-sm font-bold text-luxe-gold">${b.price}</p>
                                                 </div>
                                                 {/* Status Badge */}
-                                                <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 ${colors.bg} ${colors.text}`}>
+                                                <span
+                                                    onClick={() => handleStatusCycle(b.id, b.status)}
+                                                    title={
+                                                        b.status === 'pending_deposit' ? 'Deposit required — cannot advance'
+                                                            : STATUS_FLOW[b.status] ? `Click → ${STATUS_FLOW[b.status].replace('_', ' ')}`
+                                                                : 'Final status'
+                                                    }
+                                                    className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 ${colors.bg} ${colors.text} ${b.status !== 'pending_deposit' && STATUS_FLOW[b.status] ? 'cursor-pointer hover:opacity-80 transition-opacity' : b.status === 'pending_deposit' ? 'cursor-not-allowed opacity-70' : ''
+                                                        }`}
+                                                >
                                                     {b.status.replace('_', ' ')}
                                                 </span>
-                                                {/* Payment Badge */}
-                                                {b.payment_status === 'paid' ? (
-                                                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-green-500/15 text-green-400 border border-green-500/20">
-                                                        ✓ PAID
-                                                    </span>
-                                                ) : b.payment_status === 'advance' ? (
-                                                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-blue-500/15 text-blue-400 border border-blue-500/20">
-                                                        ADVANCE
-                                                    </span>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleConfirmPayment(b.id)}
-                                                        title="Confirm Payment"
-                                                        className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-orange-500/15 text-orange-400 border border-orange-500/20 hover:bg-orange-500/30 transition-colors cursor-pointer flex items-center gap-1"
-                                                    >
-                                                        <DollarSign className="w-3 h-3" /> CONFIRM PAY
-                                                    </button>
-                                                )}
-                                                {/* Source badge for walk-ins */}
-                                                {b.source === 'walk_in' && (
-                                                    <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 text-white/40 border border-white/10 shrink-0">
-                                                        WALK-IN
-                                                    </span>
-                                                )}
+                                                {/* Smart Payment Badges */}
+                                                {(() => {
+                                                    const isWalkin = b.client_name === 'Walk-in';
+                                                    const hasDeposit = b.deposit_amount > 0;
+                                                    const depositPaid = b.deposit_paid_amount > 0;
+                                                    const remaining = b.price - (b.deposit_paid_amount || 0);
+                                                    const isCompleted = b.status === 'completed';
+
+                                                    if (isWalkin && !hasDeposit) {
+                                                        // Walk-in without deposit
+                                                        return (
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-orange-500/15 text-orange-300 border border-orange-500/30">
+                                                                🚶 Walk-in
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    if (!hasDeposit) {
+                                                        // No deposit required — show total only
+                                                        return (
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-luxe-gold/10 text-luxe-gold border border-luxe-gold/20">
+                                                                ${b.price}
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    if (isCompleted) {
+                                                        // Completed — show full paid
+                                                        return (
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-green-500/15 text-green-300 border border-green-500/30">
+                                                                ✓ ${b.price} Paid
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    if (depositPaid) {
+                                                        // Deposit paid — show paid + remaining
+                                                        return (
+                                                            <>
+                                                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-green-500/15 text-green-300 border border-green-500/30">
+                                                                    ✓ ${b.deposit_paid_amount} Paid
+                                                                </span>
+                                                                {remaining > 0 && (
+                                                                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+                                                                        ${remaining} Due
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    }
+
+                                                    // Deposit required but not paid
+                                                    return (
+                                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-red-500/15 text-red-300 border border-red-500/30">
+                                                            ⏳ ${b.deposit_amount} Due
+                                                        </span>
+                                                    );
+                                                })()}
                                             </div>
                                         );
                                     })}
@@ -462,13 +679,21 @@ export const BookingsCalendar: React.FC = () => {
                                     ))}
                                 </select>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Start Time (optional — defaults to NOW)</label>
-                                <input
-                                    type="time" value={wTime} onChange={e => setWTime(e.target.value)}
-                                    placeholder="Select time"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
-                                />
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Start Time</label>
+                                    <input
+                                        type="time" value={wStartTime} onChange={e => setWStartTime(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">End Time {selectedService ? `(${selectedService.duration}m)` : ''}</label>
+                                    <input
+                                        type="time" value={wEndTime} onChange={e => setWEndTime(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
+                                    />
+                                </div>
                             </div>
                         </div>
 

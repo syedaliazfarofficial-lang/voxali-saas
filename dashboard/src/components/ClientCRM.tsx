@@ -4,8 +4,8 @@ import {
     MoreHorizontal, Mail, Phone, Tag, Loader2, X, Edit3,
     Trash2, Download, FileText
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { TENANT_ID } from '../config/constants';
+import { supabase, supabaseAdmin } from '../lib/supabase';
+import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { ConfirmModal } from './ui/ConfirmModal';
 import jsPDF from 'jspdf';
@@ -18,6 +18,7 @@ interface Client {
 
 export const ClientCRM: React.FC = () => {
     const [clients, setClients] = useState<Client[]>([]);
+    const { tenantId } = useTenant();
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [showModal, setShowModal] = useState(false);
@@ -40,13 +41,13 @@ export const ClientCRM: React.FC = () => {
     const menuRef = useRef<HTMLDivElement>(null);
 
     const fetchClients = useCallback(async () => {
-        if (!TENANT_ID) return;
+        if (!tenantId) return;
         setLoading(true);
 
         const { data } = await supabase
             .from('clients')
             .select('id, name, phone, email, created_at')
-            .eq('tenant_id', TENANT_ID)
+            .eq('tenant_id', tenantId)
             .order('created_at', { ascending: false });
 
         if (data) {
@@ -90,7 +91,7 @@ export const ClientCRM: React.FC = () => {
 
         const { error } = await supabase
             .from('clients')
-            .insert({ tenant_id: TENANT_ID, name: formName, phone: formPhone, email: formEmail || null })
+            .insert({ tenant_id: tenantId, name: formName, phone: formPhone, email: formEmail || null })
             .select('id')
             .single();
 

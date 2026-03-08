@@ -6,16 +6,22 @@ import {
     LogOut,
     ChevronRight,
     Zap,
+    UserCog,
+    CreditCard,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { SuperAdminDashboard } from './SuperAdminDashboard';
 import { TenantsPage } from './TenantsPage';
 import { AIMonitorPage } from './AIMonitorPage';
+import { SuperAdminProfile } from './SuperAdminProfile';
+import { PlatformSettings } from './PlatformSettings';
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Overview', id: 'overview' },
     { icon: Building2, label: 'Tenants', id: 'tenants' },
     { icon: Bot, label: 'AI Monitor', id: 'ai_monitor' },
+    { icon: CreditCard, label: 'Platform Settings', id: 'platform' },
+    { icon: UserCog, label: 'Profile & Security', id: 'profile' },
 ];
 
 export const SuperAdminLayout: React.FC = () => {
@@ -33,8 +39,8 @@ export const SuperAdminLayout: React.FC = () => {
         if (tenantName) {
             localStorage.setItem('voxali_impersonate_name', tenantName);
         }
-        // Reload to pick up the new tenant context
-        window.location.reload();
+        // Trigger re-render instead of full page reload
+        window.dispatchEvent(new CustomEvent('voxali:impersonation-changed', { detail: { tenantId } }));
     };
 
     return (
@@ -66,8 +72,8 @@ export const SuperAdminLayout: React.FC = () => {
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                                        ? 'bg-sa-accent/10 text-sa-accent border border-sa-accent/20'
-                                        : 'text-sa-muted hover:text-sa-platinum hover:bg-white/[0.03] border border-transparent'
+                                    ? 'bg-sa-accent/10 text-sa-accent border border-sa-accent/20'
+                                    : 'text-sa-muted hover:text-sa-platinum hover:bg-white/[0.03] border border-transparent'
                                     }`}
                             >
                                 <item.icon className={`w-5 h-5 ${isActive ? 'text-sa-accent' : 'text-sa-muted/60 group-hover:text-sa-platinum'}`} />
@@ -102,6 +108,8 @@ export const SuperAdminLayout: React.FC = () => {
                     {activeTab === 'overview' && <SuperAdminDashboard />}
                     {activeTab === 'tenants' && <TenantsPage onImpersonate={handleImpersonate} />}
                     {activeTab === 'ai_monitor' && <AIMonitorPage />}
+                    {activeTab === 'platform' && <PlatformSettings />}
+                    {activeTab === 'profile' && <SuperAdminProfile />}
                 </div>
             </main>
         </div>

@@ -1,5 +1,5 @@
 -- =============================================
--- DASHBOARD FULL FEATURES MIGRATION
+-- DASHBOARD FULL FEATURES MIGRATION (Updated Feb 26, 2026)
 -- Run in Supabase SQL Editor
 -- =============================================
 -- 1. Business Hours table
@@ -19,102 +19,116 @@ ALTER TABLE business_hours ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_bh_all" ON business_hours FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON business_hours TO anon,
     authenticated;
--- 2. Add commission_rate to staff if missing
+-- 2. Add columns to staff if missing
 ALTER TABLE staff
 ADD COLUMN IF NOT EXISTS commission_rate DECIMAL(5, 2) DEFAULT 15.00;
--- 3. Seed default business hours (Mon-Sat 9am-9pm, Sun closed)
-INSERT INTO business_hours (
-        tenant_id,
-        day_of_week,
-        open_time,
-        close_time,
-        is_open
-    )
-SELECT t.id,
-    d.dow,
-    CASE
-        WHEN d.dow = 0 THEN '00:00'::TIME
-        ELSE '09:00'::TIME
-    END,
-    CASE
-        WHEN d.dow = 0 THEN '00:00'::TIME
-        ELSE '21:00'::TIME
-    END,
-    d.dow != 0
-FROM tenants t
-    CROSS JOIN (
-        SELECT generate_series(0, 6) AS dow
-    ) d
-WHERE t.slug = 'luxe-aurea' ON CONFLICT (tenant_id, day_of_week) DO NOTHING;
--- 4. RPC: Add walk-in booking
+ALTER TABLE staff
+ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE staff
+ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE staff
+ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#D4AF37';
+ALTER TABLE staff
+ADD COLUMN IF NOT EXISTS is_blocked_today BOOLEAN DEFAULT false;
+-- 3. Add can_login to profiles if missing
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS can_login BOOLEAN DEFAULT false;
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS staff_id UUID;
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS user_id UUID;
+-- 4. Walk-in booking RPC
 CREATE OR REPLACE FUNCTION rpc_add_walkin(
         p_tenant_id UUID,
         p_client_name TEXT,
         p_client_phone TEXT,
         p_service_id UUID,
-        p_stylist_id UUID,
-        p_start_time TIMESTAMPTZ DEFAULT NOW()
+        p_staff_id UUID,
+        p_start TIMESTAMPTZ
     ) RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public AS $$
-DECLARE v_client_id UUID;
-v_booking_id UUID;
-v_svc RECORD;
-BEGIN -- Get service details
-SELECT id,
-    name,
-    duration,
-    price INTO v_svc
+DECLARE v_booking_id UUID;
+v_duration INTEGER;
+v_price DECIMAL;
+BEGIN
+SELECT duration,
+    price INTO v_duration,
+    v_price
 FROM services
 WHERE id = p_service_id
     AND tenant_id = p_tenant_id;
-IF v_svc.id IS NULL THEN RETURN json_build_object('success', false, 'error', 'Service not found');
-END IF;
--- Find or create client
-SELECT id INTO v_client_id
-FROM clients
-WHERE tenant_id = p_tenant_id
-    AND phone = p_client_phone
-LIMIT 1;
-IF v_client_id IS NULL THEN
-INSERT INTO clients (tenant_id, name, phone)
-VALUES (p_tenant_id, p_client_name, p_client_phone)
-RETURNING id INTO v_client_id;
-END IF;
--- Create booking
 INSERT INTO bookings (
         tenant_id,
-        client_id,
-        stylist_id,
+        client_name,
+        client_phone,
         service_id,
-        start_at,
-        end_at,
-        status,
+        staff_id,
+        start_time,
+        end_time,
         total_price,
-        source
+        status,
+        booking_type
     )
 VALUES (
         p_tenant_id,
-        v_client_id,
-        p_stylist_id,
+        p_client_name,
+        p_client_phone,
         p_service_id,
-        p_start_time,
-        p_start_time + (v_svc.duration || ' minutes')::INTERVAL,
+        p_staff_id,
+        p_start,
+        p_start + (v_duration || ' minutes')::INTERVAL,
+        v_price,
         'confirmed',
-        v_svc.price,
-        'walk_in'
+        'walkin'
     )
 RETURNING id INTO v_booking_id;
-RETURN json_build_object(
-    'success',
-    true,
-    'booking_id',
-    v_booking_id,
-    'client_id',
-    v_client_id
-);
+RETURN json_build_object('success', true, 'booking_id', v_booking_id);
 END;
 $$;
--- 5. RPC: Add staff
+-- 5. Staff Board View (with email, phone)
+CREATE OR REPLACE FUNCTION rpc_staff_board(p_tenant_id UUID) RETURNS TABLE (
+        id UUID,
+        full_name TEXT,
+        role TEXT,
+        color TEXT,
+        is_active BOOLEAN,
+        is_blocked_today BOOLEAN,
+        bookings_count BIGINT,
+        revenue NUMERIC,
+        commission_rate NUMERIC,
+        email TEXT,
+        phone TEXT
+    ) LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public AS $$ BEGIN RETURN QUERY
+SELECT s.id,
+    s.full_name,
+    s.role,
+    COALESCE(s.color, '#D4AF37') AS color,
+    s.is_active,
+    COALESCE(s.is_blocked_today, false) AS is_blocked_today,
+    COUNT(b.id)::BIGINT AS bookings_count,
+    COALESCE(SUM(b.total_price), 0)::NUMERIC AS revenue,
+    COALESCE(s.commission_rate, 15)::NUMERIC AS commission_rate,
+    s.email,
+    s.phone
+FROM staff s
+    LEFT JOIN bookings b ON b.staff_id = s.id
+    AND b.status NOT IN ('cancelled', 'no_show')
+WHERE s.tenant_id = p_tenant_id
+GROUP BY s.id,
+    s.full_name,
+    s.role,
+    s.color,
+    s.is_active,
+    s.is_blocked_today,
+    s.commission_rate,
+    s.email,
+    s.phone
+ORDER BY s.is_active DESC,
+    s.full_name;
+END;
+$$;
+-- 6. Add Staff
 CREATE OR REPLACE FUNCTION rpc_add_staff(
         p_tenant_id UUID,
         p_name TEXT,
@@ -148,7 +162,30 @@ RETURNING id INTO v_id;
 RETURN json_build_object('success', true, 'staff_id', v_id);
 END;
 $$;
--- 6. RPC: Deactivate staff
+-- 7. Edit Staff
+CREATE OR REPLACE FUNCTION rpc_edit_staff(
+        p_tenant_id UUID,
+        p_staff_id UUID,
+        p_name TEXT,
+        p_email TEXT DEFAULT NULL,
+        p_phone TEXT DEFAULT NULL,
+        p_role TEXT DEFAULT NULL,
+        p_commission DECIMAL DEFAULT NULL
+    ) RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public AS $$ BEGIN
+UPDATE staff
+SET full_name = COALESCE(p_name, full_name),
+    email = COALESCE(p_email, email),
+    phone = COALESCE(p_phone, phone),
+    role = COALESCE(p_role, role),
+    commission_rate = COALESCE(p_commission, commission_rate),
+    updated_at = NOW()
+WHERE id = p_staff_id
+    AND tenant_id = p_tenant_id;
+RETURN json_build_object('success', true);
+END;
+$$;
+-- 8. Deactivate Staff
 CREATE OR REPLACE FUNCTION rpc_deactivate_staff(p_tenant_id UUID, p_staff_id UUID) RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public AS $$ BEGIN
 UPDATE staff
@@ -159,7 +196,7 @@ WHERE id = p_staff_id
 RETURN json_build_object('success', true);
 END;
 $$;
--- 7. RPC: Reactivate staff
+-- 9. Reactivate Staff
 CREATE OR REPLACE FUNCTION rpc_reactivate_staff(p_tenant_id UUID, p_staff_id UUID) RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public AS $$ BEGIN
 UPDATE staff
@@ -170,7 +207,22 @@ WHERE id = p_staff_id
 RETURN json_build_object('success', true);
 END;
 $$;
--- 8. RPC: Update staff commission
+-- 10. Permanent Delete Staff
+CREATE OR REPLACE FUNCTION rpc_delete_staff_permanent(p_tenant_id UUID, p_staff_id UUID) RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public AS $$ BEGIN
+DELETE FROM staff_leaves
+WHERE staff_id = p_staff_id;
+UPDATE bookings
+SET staff_id = NULL
+WHERE staff_id = p_staff_id
+    AND tenant_id = p_tenant_id;
+DELETE FROM staff
+WHERE id = p_staff_id
+    AND tenant_id = p_tenant_id;
+RETURN json_build_object('success', true);
+END;
+$$;
+-- 11. Update Commission
 CREATE OR REPLACE FUNCTION rpc_update_commission(
         p_tenant_id UUID,
         p_staff_id UUID,
@@ -185,7 +237,7 @@ WHERE id = p_staff_id
 RETURN json_build_object('success', true);
 END;
 $$;
--- 9. RPC: Add/update service
+-- 12. Upsert Service
 CREATE OR REPLACE FUNCTION rpc_upsert_service(
         p_tenant_id UUID,
         p_name TEXT,
@@ -220,7 +272,7 @@ RETURN json_build_object('success', true, 'service_id', v_id);
 END IF;
 END;
 $$;
--- 10. RPC: Update business hours
+-- 13. Update Business Hours
 CREATE OR REPLACE FUNCTION rpc_update_hours(
         p_tenant_id UUID,
         p_day INTEGER,
@@ -244,14 +296,37 @@ SET open_time = p_open,
 RETURN json_build_object('success', true);
 END;
 $$;
--- Grant everything
+-- 14. Unban User (for reactivation)
+CREATE OR REPLACE FUNCTION rpc_unban_user(p_user_id UUID) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN
+UPDATE auth.users
+SET banned_until = NULL
+WHERE id = p_user_id;
+END;
+$$;
+-- 15. Change Staff Password
+CREATE OR REPLACE FUNCTION rpc_change_staff_password(p_staff_email TEXT, p_new_password TEXT) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN
+UPDATE auth.users
+SET encrypted_password = crypt(p_new_password, gen_salt('bf')),
+    updated_at = NOW()
+WHERE email = p_staff_email;
+END;
+$$;
+-- =============================================
+-- GRANT ALL PERMISSIONS
+-- =============================================
 GRANT EXECUTE ON FUNCTION rpc_add_walkin(UUID, TEXT, TEXT, UUID, UUID, TIMESTAMPTZ) TO anon,
     authenticated;
 GRANT EXECUTE ON FUNCTION rpc_add_staff(UUID, TEXT, TEXT, TEXT, TEXT, DECIMAL) TO anon,
     authenticated;
+GRANT EXECUTE ON FUNCTION rpc_edit_staff(UUID, UUID, TEXT, TEXT, TEXT, TEXT, DECIMAL) TO anon,
+    authenticated;
+GRANT EXECUTE ON FUNCTION rpc_staff_board(UUID) TO anon,
+    authenticated;
 GRANT EXECUTE ON FUNCTION rpc_deactivate_staff(UUID, UUID) TO anon,
     authenticated;
 GRANT EXECUTE ON FUNCTION rpc_reactivate_staff(UUID, UUID) TO anon,
+    authenticated;
+GRANT EXECUTE ON FUNCTION rpc_delete_staff_permanent(UUID, UUID) TO anon,
     authenticated;
 GRANT EXECUTE ON FUNCTION rpc_update_commission(UUID, UUID, DECIMAL) TO anon,
     authenticated;
@@ -259,4 +334,10 @@ GRANT EXECUTE ON FUNCTION rpc_upsert_service(UUID, TEXT, INTEGER, DECIMAL, TEXT,
     authenticated;
 GRANT EXECUTE ON FUNCTION rpc_update_hours(UUID, INTEGER, TIME, TIME, BOOLEAN) TO anon,
     authenticated;
-SELECT '✅ All features migration complete!' AS status;
+GRANT EXECUTE ON FUNCTION rpc_unban_user(UUID) TO anon,
+    authenticated;
+GRANT EXECUTE ON FUNCTION rpc_change_staff_password(TEXT, TEXT) TO anon,
+    authenticated;
+NOTIFY pgrst,
+'reload schema';
+SELECT '✅ All features migration complete! (Updated Feb 26, 2026)' AS status;

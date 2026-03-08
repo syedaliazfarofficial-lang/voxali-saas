@@ -16,6 +16,18 @@ build/
 
 # API Keys & Credentials (CRITICAL - never upload!)
 docs/credentials/
+CREDENTIALS.md
+AI_HANDOFF_PROMPT.txt
+docs/database_export_*.json
+docs/guides/database-ids-reference.md
+dashboard/.env
+dashboard/.env.*
+voxali_full_code.txt
+n8n-workflows/test_n8n_parse.js
+payment_link.txt
+_extra/misc/
+test-edge-functions.ps1
+docs/sql-active/PG_CRON_NOTIFICATION_QUEUE.sql
 
 # IDE
 .vscode/

@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
 // ============================================================
 // DYNAMIC TENANT RESOLUTION — Priority Order:
 // 1. localStorage 'voxali_impersonate_tenant' (Super Admin viewing)
 // 2. Logged-in user's profile.tenant_id (normal salon login)
-// 3. import.meta.env.VITE_TENANT_ID (local dev fallback)
+// 3. import.meta.env.VITE_TENANT_ID (local dev fallback — ONLY after auth finishes)
 // ============================================================
 
 interface TenantBranding {
@@ -14,6 +14,8 @@ interface TenantBranding {
     salonTagline: string;
     logoUrl: string | null;
     ownerName: string;
+    timezone: string;
+    planTier: 'basic' | 'pro' | 'elite' | string;
 }
 
 interface TenantContextType extends TenantBranding {
@@ -27,10 +29,12 @@ interface TenantContextType extends TenantBranding {
 }
 
 const defaults: TenantBranding = {
-    salonName: 'My Salon',
-    salonTagline: 'Salon & Spa',
+    salonName: '',
+    salonTagline: '',
     logoUrl: null,
-    ownerName: 'Owner',
+    ownerName: '',
+    timezone: 'America/New_York',
+    planTier: 'basic',
 };
 
 const TenantContext = createContext<TenantContextType>({
@@ -47,14 +51,26 @@ const TenantContext = createContext<TenantContextType>({
 export const useTenant = () => useContext(TenantContext);
 
 export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { profile } = useAuth();
+    const { profile, loading: authLoading } = useAuth();
     const [branding, setBranding] = useState<TenantBranding>(defaults);
     const [loading, setLoading] = useState(true);
     const [impersonateId, setImpersonateId] = useState<string | null>(() => {
         return localStorage.getItem('voxali_impersonate_tenant');
     });
 
+    // ===== SYNC IMPERSONATION FROM EVENT =====
+    useEffect(() => {
+        const syncFromEvent = () => {
+            const stored = localStorage.getItem('voxali_impersonate_tenant');
+            setImpersonateId(stored);
+        };
+        window.addEventListener('voxali:impersonation-changed', syncFromEvent);
+        return () => window.removeEventListener('voxali:impersonation-changed', syncFromEvent);
+    }, []);
+
     // ===== DYNAMIC TENANT ID RESOLUTION =====
+    // CRITICAL: Don't fall to .env until auth is done loading.
+    // Otherwise on refresh, profile is null initially → .env fires → wrong salon.
     const tenantId = useMemo(() => {
         // Priority 1: Super Admin impersonation
         if (impersonateId) {
@@ -67,25 +83,31 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             console.log('[TenantContext] Using profile tenant:', profileTid);
             return profileTid;
         }
-        // Priority 3: .env fallback (local dev only)
-        const envTid = import.meta.env.VITE_TENANT_ID as string | undefined;
-        if (envTid) {
-            console.log('[TenantContext] Using .env fallback tenant:', envTid);
-            return envTid;
+        // Priority 3: .env fallback — BUT ONLY if auth is done loading
+        // If auth is still loading, return null (wait for profile)
+        if (!authLoading) {
+            const envTid = import.meta.env.VITE_TENANT_ID as string | undefined;
+            if (envTid) {
+                console.log('[TenantContext] Auth done, no profile tenant. Using .env fallback:', envTid);
+                return envTid;
+            }
+            console.warn('[TenantContext] No tenant ID resolved!');
+        } else {
+            console.log('[TenantContext] Auth still loading, waiting for profile...');
         }
-        console.warn('[TenantContext] No tenant ID resolved!');
         return null;
-    }, [impersonateId, profile]);
+    }, [impersonateId, profile, authLoading]);
 
     const isImpersonating = !!impersonateId;
 
     // ===== FETCH BRANDING FROM DB =====
     const fetchBranding = useCallback(async () => {
         if (!tenantId) { setLoading(false); return; }
+        setLoading(true);
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseAdmin
                 .from('tenants')
-                .select('salon_name, salon_tagline, logo_url, owner_name, name')
+                .select('salon_name, salon_tagline, logo_url, owner_name, name, timezone, plan_tier')
                 .eq('id', tenantId)
                 .single();
 
@@ -95,6 +117,8 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     salonTagline: data.salon_tagline || defaults.salonTagline,
                     logoUrl: data.logo_url || null,
                     ownerName: data.owner_name || defaults.ownerName,
+                    timezone: data.timezone || defaults.timezone,
+                    planTier: data.plan_tier || defaults.planTier,
                 });
             }
         } catch (err) {
@@ -126,7 +150,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // ===== UPDATE BRANDING =====
     const updateBranding = useCallback(async (updates: Partial<TenantBranding>): Promise<boolean> => {
         if (!tenantId) return false;
-        const { data, error } = await supabase.rpc('rpc_update_branding', {
+        const { data, error } = await supabaseAdmin.rpc('rpc_update_branding', {
             p_tenant_id: tenantId,
             p_salon_name: updates.salonName ?? null,
             p_salon_tagline: updates.salonTagline ?? null,
@@ -155,3 +179,4 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         </TenantContext.Provider>
     );
 };
+

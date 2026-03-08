@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Payment Successful</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0A0A0B;
+            color: #E0E0E0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 40%, rgba(212, 175, 55, .06) 0%, transparent 60%), radial-gradient(circle at 70% 60%, rgba(16, 185, 129, .04) 0%, transparent 50%);
+            animation: bp 8s ease-in-out infinite alternate;
+            z-index: 0
+        }
+
+        @keyframes bp {
+            0% {
+                transform: translate(0, 0) scale(1)
+            }
+
+            100% {
+                transform: translate(-3%, -3%) scale(1.05)
+            }
+        }
+
+        .c {
+            position: relative;
+            z-index: 1;
+            max-width: 520px;
+            width: 90%;
+            animation: su .8s cubic-bezier(.16, 1, .3, 1) both
+        }
+
+        @keyframes su {
+            from {
+                opacity: 0;
+                transform: translateY(40px)
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0)
+            }
+        }
+
+        .card {
+            background: linear-gradient(145deg, #1A1A1F, #141417);
+            border: 1px solid rgba(212, 175, 55, .15);
+            border-radius: 24px;
+            padding: 48px 36px;
+            text-align: center;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, .5), 0 0 60px rgba(212, 175, 55, .05)
+        }
+
+        .ic {
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #10B981, #059669);
+            box-shadow: 0 8px 30px rgba(16, 185, 129, .3);
+            font-size: 42px;
+            color: #fff;
+            animation: si .6s cubic-bezier(.34, 1.56, .64, 1) .3s both
+        }
+
+        .ic.err {
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            box-shadow: 0 8px 30px rgba(239, 68, 68, .3)
+        }
+
+        @keyframes si {
+            from {
+                transform: scale(0)
+            }
+
+            to {
+                transform: scale(1)
+            }
+        }
+
+        .sn {
+            font-size: 13px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #D4AF37;
+            font-weight: 600;
+            margin-bottom: 4px
+        }
+
+        .sg {
+            font-size: 11px;
+            color: #555;
+            text-transform: uppercase;
+            margin-bottom: 24px
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #FFF;
+            margin-bottom: 8px
+        }
+
+        .sb {
+            font-size: 15px;
+            color: #999;
+            margin-bottom: 28px
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 20px;
+            border-radius: 100px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(16, 185, 129, .1);
+            color: #10B981;
+            border: 1px solid rgba(16, 185, 129, .2);
+            margin-bottom: 24px
+        }
+
+        .dt {
+            background: rgba(212, 175, 55, .06);
+            border: 1px solid rgba(212, 175, 55, .12);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            text-align: left
+        }
+
+        .rw {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, .04);
+            font-size: 14px
+        }
+
+        .rw:last-child {
+            border-bottom: none
+        }
+
+        .lb {
+            color: #777
+        }
+
+        .vl {
+            font-weight: 600
+        }
+
+        .py {
+            background: linear-gradient(135deg, rgba(16, 185, 129, .08), rgba(16, 185, 129, .02));
+            border: 1px solid rgba(16, 185, 129, .2);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 24px
+        }
+
+        .pt {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #10B981;
+            font-weight: 600;
+            margin-bottom: 12px;
+            text-align: center
+        }
+
+        .pr {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 0;
+            font-size: 14px
+        }
+
+        .pr.t {
+            border-top: 1px solid rgba(16, 185, 129, .15);
+            margin-top: 6px;
+            padding-top: 12px;
+            font-weight: 700;
+            color: #D4AF37;
+            font-size: 16px
+        }
+
+        .gr {
+            color: #10B981;
+            font-weight: 700
+        }
+
+        .nf {
+            font-size: 13px;
+            color: #777;
+            line-height: 1.6
+        }
+
+        .nf b {
+            color: #D4AF37
+        }
+
+        .pw {
+            font-size: 11px;
+            color: #444;
+            margin-top: 20px
+        }
+
+        .pw a {
+            color: #D4AF37;
+            text-decoration: none
+        }
+
+        .ls {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: #D4AF37;
+            border-radius: 50%;
+            animation: sp .8s linear infinite;
+            margin: 0 auto 20px
+        }
+
+        @keyframes sp {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        @media(max-width:480px) {
+            .card {
+                padding: 36px 20px
+            }
+
+            h1 {
+                font-size: 24px
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="c">
+        <div class="card" id="card">
+            <div style="padding:40px 0">
+                <div class="ls"></div>
+                <p class="sb">Loading...</p>
+            </div>
+        </div>
+    </div>
+    <script>
+        var A = 'https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/booking-summary';
+        async function go() {
+            var p = new URLSearchParams(location.search), b = p.get('booking_id'), c = document.getElementById('card');
+            if (!b) { c.innerHTML = ep('Invalid Link', 'This payment link is invalid.'); return }
+            if (p.get('cancelled') === 'true') { c.innerHTML = ep('Payment Cancelled', 'Your payment was not processed. Try again from the link in your email.'); return }
+            try {
+                var r = await fetch(A + '?booking_id=' + b); var d = await r.json();
+                if (!r.ok || d.error) { c.innerHTML = ep('Not Found', 'We could not find this booking.'); return }
+                var dp = d.deposit_paid_amount || 0, rm = (d.total_price || 0) - dp;
+                c.innerHTML = '<div class="ic">&#10003;</div>'
+                    + '<div class="sn">' + (d.salon_name || 'Salon') + '</div>'
+                    + '<div class="sg">' + (d.salon_tagline || '') + '</div>'
+                    + '<h1>Payment Successful!</h1>'
+                    + '<p class="sb">Thank you, ' + (d.client_name || 'Customer') + '! Your deposit has been received.</p>'
+                    + '<div class="badge">&#9679; Booking Confirmed</div>'
+                    + '<div class="dt">'
+                    + '<div class="rw"><span class="lb">Service</span><span class="vl">' + (d.service_name || 'Service') + '</span></div>'
+                    + '<div class="rw"><span class="lb">Date</span><span class="vl">' + (d.formatted_date || 'N/A') + '</span></div>'
+                    + '<div class="rw"><span class="lb">Time</span><span class="vl">' + (d.formatted_time || 'N/A') + '</span></div>'
+                    + '<div class="rw"><span class="lb">Stylist</span><span class="vl">' + (d.stylist_name || 'Any Available') + '</span></div>'
+                    + '</div>'
+                    + '<div class="py"><div class="pt">PAYMENT SUMMARY</div>'
+                    + '<div class="pr"><span>Total Service</span><span>$' + (d.total_price || 0).toFixed(2) + '</span></div>'
+                    + '<div class="pr"><span>Deposit Paid</span><span class="gr">-$' + dp.toFixed(2) + '</span></div>'
+                    + '<div class="pr t"><span>Remaining</span><span>$' + rm.toFixed(2) + '</span></div>'
+                    + '</div>'
+                    + '<p class="nf">A confirmation email has been sent. Remaining balance of <b>$' + rm.toFixed(2) + '</b> is due at the salon.</p>'
+                    + '<p class="pw">Powered by <a href="https://voxali.com">Voxali</a></p>';
+            } catch (e) { c.innerHTML = ep('Error', 'Please contact the salon.') }
+        }
+        function ep(t, m) { return '<div class="ic err">&#10007;</div><h1>' + t + '</h1><p class="sb">' + m + '</p><p class="pw">Powered by <a href="https://voxali.com">Voxali</a></p>' }
+        go();
+    </script>
+</body>
+
+</html>

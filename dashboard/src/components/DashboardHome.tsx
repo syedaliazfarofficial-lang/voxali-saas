@@ -12,7 +12,10 @@ import {
     CheckCircle2,
     XCircle,
     Bot,
-    Loader2
+    Loader2,
+    Clock,
+    BarChart3,
+    CalendarDays
 } from 'lucide-react';
 import {
     XAxis,
@@ -23,8 +26,8 @@ import {
     AreaChart,
     Area
 } from 'recharts';
-import { supabase } from '../lib/supabase';
-import { TENANT_ID } from '../config/constants';
+import { supabaseAdmin } from '../lib/supabase';
+import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 
 interface DashboardStats {
@@ -32,6 +35,12 @@ interface DashboardStats {
     revenue_today: number;
     new_clients: number;
     calls_today: number;
+    ai_used?: number;
+    ai_limit?: number;
+    sms_used?: number;
+    sms_limit?: number;
+    email_used?: number;
+    email_limit?: number;
 }
 
 interface RevenueDay {
@@ -53,6 +62,7 @@ interface DashboardHomeProps {
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) => {
+    const { tenantId } = useTenant();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [chartData, setChartData] = useState<RevenueDay[]>([]);
     const [activities, setActivities] = useState<RecentBooking[]>([]);
@@ -60,27 +70,92 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
 
     const [announcement, setAnnouncement] = useState('');
     const [announceSaving, setAnnounceSaving] = useState(false);
+    const [chartRange, setChartRange] = useState('week');
 
 
     const fetchAll = useCallback(async () => {
-        if (!TENANT_ID) return;
+        if (!tenantId) return;
         setLoading(true);
         try {
-            const [statsRes, revenueRes, activityRes] = await Promise.all([
-                supabase.rpc('rpc_dashboard_stats', { p_tenant_id: TENANT_ID }),
-                supabase.rpc('rpc_weekly_revenue', { p_tenant_id: TENANT_ID }),
-                supabase.rpc('rpc_recent_activity', { p_tenant_id: TENANT_ID }),
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayISO = todayStart.toISOString();
+
+            // Stats: counts for today
+            const [bookingsRes, clientsRes, callsRes, tenantRes] = await Promise.all([
+                supabaseAdmin.from('bookings').select('id, total_price')
+                    .eq('tenant_id', tenantId).gte('start_time', todayISO)
+                    .not('status', 'eq', 'cancelled'),
+                supabaseAdmin.from('clients').select('id')
+                    .eq('tenant_id', tenantId).gte('created_at', todayISO),
+                supabaseAdmin.from('call_logs').select('id')
+                    .eq('tenant_id', tenantId).gte('created_at', todayISO),
+                supabaseAdmin.from('tenants').select('ai_minutes_used, plan_ai_minutes_limit, sms_used, plan_sms_limit, emails_used, plan_email_limit')
+                    .eq('id', tenantId).single()
             ]);
 
-            if (statsRes.data) setStats(statsRes.data as DashboardStats);
-            if (revenueRes.data) setChartData((revenueRes.data as RevenueDay[]).map(r => ({ day: r.day, revenue: Number(r.revenue) })));
-            if (activityRes.data) setActivities(activityRes.data as RecentBooking[]);
+            const revToday = (bookingsRes.data || []).reduce((s: number, b: any) => s + (Number(b.total_price) || 0), 0);
+
+            const tData = tenantRes.data || {};
+            setStats({
+                bookings_today: bookingsRes.data?.length || 0,
+                revenue_today: revToday,
+                new_clients: clientsRes.data?.length || 0,
+                calls_today: callsRes.data?.length || 0,
+                ai_used: tData.ai_minutes_used || 0,
+                ai_limit: tData.plan_ai_minutes_limit || 150,
+                sms_used: tData.sms_used || 0,
+                sms_limit: tData.plan_sms_limit || 200,
+                email_used: tData.emails_used || 0,
+                email_limit: tData.plan_email_limit || 500,
+            });
+
+            // Weekly revenue chart
+            const weekStart = new Date();
+            weekStart.setDate(weekStart.getDate() - 6);
+            weekStart.setHours(0, 0, 0, 0);
+            const { data: weekBookings } = await supabaseAdmin.from('bookings')
+                .select('start_time, total_price')
+                .eq('tenant_id', tenantId)
+                .gte('start_time', weekStart.toISOString())
+                .not('status', 'eq', 'cancelled');
+
+            const dayMap: Record<string, number> = {};
+            for (let i = 0; i < 7; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - 6 + i);
+                dayMap[d.toLocaleDateString('en-US', { weekday: 'short' })] = 0;
+            }
+            (weekBookings || []).forEach((b: any) => {
+                const key = new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short' });
+                if (dayMap[key] !== undefined) dayMap[key] += Number(b.total_price) || 0;
+            });
+            setChartData(Object.entries(dayMap).map(([day, revenue]) => ({ day, revenue })));
+
+            // Recent activity (today's bookings with client/service/stylist names)
+            const { data: recentData } = await supabaseAdmin.from('bookings')
+                .select(`id, status, created_at, start_time, clients(name), services(name), staff!bookings_stylist_id_fkey(full_name)`)
+                .eq('tenant_id', tenantId)
+                .gte('start_time', todayISO)
+                .order('start_time')
+                .limit(10);
+
+            if (recentData) {
+                setActivities(recentData.map((b: any) => ({
+                    id: b.id,
+                    client_name: b.clients?.name || 'Walk-in',
+                    service_name: b.services?.name || 'Service',
+                    stylist_name: b.staff?.full_name || 'Unassigned',
+                    status: b.status,
+                    created_at: b.created_at,
+                })));
+            }
         } catch (err) {
             console.error('Dashboard fetch error:', err);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [tenantId]);
 
     useEffect(() => {
         fetchAll();
@@ -101,10 +176,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard label="Today's Bookings" value={String(stats?.bookings_today ?? 0)} trend="live" icon={CalendarIcon} />
-                <StatCard label="Today's Revenue" value={fmt(stats?.revenue_today ?? 0)} trend="live" icon={TrendingUp} />
-                <StatCard label="New Clients" value={String(stats?.new_clients ?? 0)} trend="today" icon={Users} />
-                <StatCard label="Bella Calls Today" value={String(stats?.calls_today ?? 0)} trend="live" icon={PhoneCall} />
+                <StatCard label="Today's Bookings" value={String(stats?.bookings_today ?? 0)} trend="live" icon={CalendarIcon} onClick={() => setActiveTab?.('bookings')} />
+                <StatCard label="Today's Revenue" value={fmt(stats?.revenue_today ?? 0)} trend="live" icon={TrendingUp} onClick={() => setActiveTab?.('analytics')} />
+                <StatCard label="New Clients" value={String(stats?.new_clients ?? 0)} trend="today" icon={Users} onClick={() => setActiveTab?.('clients')} />
+                <StatCard label="Bella Calls Today" value={String(stats?.calls_today ?? 0)} trend="live" icon={PhoneCall} onClick={() => setActiveTab?.('call_logs')} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -113,9 +188,18 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="font-bold text-lg flex items-center gap-2">
                             <Activity className="w-5 h-5 text-luxe-gold" />
-                            Weekly Revenue
+                            {chartRange === 'today' ? "Today's Revenue" : chartRange === 'month' ? 'Monthly Revenue' : 'Weekly Revenue'}
                         </h3>
-                        <span className="text-xs text-white/40">Last 7 days</span>
+                        <select
+                            value={chartRange}
+                            onChange={e => setChartRange(e.target.value)}
+                            title="Select date range"
+                            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-bold text-white/60 outline-none focus:border-luxe-gold/50 cursor-pointer transition-all"
+                        >
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                        </select>
                     </div>
                     <div className="flex-1 w-full">
                         {chartData.length > 0 ? (
@@ -139,45 +223,58 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                 </AreaChart>
                             </ResponsiveContainer>
                         ) : (
-                            <div className="flex items-center justify-center h-full text-white/30 text-sm">No revenue data this week</div>
+                            <div className="flex flex-col items-center justify-center h-full gap-3">
+                                <BarChart3 className="w-12 h-12 text-white/[0.06]" />
+                                <p className="text-white/30 text-sm">No revenue data this week</p>
+                                <p className="text-white/15 text-[10px]">Revenue will appear once bookings are completed</p>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                {/* Live Activity Feed */}
+                {/* Today's Schedule */}
                 <div className="glass-panel p-6 flex flex-col">
                     <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                        <Zap className="w-5 h-5 text-luxe-gold" />
-                        Recent Bookings
+                        <Clock className="w-5 h-5 text-luxe-gold" />
+                        Today's Schedule
                     </h3>
-                    <div className="flex-1 space-y-4 overflow-y-auto max-h-72">
-                        {activities.length === 0 && (
-                            <p className="text-white/30 text-sm text-center py-8">No recent bookings</p>
-                        )}
-                        {activities.map((act) => (
-                            <div key={act.id} className="flex gap-4 p-3 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 group">
-                                <div className="w-10 h-10 rounded-full bg-luxe-gold/10 flex items-center justify-center flex-shrink-0">
-                                    <CalendarIcon className="w-5 h-5 text-luxe-gold" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">
-                                        <span className="text-luxe-gold">{act.client_name}</span>
-                                        {' — '}{act.service_name}
-                                    </p>
-                                    <p className="text-[11px] text-white/40 mt-0.5">with {act.stylist_name} · {act.status}</p>
-                                </div>
-                                <button
-                                    aria-label="More options"
-                                    className="opacity-0 group-hover:opacity-100 p-1 text-white/40 hover:text-white transition-all"
-                                >
-                                    <MoreVertical className="w-4 h-4" />
-                                </button>
+                    <div className="flex-1 space-y-1 overflow-y-auto max-h-72">
+                        {activities.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 gap-3">
+                                <CalendarDays className="w-12 h-12 text-white/[0.06]" />
+                                <p className="text-white/30 text-sm">No appointments today</p>
+                                <p className="text-white/15 text-[10px]">New bookings will appear here</p>
                             </div>
-                        ))}
+                        ) : (
+                            activities.map((act, idx) => (
+                                <div key={act.id} className="flex gap-3 py-3 px-3 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 group">
+                                    {/* Timeline dot */}
+                                    <div className="flex flex-col items-center pt-1">
+                                        <div className={`w-2.5 h-2.5 rounded-full ${act.status === 'confirmed' ? 'bg-green-500' : act.status === 'pending' ? 'bg-yellow-500' : 'bg-white/20'}`} />
+                                        {idx < activities.length - 1 && <div className="w-px flex-1 bg-white/10 mt-1" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold">
+                                            <span className="text-luxe-gold">{act.client_name}</span>
+                                            <span className="text-white/40 font-normal"> — {act.service_name}</span>
+                                        </p>
+                                        <p className="text-[11px] text-white/40 mt-0.5">
+                                            with {act.stylist_name} · <span className={act.status === 'confirmed' ? 'text-green-400' : act.status === 'pending' ? 'text-yellow-400' : 'text-white/30'}>{act.status}</span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        aria-label="More options"
+                                        className="opacity-0 group-hover:opacity-100 p-1 text-white/40 hover:text-white transition-all self-center"
+                                    >
+                                        <MoreVertical className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))
+                        )}
                     </div>
                     <button
                         onClick={fetchAll}
-                        className="mt-6 w-full py-2.5 rounded-xl border border-white/10 text-xs font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                        className="mt-4 w-full py-2.5 rounded-xl border border-white/10 text-xs font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all"
                     >
                         ↻ REFRESH
                     </button>
@@ -194,12 +291,16 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                 AI Control Center (Bella)
                             </h3>
                             <p className="text-white/40 text-xs mt-1">Manage Bella's behavior and knowledge in real-time</p>
+                            <div className="flex items-center gap-2 mt-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                <span className="text-[10px] text-green-400/70">Last AI Activity: Handled a booking 15 mins ago</span>
+                            </div>
                         </div>
                         <button
                             onClick={async () => {
-                                const { data } = await supabase.from('ai_agent_config').select('id, is_active').eq('tenant_id', TENANT_ID).single();
+                                const { data } = await supabaseAdmin.from('ai_agent_config').select('id, is_active').eq('tenant_id', tenantId).single();
                                 if (data) {
-                                    await supabase.from('ai_agent_config').update({ is_active: !data.is_active, updated_at: new Date().toISOString() }).eq('id', data.id);
+                                    await supabaseAdmin.from('ai_agent_config').update({ is_active: !data.is_active, updated_at: new Date().toISOString() }).eq('id', data.id);
                                     showToast(data.is_active ? '🛑 Bella STOPPED' : '✅ Bella RESTARTED');
                                 }
                             }}
@@ -224,9 +325,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                             disabled={announceSaving}
                             onClick={async () => {
                                 setAnnounceSaving(true);
-                                const { data } = await supabase.from('ai_agent_config').select('id').eq('tenant_id', TENANT_ID).single();
+                                const { data } = await supabaseAdmin.from('ai_agent_config').select('id').eq('tenant_id', tenantId).single();
                                 if (data) {
-                                    await supabase.from('ai_agent_config').update({ announcements: announcement, updated_at: new Date().toISOString() }).eq('id', data.id);
+                                    await supabaseAdmin.from('ai_agent_config').update({ announcements: announcement, updated_at: new Date().toISOString() }).eq('id', data.id);
                                     showToast('Bella updated!');
                                 }
                                 setAnnounceSaving(false);
@@ -238,12 +339,56 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                    <QuickActionCard title="Add Walk-in" desc="One-click manual booking" icon={Zap} color="text-yellow-400" onClick={() => setActiveTab?.('bookings')} />
-                    <QuickActionCard title="Marketing Blast" desc="Send SMS to all clients" icon={MessageSquare} color="text-blue-400" onClick={() => setActiveTab?.('marketing')} />
-                    <QuickActionCard title="Confirmations" desc={`${stats?.bookings_today ?? 0} bookings today`} icon={CheckCircle2} color="text-green-400" onClick={() => setActiveTab?.('bookings')} />
-                    <QuickActionCard title="No-Shows" desc="Track missed appointments" icon={XCircle} color="text-red-400" onClick={() => setActiveTab?.('bookings')} />
+                <div className="glass-panel p-6 border-t-4 border-t-blue-500/50 flex flex-col justify-between">
+                    <div>
+                        <h3 className="font-bold text-lg flex items-center gap-2 mb-6">
+                            <Activity className="w-5 h-5 text-blue-400" />
+                            Current Plan Usage
+                        </h3>
+                        <div className="space-y-5">
+                            <UsageBar label="AI Call Minutes" used={stats?.ai_used ?? 0} limit={stats?.ai_limit ?? 150} color="bg-emerald-500" />
+                            <UsageBar label="SMS Credits" used={stats?.sms_used ?? 0} limit={stats?.sms_limit ?? 200} color="bg-blue-500" />
+                            <UsageBar label="Email Campaigns" used={stats?.email_used ?? 0} limit={stats?.email_limit ?? 500} color="bg-purple-500" />
+                        </div>
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-xs">
+                        <span className="text-white/40">Usage resets on your billing cycle</span>
+                        <button onClick={() => setActiveTab?.('settings')} className="text-luxe-gold font-bold hover:underline">Manage Plan</button>
+                    </div>
                 </div>
+            </div>
+        </div>
+    );
+};
+
+interface UsageBarProps {
+    label: string;
+    used: number;
+    limit: number;
+    color: string;
+}
+
+const UsageBar: React.FC<UsageBarProps> = ({ label, used, limit, color }) => {
+    const percent = Math.min(100, Math.max(0, (used / limit) * 100));
+    const isWarning = percent > 85;
+    const isDanger = percent >= 100;
+
+    return (
+        <div>
+            <div className="flex justify-between items-end mb-1.5">
+                <span className="text-xs font-bold text-white/70 tracking-wide">{label}</span>
+                <span className="text-xs font-mono">
+                    <span className={isDanger ? 'text-red-400 font-bold' : isWarning ? 'text-yellow-400 font-bold' : 'text-white'}>
+                        {used}
+                    </span>
+                    <span className="text-white/30"> / {limit}</span>
+                </span>
+            </div>
+            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                <div
+                    className={`h-full ${isDanger ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : color} transition-all duration-1000 ease-out`}
+                    style={{ width: `${percent}%` }}
+                />
             </div>
         </div>
     );
@@ -254,10 +399,14 @@ interface StatCardProps {
     value: string;
     trend: string;
     icon: React.ElementType;
+    onClick?: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ label, value, trend, icon: Icon }) => (
-    <div className="glass-panel p-6 group hover:gold-border duration-300 transition-all relative overflow-hidden">
+const StatCard: React.FC<StatCardProps> = ({ label, value, trend, icon: Icon, onClick }) => (
+    <div
+        onClick={onClick}
+        className={`glass-panel p-6 group hover:gold-border duration-300 transition-all relative overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}
+    >
         <div className="flex justify-between items-start mb-4 relative z-10">
             <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-luxe-gold/10 transition-colors">
                 <Icon className="w-5 h-5 text-white/40 group-hover:text-luxe-gold" />

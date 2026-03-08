@@ -8,4 +8,4 @@ export const TENANT_ID: string = import.meta.env.VITE_TENANT_ID ?? ''
 export const COMMISSION_RATE = 0.15
 
 /** Salon timezone */
-export const SALON_TIMEZONE = 'America/Chicago'
+export const SALON_TIMEZONE = 'America/New_York'

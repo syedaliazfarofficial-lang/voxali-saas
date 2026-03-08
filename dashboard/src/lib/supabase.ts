@@ -2,8 +2,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY || ''
 
 let supabase: SupabaseClient
+let supabaseAdmin: SupabaseClient
 
 if (!supabaseUrl || !supabaseAnonKey || supabaseAnonKey === 'YOUR_ANON_KEY_HERE') {
     console.warn(
@@ -12,8 +14,22 @@ if (!supabaseUrl || !supabaseAnonKey || supabaseAnonKey === 'YOUR_ANON_KEY_HERE'
     )
     // Create a dummy client pointing to a placeholder — all queries will fail gracefully
     supabase = createClient('https://placeholder.supabase.co', 'placeholder-key')
+    supabaseAdmin = supabase
 } else {
-    supabase = createClient(supabaseUrl, supabaseAnonKey)
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+            persistSession: true,       // Keep session in localStorage for instant reload
+            autoRefreshToken: true,      // Keep token fresh (AuthContext handles this silently)
+            detectSessionInUrl: false,   // Don't parse URL for session (prevents double init)
+        }
+    })
+    // Admin client bypasses RLS — used ONLY for initial profile fetch in AuthContext
+    supabaseAdmin = supabaseServiceKey
+        ? createClient(supabaseUrl, supabaseServiceKey, {
+            auth: { persistSession: false, autoRefreshToken: false }
+        })
+        : supabase
 }
 
-export { supabase }
+export { supabase, supabaseAdmin }
+

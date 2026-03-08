@@ -40,6 +40,11 @@ CREATE TABLE tenants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     slug TEXT UNIQUE NOT NULL,
+    -- Branding columns (custom display name, tagline, logo, owner name)
+    salon_name TEXT DEFAULT 'My Salon',
+    salon_tagline TEXT DEFAULT 'Salon & Spa',
+    logo_url TEXT DEFAULT NULL,
+    owner_name TEXT DEFAULT 'Owner',
     timezone TEXT DEFAULT 'America/Chicago',
     ai_enabled BOOLEAN DEFAULT TRUE,
     agent_enabled BOOLEAN DEFAULT TRUE,

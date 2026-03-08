@@ -1,23 +1,38 @@
--- ============================================================
--- CREATE SUPER ADMIN USER
--- Run this script in Supabase SQL Editor
--- ============================================================
--- REGLACE THESE VALUES
+-- Insert Super Admin if not exists
 DO $$
-DECLARE -- !!! CHANGE THESE VALUES BEFORE RUNNING !!!
-    v_email TEXT := 'super@voxali.com';
-v_password TEXT := 'super123';
--- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-v_user_id UUID := gen_random_uuid();
-v_check_exists INT;
-BEGIN -- Check if email already exists
-SELECT count(*) INTO v_check_exists
-FROM auth.users
-WHERE email = v_email;
-IF v_check_exists > 0 THEN RAISE EXCEPTION 'User with email % already exists',
-v_email;
-END IF;
--- 1. Create Identity (Required for proper auth)
+DECLARE v_user_id UUID := gen_random_uuid();
+BEGIN IF NOT EXISTS (
+    SELECT 1
+    FROM auth.users
+    WHERE email = 'super@voxali.com'
+) THEN
+INSERT INTO auth.users (
+        id,
+        instance_id,
+        aud,
+        role,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        raw_app_meta_data,
+        raw_user_meta_data,
+        created_at,
+        updated_at
+    )
+VALUES (
+        v_user_id,
+        '00000000-0000-0000-0000-000000000000',
+        'authenticated',
+        'authenticated',
+        'super@voxali.com',
+        crypt('voxaliadmin', gen_salt('bf')),
+        NOW(),
+        '{"provider": "email", "providers": ["email"]}',
+        '{"full_name": "Super Admin"}',
+        NOW(),
+        NOW()
+    );
+-- Link identity
 INSERT INTO auth.identities (
         id,
         user_id,
@@ -31,58 +46,28 @@ INSERT INTO auth.identities (
 VALUES (
         v_user_id,
         v_user_id,
-        jsonb_build_object('sub', v_user_id::TEXT, 'email', v_email),
+        jsonb_build_object(
+            'sub',
+            v_user_id::TEXT,
+            'email',
+            'super@voxali.com'
+        ),
         'email',
         v_user_id::TEXT,
         NOW(),
         NOW(),
         NOW()
     );
--- 2. Create User in auth.users
-INSERT INTO auth.users (
-        id,
-        instance_id,
-        email,
-        encrypted_password,
-        email_confirmed_at,
-        created_at,
-        updated_at,
-        raw_app_meta_data,
-        raw_user_meta_data,
-        aud,
-        role
-    )
-VALUES (
-        v_user_id,
-        '00000000-0000-0000-0000-000000000000',
-        v_email,
-        crypt(v_password, gen_salt('bf')),
-        NOW(),
-        NOW(),
-        NOW(),
-        jsonb_build_object('provider', 'email', 'providers', ARRAY ['email']),
-        jsonb_build_object('full_name', 'Super Admin'),
-        'authenticated',
-        'authenticated'
-    );
--- 3. Create Profile in public.profiles
--- tenant_id is NULL for Super Admin (global scope)
-INSERT INTO public.profiles (
-        id,
-        user_id,
-        email,
-        full_name,
-        role,
-        tenant_id
-    )
+-- Create super admin profile
+INSERT INTO public.profiles (id, user_id, tenant_id, full_name, email, role)
 VALUES (
         v_user_id,
         v_user_id,
-        v_email,
-        'Super Admin',
-        'super_admin',
-        NULL
+        (
+            SELECT id
+            FROM tenants
+            LIMIT 1
+        ), 'Super Admin', 'super@voxali.com', 'super_admin'
     );
-RAISE NOTICE 'Super Admin created successfully: %',
-v_email;
+END IF;
 END $$;

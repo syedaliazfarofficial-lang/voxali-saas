@@ -1,0 +1,83 @@
+{
+    "type": "webhook",
+    "name": "cancel_booking",
+    "description": "Cancel an existing booking. Can look up by client name and phone number.",
+    "disable_interruptions": false,
+    "force_pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "tool_error_handling_mode": "auto",
+    "execution_mode": "immediate",
+    "api_schema": {
+        "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/cancel-booking",
+        "method": "POST",
+        "path_params_schema": [],
+        "query_params_schema": [],
+        "request_body_schema": {
+            "id": "body",
+            "type": "object",
+            "description": "Booking identification for cancellation",
+            "properties": [
+                {
+                    "id": "tenant_id",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "The unique tenant UUID for this salon. Use the tenant_id provided in your system instructions.",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "name",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Client's full name",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "phone",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Client's phone number",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "booking_id",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Booking UUID if known (optional, can use name+phone instead)",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": false
+                }
+            ],
+            "required": false,
+            "value_type": "llm_prompt"
+        },
+        "request_headers": [
+            {
+                "type": "value",
+                "name": "X-TOOLS-KEY",
+                "value": "LUXE-AUREA-SECRET-2026"
+            }
+        ],
+        "auth_connection": null
+    },
+    "assignments": [],
+    "response_timeout_secs": 20,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    }
+}

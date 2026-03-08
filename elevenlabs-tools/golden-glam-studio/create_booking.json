@@ -1,0 +1,138 @@
+{
+    "type": "webhook",
+    "name": "create_booking",
+    "description": "Create a new booking/appointment. Collects client name, phone, email, service, date, and time. ALWAYS ask for client email as payment link will be sent there too.",
+    "disable_interruptions": false,
+    "force_pre_tool_speech": "auto",
+    "tool_call_sound": null,
+    "tool_call_sound_behavior": "auto",
+    "tool_error_handling_mode": "auto",
+    "execution_mode": "immediate",
+    "api_schema": {
+        "url": "https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/create-booking",
+        "method": "POST",
+        "path_params_schema": [],
+        "query_params_schema": [],
+        "request_body_schema": {
+            "id": "body",
+            "type": "object",
+            "description": "Booking details",
+            "properties": [
+                {
+                    "id": "tenant_id",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "The unique tenant UUID for this salon. Use the tenant_id provided in your system instructions.",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "client_name",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Full name of the client",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "client_phone",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Client phone number",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "client_email",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Client email address. IMPORTANT: Always ask for the email as the payment/deposit link will be sent there.",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "service_name",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "The service name (e.g. 'Haircut', 'Highlights'). Use plain English name.",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "date",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Appointment date in YYYY-MM-DD format",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "time",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Appointment time in HH:MM format (24hr) e.g. '10:00', '14:30'",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": true
+                },
+                {
+                    "id": "stylist_name",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Preferred stylist name (optional). Use the plain English name.",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": false
+                },
+                {
+                    "id": "notes",
+                    "type": "string",
+                    "value_type": "llm_prompt",
+                    "description": "Any special notes or requests from the client",
+                    "dynamic_variable": "",
+                    "constant_value": "",
+                    "enum": null,
+                    "is_system_provided": false,
+                    "required": false
+                }
+            ],
+            "required": false,
+            "value_type": "llm_prompt"
+        },
+        "request_headers": [
+            {
+                "type": "value",
+                "name": "X-TOOLS-KEY",
+                "value": "LUXE-AUREA-SECRET-2026"
+            }
+        ],
+        "auth_connection": null
+    },
+    "assignments": [],
+    "response_timeout_secs": 30,
+    "dynamic_variables": {
+        "dynamic_variable_placeholders": {}
+    }
+}

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful — Voxali</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0A0A0B;
+            color: #E0E0E0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: radial-gradient(circle at 30% 40%, rgba(212,175,55,0.06) 0%, transparent 60%),
+                        radial-gradient(circle at 70% 60%, rgba(16,185,129,0.04) 0%, transparent 50%);
+            animation: bgPulse 8s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+
+        @keyframes bgPulse {
+            0%   { transform: translate(0,0) scale(1); }
+            100% { transform: translate(-3%,-3%) scale(1.05); }
+        }
+
+        .container {
+            position: relative; z-index: 1;
+            max-width: 520px; width: 90%;
+            animation: slideUp 0.8s cubic-bezier(0.16,1,0.3,1) both;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: linear-gradient(145deg, #1A1A1F, #141417);
+            border: 1px solid rgba(212,175,55,0.15);
+            border-radius: 24px;
+            padding: 48px 36px;
+            text-align: center;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 60px rgba(212,175,55,0.05);
+        }
+
+        .check-container { width: 88px; height: 88px; margin: 0 auto 28px; }
+
+        .check-circle {
+            width: 88px; height: 88px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            animation: scaleIn 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.3s both;
+        }
+        .check-circle.success {
+            background: linear-gradient(135deg, #10B981, #059669);
+            box-shadow: 0 8px 30px rgba(16,185,129,0.3);
+        }
+        .check-circle.error {
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            box-shadow: 0 8px 30px rgba(239,68,68,0.3);
+        }
+
+        @keyframes scaleIn { from { transform: scale(0); } to { transform: scale(1); } }
+
+        .check-icon {
+            font-size: 42px;
+            animation: checkPop 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.7s both;
+        }
+        @keyframes checkPop {
+            from { opacity: 0; transform: scale(0) rotate(-10deg); }
+            to   { opacity: 1; transform: scale(1) rotate(0); }
+        }
+
+        .confetti {
+            position: fixed; border-radius: 2px;
+            animation: confettiFall 3s ease-out forwards; z-index: 10;
+        }
+        @keyframes confettiFall {
+            0%   { opacity: 1; transform: translateY(0) rotate(0deg); }
+            100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+        }
+
+        .salon-name {
+            font-size: 13px; letter-spacing: 3px; text-transform: uppercase;
+            color: #D4AF37; font-weight: 600; margin-bottom: 6px;
+        }
+        .salon-tagline {
+            font-size: 11px; color: #666; letter-spacing: 1px;
+            text-transform: uppercase; margin-bottom: 24px;
+        }
+        .title {
+            font-size: 28px; font-weight: 700; color: #FFF;
+            margin-bottom: 8px; line-height: 1.2;
+        }
+        .subtitle {
+            font-size: 15px; color: #A0A0A0; margin-bottom: 32px; line-height: 1.5;
+        }
+
+        .details-card {
+            background: rgba(212,175,55,0.06);
+            border: 1px solid rgba(212,175,55,0.12);
+            border-radius: 16px; padding: 24px;
+            margin-bottom: 24px; text-align: left;
+        }
+        .detail-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label { font-size: 13px; color: #888; display: flex; align-items: center; gap: 8px; }
+        .detail-value { font-size: 14px; font-weight: 600; color: #E0E0E0; }
+
+        .payment-card {
+            background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02));
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 16px; padding: 24px; margin-bottom: 28px;
+        }
+        .payment-header {
+            font-size: 12px; text-transform: uppercase; letter-spacing: 2px;
+            color: #10B981; font-weight: 600; margin-bottom: 16px;
+        }
+        .payment-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
+        .payment-row.total {
+            border-top: 1px solid rgba(16,185,129,0.15);
+            margin-top: 8px; padding-top: 14px;
+            font-weight: 700; color: #D4AF37; font-size: 16px;
+        }
+        .paid-amount { color: #10B981; font-weight: 700; }
+        .remaining-amount { color: #D4AF37; }
+
+        .status-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 20px; border-radius: 100px;
+            font-size: 13px; font-weight: 600;
+            background: rgba(16,185,129,0.1); color: #10B981;
+            border: 1px solid rgba(16,185,129,0.2); margin-bottom: 20px;
+        }
+
+        .powered-by { font-size: 11px; color: #444; margin-top: 24px; }
+        .powered-by a { color: #D4AF37; text-decoration: none; }
+
+        .loading-spinner {
+            width: 40px; height: 40px; border: 3px solid #333;
+            border-top-color: #D4AF37; border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .info-text {
+            font-size: 13px; color: #888; line-height: 1.6;
+        }
+        .info-text strong { color: #D4AF37; }
+
+        @media (max-width: 480px) {
+            .card { padding: 36px 24px; }
+            .title { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card" id="card">
+            <!-- Loading state -->
+            <div id="loading" style="padding: 40px 0;">
+                <div class="loading-spinner"></div>
+                <p class="subtitle">Loading your booking details...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqenhnamltYmNvcXN5bHJnbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0MzAyOTAsImV4cCI6MjA4NTAwNjI5MH0.1FOMuflts4TlAaqPT0lb9E4hvYwjvNxOr0hTBhFIi50';
+
+        async function loadBooking() {
+            const params = new URLSearchParams(window.location.search);
+            const bookingId = params.get('booking_id');
+            const cancelled = params.get('cancelled') === 'true';
+            const card = document.getElementById('card');
+
+            if (!bookingId) {
+                card.innerHTML = renderError('Invalid Link', 'This payment link is invalid or has expired.');
+                return;
+            }
+
+            if (cancelled) {
+                card.innerHTML = renderCancelled();
+                return;
+            }
+
+            try {
+                // Fetch booking with joins
+                const res = await fetch(
+                    `${SUPABASE_URL}/rest/v1/bookings?id=eq.${bookingId}&select=id,status,start_time,total_price,deposit_paid_amount,clients(name,email),services(name),staff(full_name),tenants(salon_name,salon_tagline)`,
+                    { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } }
+                );
+                const data = await res.json();
+                const booking = Array.isArray(data) ? data[0] : data;
+
+                if (!booking) {
+                    card.innerHTML = renderError('Booking Not Found', 'We couldn\'t find this booking. It may have been cancelled.');
+                    return;
+                }
+
+                const client = booking.clients || {};
+                const service = booking.services || {};
+                const staff = booking.staff || {};
+                const tenant = booking.tenants || {};
+                const depositPaid = booking.deposit_paid_amount || 0;
+                const remaining = (booking.total_price || 0) - depositPaid;
+                const startTime = new Date(booking.start_time);
+
+                card.innerHTML = renderSuccess({
+                    salonName: tenant.salon_name || 'Salon',
+                    salonTagline: tenant.salon_tagline || 'Premium Salon & Spa',
+                    clientName: client.name || 'Valued Customer',
+                    serviceName: service.name || 'Service',
+                    stylist: staff.full_name || 'Any Available',
+                    date: startTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
+                    time: startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+                    depositPaid: depositPaid.toFixed(2),
+                    remaining: remaining.toFixed(2),
+                    totalPrice: (booking.total_price || 0).toFixed(2),
+                });
+
+                // Confetti
+                spawnConfetti();
+
+            } catch (e) {
+                card.innerHTML = renderError('Something Went Wrong', 'Please contact the salon for assistance.');
+            }
+        }
+
+        function renderSuccess(d) {
+            return `
+                <div class="check-container">
+                    <div class="check-circle success"><span class="check-icon">✓</span></div>
+                </div>
+                <div class="salon-name">${d.salonName}</div>
+                <div class="salon-tagline">${d.salonTagline}</div>
+                <h1 class="title">Payment Successful!</h1>
+                <p class="subtitle">Thank you, ${d.clientName}! Your deposit has been received.</p>
+                <div class="status-badge"><span>●</span> Booking Confirmed</div>
+
+                <div class="details-card">
+                    <div class="detail-row">
+                        <span class="detail-label">💇 Service</span>
+                        <span class="detail-value">${d.serviceName}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">📅 Date</span>
+                        <span class="detail-value">${d.date}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">🕐 Time</span>
+                        <span class="detail-value">${d.time}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">💈 Stylist</span>
+                        <span class="detail-value">${d.stylist}</span>
+                    </div>
+                </div>
+
+                <div class="payment-card">
+                    <div class="payment-header">💳 Payment Summary</div>
+                    <div class="payment-row">
+                        <span>Total Service</span><span>$${d.totalPrice}</span>
+                    </div>
+                    <div class="payment-row">
+                        <span>Deposit Paid</span><span class="paid-amount">−$${d.depositPaid}</span>
+                    </div>
+                    <div class="payment-row total">
+                        <span>Remaining Balance</span><span class="remaining-amount">$${d.remaining}</span>
+                    </div>
+                </div>
+
+                <p class="info-text">
+                    A confirmation email has been sent. Please arrive 10 minutes early for your consultation.
+                    The remaining balance of <strong>$${d.remaining}</strong> is due at the salon.
+                </p>
+                <p class="powered-by">Powered by <a href="https://voxali.com">Voxali</a></p>
+            `;
+        }
+
+        function renderError(title, message) {
+            return `
+                <div class="check-container">
+                    <div class="check-circle error"><span class="check-icon">✕</span></div>
+                </div>
+                <h1 class="title">${title}</h1>
+                <p class="subtitle">${message}</p>
+                <p class="powered-by">Powered by <a href="https://voxali.com">Voxali</a></p>
+            `;
+        }
+
+        function renderCancelled() {
+            return `
+                <div class="check-container">
+                    <div class="check-circle error"><span class="check-icon">✕</span></div>
+                </div>
+                <h1 class="title">Payment Cancelled</h1>
+                <p class="subtitle">Your payment was not processed. You can try again using the link in your email.</p>
+                <p class="powered-by">Powered by <a href="https://voxali.com">Voxali</a></p>
+            `;
+        }
+
+        function spawnConfetti() {
+            const colors = ['#D4AF37', '#10B981', '#E0E0E0', '#22C55E', '#F59E0B'];
+            for (let i = 0; i < 50; i++) {
+                const c = document.createElement('div');
+                c.className = 'confetti';
+                c.style.left = Math.random() * 100 + 'vw';
+                c.style.top = '-10px';
+                c.style.background = colors[Math.floor(Math.random() * colors.length)];
+                c.style.animationDelay = Math.random() * 2 + 's';
+                c.style.width = (Math.random() * 8 + 4) + 'px';
+                c.style.height = (Math.random() * 8 + 4) + 'px';
+                document.body.appendChild(c);
+            }
+        }
+
+        loadBooking();
+    </script>
+</body>
+</html>

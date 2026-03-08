@@ -1,0 +1,173 @@
+-- FIX DOUBLE BOOKINGS
+-- The existing get_available_slots() function only compared time of day, ignoring the date for conflicts.
+-- It also had timezone mismatch issues causing the check to fail.
+-- We are replacing the conflict check with full TIMESTAMPTZ logic.
+CREATE OR REPLACE FUNCTION get_available_slots(
+        p_tenant_id UUID,
+        p_date DATE,
+        p_service_ids UUID [] DEFAULT NULL,
+        p_staff_id UUID DEFAULT NULL,
+        p_slot_interval INTEGER DEFAULT 30
+    ) RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE v_tenant RECORD;
+v_day_of_week INTEGER;
+v_total_duration INTEGER := 0;
+v_service RECORD;
+v_services JSON [];
+v_staff RECORD;
+v_wh RECORD;
+v_slot_start TIME;
+v_slot_end TIME;
+v_open_time TIME;
+v_close_time TIME;
+v_is_open BOOLEAN;
+v_conflict_count INTEGER;
+v_slots JSON [] := '{}';
+v_all_services JSON [] := '{}';
+BEGIN -- Get tenant info
+SELECT * INTO v_tenant
+FROM tenants
+WHERE id = p_tenant_id;
+IF NOT FOUND THEN RETURN json_build_object('ok', false, 'error', 'Tenant not found');
+END IF;
+-- Get day of week (0=Sunday)
+v_day_of_week := EXTRACT(
+    DOW
+    FROM p_date
+);
+-- Check tenant hours for this day
+SELECT open_time,
+    close_time,
+    is_open INTO v_open_time,
+    v_close_time,
+    v_is_open
+FROM tenant_hours
+WHERE tenant_id = p_tenant_id
+    AND day_of_week = v_day_of_week;
+-- Fallback to tenant default if no per-day hours
+IF NOT FOUND THEN v_open_time := v_tenant.open_time;
+v_close_time := v_tenant.close_time;
+v_is_open := TRUE;
+END IF;
+-- Check if salon is open
+IF NOT v_is_open THEN RETURN json_build_object(
+    'ok',
+    true,
+    'date',
+    p_date,
+    'is_closed',
+    true,
+    'message',
+    'Salon is closed on this day',
+    'slots',
+    '[]'::json
+);
+END IF;
+-- Calculate total duration from requested services
+IF p_service_ids IS NOT NULL
+AND array_length(p_service_ids, 1) > 0 THEN FOR v_service IN
+SELECT id,
+    name,
+    duration,
+    processing_duration,
+    gap_start_offset,
+    price
+FROM services
+WHERE id = ANY(p_service_ids)
+    AND tenant_id = p_tenant_id
+    AND is_active = TRUE LOOP v_total_duration := v_total_duration + v_service.duration;
+v_all_services := v_all_services || json_build_object(
+    'id',
+    v_service.id,
+    'name',
+    v_service.name,
+    'duration',
+    v_service.duration,
+    'price',
+    v_service.price
+);
+END LOOP;
+END IF;
+-- Default duration if no services specified
+IF v_total_duration = 0 THEN v_total_duration := 60;
+END IF;
+-- Add buffer
+v_total_duration := v_total_duration + COALESCE(v_tenant.default_buffer_min, 15);
+-- Generate slots for each available staff member
+FOR v_staff IN
+SELECT s.id,
+    s.full_name
+FROM staff s
+WHERE s.tenant_id = p_tenant_id
+    AND s.is_active = TRUE
+    AND s.can_take_bookings = TRUE
+    AND (
+        p_staff_id IS NULL
+        OR s.id = p_staff_id
+    ) -- Check staff is not on time off
+    AND NOT EXISTS (
+        SELECT 1
+        FROM staff_timeoff st
+        WHERE st.staff_id = s.id
+            AND p_date BETWEEN st.start_datetime::date AND st.end_datetime::date
+    ) LOOP -- Get working hours for this staff on this day
+    FOR v_wh IN
+SELECT start_time,
+    end_time
+FROM staff_working_hours
+WHERE staff_id = v_staff.id
+    AND tenant_id = p_tenant_id
+    AND day_of_week = v_day_of_week
+    AND is_working = TRUE LOOP -- Clamp to salon hours
+    v_slot_start := GREATEST(v_wh.start_time, v_open_time);
+v_slot_end := LEAST(v_wh.end_time, v_close_time);
+-- Generate slots at interval
+WHILE v_slot_start + (v_total_duration || ' minutes')::interval <= v_slot_end LOOP -- FIX: Compare actual TIMESTAMPTZ overlapping instead of raw TIME overlaps which ignore the date
+SELECT COUNT(*) INTO v_conflict_count
+FROM bookings b
+WHERE b.stylist_id = v_staff.id
+    AND b.status NOT IN ('cancelled', 'no_show')
+    AND b.start_at < (
+        (p_date + v_slot_start) AT TIME ZONE 'America/New_York' + (v_total_duration || ' minutes')::interval
+    )
+    AND b.end_at > (
+        (p_date + v_slot_start) AT TIME ZONE 'America/New_York'
+    );
+-- Only add slot if no conflicts
+IF v_conflict_count = 0 THEN v_slots := v_slots || json_build_object(
+    'staff_id',
+    v_staff.id,
+    'staff_name',
+    v_staff.full_name,
+    'start_at',
+    p_date || 'T' || v_slot_start::text,
+    'end_at',
+    p_date || 'T' || (
+        v_slot_start + (v_total_duration || ' minutes')::interval
+    )::time::text,
+    'total_minutes',
+    v_total_duration
+);
+END IF;
+v_slot_start := v_slot_start + (p_slot_interval || ' minutes')::interval;
+END LOOP;
+END LOOP;
+END LOOP;
+RETURN json_build_object(
+    'ok',
+    true,
+    'date',
+    p_date,
+    'is_closed',
+    false,
+    'total_duration_min',
+    v_total_duration,
+    'services',
+    to_json(v_all_services),
+    'slots_count',
+    array_length(v_slots, 1),
+    'slots',
+    to_json(v_slots)
+);
+END;
+$$;

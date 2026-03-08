@@ -11,8 +11,8 @@ import {
     Power,
     PowerOff
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { TENANT_ID } from '../config/constants';
+import { supabaseAdmin } from '../lib/supabase';
+import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 
 interface AgentConfig {
@@ -25,6 +25,7 @@ interface AgentConfig {
 
 export const BellaAI: React.FC = () => {
     const [config, setConfig] = useState<AgentConfig | null>(null);
+    const { tenantId } = useTenant();
     const [editPrompt, setEditPrompt] = useState('');
     const [editAnnouncements, setEditAnnouncements] = useState('');
     const [loading, setLoading] = useState(true);
@@ -32,12 +33,12 @@ export const BellaAI: React.FC = () => {
     const [hasChanges, setHasChanges] = useState(false);
 
     const fetchConfig = useCallback(async () => {
-        if (!TENANT_ID) return;
+        if (!tenantId) return;
         setLoading(true);
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('ai_agent_config')
             .select('*')
-            .eq('tenant_id', TENANT_ID)
+            .eq('tenant_id', tenantId)
             .single();
         if (!error && data) {
             const c = data as AgentConfig;
@@ -58,7 +59,7 @@ export const BellaAI: React.FC = () => {
     const handleSave = async () => {
         if (!config) return;
         setSaving(true);
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('ai_agent_config')
             .update({
                 system_prompt: editPrompt,
@@ -77,7 +78,7 @@ export const BellaAI: React.FC = () => {
     const handleToggle = async () => {
         if (!config) return;
         const newVal = !config.is_active;
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
             .from('ai_agent_config')
             .update({ is_active: newVal, updated_at: new Date().toISOString() })
             .eq('id', config.id);

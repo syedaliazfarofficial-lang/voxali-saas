@@ -9,12 +9,13 @@ import { Analytics } from './components/Analytics'
 import { Marketing } from './components/Marketing'
 import { BellaAI } from './components/BellaAI'
 import { Settings } from './components/Settings'
+import { MyProfile } from './components/MyProfile'
 import { LoginPage } from './components/LoginPage'
 import { TenantProvider, useTenant } from './context/TenantContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { ToastProvider } from './components/ui/ToastNotification'
+import { ToastProvider, showToast } from './components/ui/ToastNotification'
 import { SuperAdminLayout } from './components/SuperAdmin/SuperAdminLayout'
-import { ArrowLeft, AlertTriangle, LogOut, Loader2 } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, LogOut, Loader2, Plus, Clock } from 'lucide-react'
 
 // ─── Floating "Back to Admin" bar for impersonation ───
 function ImpersonationBar() {
@@ -26,7 +27,8 @@ function ImpersonationBar() {
     localStorage.removeItem('voxali_impersonate_tenant')
     localStorage.removeItem('admin_viewing_tenant')
     localStorage.removeItem('voxali_impersonate_name')
-    window.location.reload()
+    // Trigger re-render instead of full page reload
+    window.dispatchEvent(new CustomEvent('voxali:impersonation-changed'))
   }
 
   return (
@@ -61,7 +63,7 @@ function AuthErrorScreen() {
     }
     keysToRemove.forEach(k => localStorage.removeItem(k))
     await forceLogout()
-    window.location.reload()
+    // forceLogout already resets all state — no reload needed
   }
 
   return (
@@ -88,11 +90,73 @@ function AuthErrorScreen() {
   )
 }
 
+function DigitalClock() {
+  const { timezone } = useTenant()
+  const [time, setTime] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <div className="h-9 px-3 flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 rounded-md">
+      <Clock className="w-3.5 h-3.5 text-zinc-400" />
+      <span className="text-xs font-medium text-zinc-300 font-mono">
+        {time.toLocaleTimeString('en-US', { timeZone: timezone || 'America/New_York', hour: '2-digit', minute: '2-digit' })}
+      </span>
+    </div>
+  )
+}
+
 function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [, setImpVersion] = useState(0)
+
+  // Listen for impersonation changes — re-render without page reload
+  useEffect(() => {
+    const handler = () => setImpVersion(v => v + 1)
+    window.addEventListener('voxali:impersonation-changed', handler)
+    return () => window.removeEventListener('voxali:impersonation-changed', handler)
+  }, [])
   const [isDarkMode, setIsDarkMode] = useState(true)
-  const { salonName, ownerName } = useTenant()
-  const { user, role, loading: authLoading, timedOut, forceLogout } = useAuth()
+  const { salonName, ownerName, loading: tenantLoading } = useTenant()
+  const { user, role, profile, isStaff, staffRecord, loading: authLoading, timedOut, forceLogout } = useAuth()
+
+  // ─── RBAC: Allowed tabs per role ───
+  const ALLOWED_TABS: Record<string, string[]> = {
+    super_admin: ['dashboard', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'bella', 'settings'],
+    owner: ['dashboard', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'bella', 'settings'],
+    manager: ['dashboard', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'bella', 'my_profile'],
+    staff: ['bookings', 'my_profile'],
+    receptionist: ['bookings', 'clients', 'calls', 'my_profile'],
+  }
+
+  const DEFAULT_TAB: Record<string, string> = {
+    super_admin: 'dashboard',
+    owner: 'dashboard',
+    manager: 'dashboard',
+    staff: 'bookings',
+    receptionist: 'bookings',
+  }
+
+  // ─── Enforce tab restrictions when role resolves ───
+  useEffect(() => {
+    if (!role) return
+    const allowed = ALLOWED_TABS[role] || ['bookings']
+    if (!allowed.includes(activeTab)) {
+      setActiveTab(DEFAULT_TAB[role] || 'bookings')
+    }
+  }, [role]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Role-aware tab setter (prevents navigating to restricted tabs) ───
+  const safeSetActiveTab = (tab: string) => {
+    if (!role) return
+    const allowed = ALLOWED_TABS[role] || ['bookings']
+    if (allowed.includes(tab)) {
+      setActiveTab(tab)
+    }
+  }
 
   useEffect(() => {
     if (isDarkMode) {
@@ -101,6 +165,21 @@ function AppContent() {
       document.documentElement.classList.remove('dark')
     }
   }, [isDarkMode])
+
+  // ─── Handle Payment Redirects (Stripe) ───
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('payment_success') === 'true') {
+      showToast('Payment successful! Your booking is confirmed.', 'success')
+      setActiveTab('bookings')
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    } else if (params.get('payment_cancelled') === 'true') {
+      showToast('Payment was cancelled.', 'info')
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
 
   const handleLogout = useCallback(async () => {
     // Nuclear clear all supabase localStorage
@@ -115,12 +194,14 @@ function AppContent() {
     await forceLogout()
   }, [forceLogout])
 
-  // ─── Auth is still loading ───
-  if (authLoading) {
+  // ─── Auth or Tenant still loading ───
+  // Wait for BOTH to complete before rendering dashboard.
+  // This prevents the "My Salon" / "kinza" blink on page refresh.
+  if (authLoading || tenantLoading) {
     return (
       <div className="flex h-screen bg-luxe-obsidian items-center justify-center flex-col gap-4">
         <Loader2 className="w-8 h-8 text-luxe-gold animate-spin" />
-        <p className="text-white/40 text-sm">Loading your profile...</p>
+        <p className="text-white/40 text-sm">{authLoading ? 'Loading your profile...' : 'Loading salon...'}</p>
       </div>
     )
   }
@@ -133,9 +214,8 @@ function AppContent() {
   // ─── Not logged in — show login ───
   if (!user) {
     return <LoginPage onLogin={() => {
-      // After login, the auth state change will trigger and set user
-      // Force a reload to ensure clean state
-      window.location.reload()
+      // Auth state change will automatically detect the new session
+      // and update user/profile/role — no reload needed!
     }} />
   }
 
@@ -163,6 +243,7 @@ function AppContent() {
     marketing: 'Marketing',
     bella: 'Bella AI',
     settings: 'Settings',
+    my_profile: 'My Profile',
   }
 
   return (
@@ -173,41 +254,61 @@ function AppContent() {
       <div className={`flex h-screen bg-luxe-obsidian text-luxe-white overflow-hidden ${isImpersonating ? 'pt-10' : ''}`}>
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={safeSetActiveTab}
           isDarkMode={isDarkMode}
           toggleTheme={() => setIsDarkMode(!isDarkMode)}
           onLogout={handleLogout}
         />
 
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <div className="p-8 max-w-7xl mx-auto">
-            {/* Header */}
-            <header className="flex justify-between items-center mb-8">
+          <div className="px-6 py-5 max-w-7xl mx-auto">
+            {/* Compact Header */}
+            <header className="flex justify-between items-center mb-5">
               <div>
-                <h2 className="text-3xl font-bold gold-text">{tabTitles[activeTab] ?? activeTab}</h2>
-                <p className="text-white/40 mt-1">Welcome back to {salonName} Dashboard</p>
+                <h2 className="text-2xl font-bold gold-text">{tabTitles[activeTab] ?? activeTab}</h2>
+                <p className="text-white/40 text-xs mt-0.5">Welcome back to {salonName}</p>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-full border border-green-500/20">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Bella AI: Online</span>
-                </div>
-                <div className="flex items-center gap-3 bg-white/5 p-1 pr-4 rounded-full border border-white/10">
-                  <div className="w-10 h-10 rounded-full bg-gold-gradient flex items-center justify-center text-luxe-obsidian font-bold">
-                    {ownerName.charAt(0)}
+              <div className="flex items-center gap-3 h-full">
+                {/* + New Booking */}
+                {!isStaff && (
+                  <button
+                    onClick={() => safeSetActiveTab('bookings')}
+                    className="h-9 px-4 flex items-center gap-1.5 bg-yellow-500 text-black text-sm font-bold rounded-md hover:bg-yellow-400 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Booking
+                  </button>
+                )}
+
+                {/* Clock */}
+                <DigitalClock />
+
+                {/* AI status pill - generic */}
+                {!isStaff && (
+                  <div className="h-9 px-3 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-bold text-emerald-400 tracking-wide">AI Receptionist: Active</span>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold">{ownerName} (Owner)</p>
-                    <p className="text-[10px] text-white/40">{salonName}</p>
+                )}
+
+                {/* User avatar + name */}
+                <div className="h-9 pl-1 pr-3 flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-full hover:bg-zinc-700 cursor-pointer transition-colors">
+                  <div className="w-7 h-7 rounded-full bg-yellow-500 text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    {(isStaff ? (staffRecord?.full_name as string || 'S') : ownerName).charAt(0)}
                   </div>
+                  <span className="text-xs font-medium text-white truncate max-w-[100px]">
+                    {isStaff
+                      ? (staffRecord?.full_name as string || 'Stylist').split(' ')[0]
+                      : ownerName.split(' ')[0] || 'Admin'}
+                  </span>
                 </div>
               </div>
             </header>
 
             {/* Dynamic Content Area */}
             <div className="space-y-6 flex-1 flex flex-col h-full">
-              {activeTab === 'dashboard' && <DashboardHome setActiveTab={setActiveTab} />}
+              {activeTab === 'dashboard' && <DashboardHome setActiveTab={safeSetActiveTab} />}
               {activeTab === 'bookings' && <BookingsCalendar />}
               {activeTab === 'clients' && <ClientCRM />}
               {activeTab === 'stylists' && <StaffBoard />}
@@ -216,6 +317,7 @@ function AppContent() {
               {activeTab === 'marketing' && <Marketing />}
               {activeTab === 'bella' && <BellaAI />}
               {activeTab === 'settings' && <Settings />}
+              {activeTab === 'my_profile' && <MyProfile />}
             </div>
           </div>
         </main>
@@ -226,13 +328,13 @@ function AppContent() {
 
 function App() {
   return (
-    <TenantProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <TenantProvider>
         <ToastProvider>
           <AppContent />
         </ToastProvider>
-      </AuthProvider>
-    </TenantProvider>
+      </TenantProvider>
+    </AuthProvider>
   )
 }
 

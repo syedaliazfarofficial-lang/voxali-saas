@@ -4,8 +4,8 @@ import {
     MessageSquare, ChevronRight, Bot, Loader2, X, Filter,
     FileText, Volume2
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { TENANT_ID } from '../config/constants';
+import { supabase, supabaseAdmin } from '../lib/supabase';
+import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 
 interface CallLog {
@@ -16,6 +16,7 @@ interface CallLog {
 
 export const CallLogs: React.FC = () => {
     const [logs, setLogs] = useState<CallLog[]>([]);
+    const { tenantId } = useTenant();
     const [loading, setLoading] = useState(true);
     const [selectedLog, setSelectedLog] = useState<CallLog | null>(null);
     const [search, setSearch] = useState('');
@@ -26,13 +27,13 @@ export const CallLogs: React.FC = () => {
     const [dateTo, setDateTo] = useState('');
 
     const fetchLogs = useCallback(async () => {
-        if (!TENANT_ID) return;
+        if (!tenantId) return;
         setLoading(true);
 
         let query = supabase
             .from('call_logs')
             .select('*')
-            .eq('tenant_id', TENANT_ID)
+            .eq('tenant_id', tenantId)
             .order('created_at', { ascending: false })
             .limit(50);
 

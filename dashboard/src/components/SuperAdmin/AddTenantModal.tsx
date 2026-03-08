@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Shield, Building2, Loader2 } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+import { X, Shield, Building2, Loader2, Eye, EyeOff, Phone, Globe, Star, Mail, MessageSquare } from 'lucide-react';
 
 interface AddTenantModalProps {
     isOpen: boolean;
@@ -12,10 +13,18 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({ isOpen, onClose,
     const [form, setForm] = useState({
         businessName: '',
         ownerEmail: '',
+        ownerPhone: '',
         ownerPassword: '',
+        confirmPassword: '',
+        // New fields
+        salonEmail: '',
+        salonWebsite: '',
+        googleReviewUrl: '',
+        twilioPhoneNumber: '',
     });
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState('');
+    const [showPw, setShowPw] = useState(false);
 
     if (!isOpen) return null;
 
@@ -25,17 +34,59 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({ isOpen, onClose,
         setError('');
 
         try {
-            const { data, error: rpcError } = await supabase.rpc('rpc_create_tenant_and_owner', {
+            const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+            if (!serviceKey) {
+                throw new Error('Service key not configured. Add VITE_SUPABASE_SERVICE_KEY to .env');
+            }
+
+            // Step 1: Create auth user
+            const adminClient = createClient(supabaseUrl, serviceKey, {
+                auth: { autoRefreshToken: false, persistSession: false }
+            });
+
+            const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+                email: form.ownerEmail,
+                password: form.ownerPassword,
+                phone: form.ownerPhone || undefined,
+                email_confirm: true,
+                user_metadata: { full_name: form.businessName + ' Owner', phone: form.ownerPhone }
+            });
+
+            if (authError) throw authError;
+            if (!authData.user) throw new Error('Failed to create user');
+
+            const newUserId = authData.user.id;
+
+            // Step 2: Create tenant + profile via RPC
+            const { data, error: rpcError } = await supabase.rpc('rpc_create_tenant_for_user', {
+                p_user_id: newUserId,
                 p_salon_name: form.businessName,
                 p_owner_name: form.businessName + ' Owner',
                 p_owner_email: form.ownerEmail,
-                p_owner_password: form.ownerPassword,
             });
 
             if (rpcError) throw rpcError;
             if (data && !data.success) throw new Error(data.error);
 
-            setForm({ businessName: '', ownerEmail: '', ownerPassword: '' });
+            // Step 3: Update tenant with extra fields (Twilio, website, Google review, etc.)
+            const tenantId = data?.tenant_id;
+            if (tenantId) {
+                await supabase.from('tenants').update({
+                    salon_email: form.salonEmail || null,
+                    salon_website: form.salonWebsite || null,
+                    google_review_url: form.googleReviewUrl || null,
+                    twilio_phone_number: form.twilioPhoneNumber || null,
+                    salon_phone_owner: form.ownerPhone || null,
+                    notifications_enabled: true,
+                }).eq('id', tenantId);
+            }
+
+            setForm({
+                businessName: '', ownerEmail: '', ownerPhone: '', ownerPassword: '', confirmPassword: '',
+                salonEmail: '', salonWebsite: '', googleReviewUrl: '', twilioPhoneNumber: '',
+            });
             onCreated();
             onClose();
         } catch (err: any) {
@@ -48,16 +99,16 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({ isOpen, onClose,
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-sa-navy border border-sa-border rounded-2xl w-full max-w-md shadow-2xl shadow-black/40">
+            <div className="bg-sa-navy border border-sa-border rounded-2xl w-full max-w-lg shadow-2xl shadow-black/40 max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-sa-border">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-sa-border sticky top-0 bg-sa-navy z-10">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-lg bg-sa-accent/10">
                             <Building2 className="w-5 h-5 text-sa-accent" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-sa-platinum">Add New Tenant</h3>
-                            <p className="text-xs text-sa-muted">Create a new salon with an owner account</p>
+                            <h3 className="text-lg font-bold text-sa-platinum">Add New Salon</h3>
+                            <p className="text-xs text-sa-muted">Create a new salon with owner account & integrations</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/5 text-sa-muted hover:text-sa-platinum transition-colors">
@@ -70,7 +121,7 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({ isOpen, onClose,
                     {/* Business Name */}
                     <div>
                         <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 block">
-                            Business Name
+                            Salon Name *
                         </label>
                         <input
                             type="text"
@@ -82,7 +133,67 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({ isOpen, onClose,
                         />
                     </div>
 
-                    {/* Owner Section */}
+                    {/* ===== SALON DETAILS SECTION ===== */}
+                    <div className="pt-4 border-t border-sa-border">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Globe className="w-4 h-4 text-sa-accent" />
+                            <h4 className="text-xs font-bold text-sa-accent uppercase tracking-wider">Salon Details</h4>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 flex items-center gap-1">
+                                    <Mail className="w-3 h-3" /> Salon Email
+                                </label>
+                                <input
+                                    type="email"
+                                    value={form.salonEmail}
+                                    onChange={e => setForm({ ...form, salonEmail: e.target.value })}
+                                    className="w-full bg-sa-slate/50 border border-sa-border rounded-xl px-4 py-3 text-sm text-sa-platinum placeholder:text-sa-muted/40 outline-none focus:border-sa-accent/50 focus:bg-sa-slate/80 transition-all"
+                                    placeholder="info@salon.com"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 flex items-center gap-1">
+                                    <Globe className="w-3 h-3" /> Website
+                                </label>
+                                <input
+                                    type="url"
+                                    value={form.salonWebsite}
+                                    onChange={e => setForm({ ...form, salonWebsite: e.target.value })}
+                                    className="w-full bg-sa-slate/50 border border-sa-border rounded-xl px-4 py-3 text-sm text-sa-platinum placeholder:text-sa-muted/40 outline-none focus:border-sa-accent/50 focus:bg-sa-slate/80 transition-all"
+                                    placeholder="https://www.salon.com"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 flex items-center gap-1">
+                                    <Star className="w-3 h-3" /> Google Review Link
+                                </label>
+                                <input
+                                    type="url"
+                                    value={form.googleReviewUrl}
+                                    onChange={e => setForm({ ...form, googleReviewUrl: e.target.value })}
+                                    className="w-full bg-sa-slate/50 border border-sa-border rounded-xl px-4 py-3 text-sm text-sa-platinum placeholder:text-sa-muted/40 outline-none focus:border-sa-accent/50 focus:bg-sa-slate/80 transition-all"
+                                    placeholder="https://g.page/r/your-salon/review"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 flex items-center gap-1">
+                                    <MessageSquare className="w-3 h-3" /> Twilio SMS Number
+                                </label>
+                                <input
+                                    type="tel"
+                                    value={form.twilioPhoneNumber}
+                                    onChange={e => setForm({ ...form, twilioPhoneNumber: e.target.value })}
+                                    className="w-full bg-sa-slate/50 border border-sa-border rounded-xl px-4 py-3 text-sm text-sa-platinum placeholder:text-sa-muted/40 outline-none focus:border-sa-accent/50 focus:bg-sa-slate/80 transition-all font-mono"
+                                    placeholder="+16592174925"
+                                />
+                                <p className="text-[10px] text-sa-muted/60 mt-1">Buy from Twilio → assign here. Used for SMS notifications.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ===== OWNER SECTION ===== */}
                     <div className="pt-4 border-t border-sa-border">
                         <div className="flex items-center gap-2 mb-4">
                             <Shield className="w-4 h-4 text-sa-accent" />
@@ -92,7 +203,7 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({ isOpen, onClose,
                         <div className="space-y-4">
                             <div>
                                 <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 block">
-                                    Owner Email
+                                    Owner Email *
                                 </label>
                                 <input
                                     type="email"
@@ -104,19 +215,59 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({ isOpen, onClose,
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 block">
-                                    Password
+                                <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 flex items-center gap-1">
+                                    <Phone className="w-3 h-3" /> Owner Phone *
                                 </label>
                                 <input
-                                    type="password"
+                                    type="tel"
                                     required
-                                    minLength={6}
-                                    value={form.ownerPassword}
-                                    onChange={e => setForm({ ...form, ownerPassword: e.target.value })}
+                                    value={form.ownerPhone}
+                                    onChange={e => setForm({ ...form, ownerPhone: e.target.value })}
                                     className="w-full bg-sa-slate/50 border border-sa-border rounded-xl px-4 py-3 text-sm text-sa-platinum placeholder:text-sa-muted/40 outline-none focus:border-sa-accent/50 focus:bg-sa-slate/80 transition-all"
-                                    placeholder="Min 6 characters"
+                                    placeholder="+92 300 1234567"
                                 />
+                                <p className="text-[10px] text-sa-muted/60 mt-1">For Bella AI call transfer to owner</p>
                             </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 block">
+                                    Password *
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        type={showPw ? 'text' : 'password'}
+                                        required
+                                        minLength={6}
+                                        value={form.ownerPassword}
+                                        onChange={e => setForm({ ...form, ownerPassword: e.target.value })}
+                                        className="w-full bg-sa-slate/50 border border-sa-border rounded-xl px-4 py-3 pr-10 text-sm text-sa-platinum placeholder:text-sa-muted/40 outline-none focus:border-sa-accent/50 focus:bg-sa-slate/80 transition-all"
+                                        placeholder="Min 6 characters"
+                                    />
+                                    <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sa-muted hover:text-sa-platinum transition-colors">
+                                        {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                            {form.ownerPassword && (
+                                <div>
+                                    <label className="text-[10px] font-bold text-sa-muted uppercase tracking-[0.15em] mb-2 block">
+                                        Confirm Password *
+                                    </label>
+                                    <input
+                                        type={showPw ? 'text' : 'password'}
+                                        required
+                                        value={form.confirmPassword}
+                                        onChange={e => setForm({ ...form, confirmPassword: e.target.value })}
+                                        className={`w-full bg-sa-slate/50 border rounded-xl px-4 py-3 text-sm text-sa-platinum placeholder:text-sa-muted/40 outline-none transition-all ${form.confirmPassword && form.confirmPassword !== form.ownerPassword ? 'border-red-500/50' : 'border-sa-border focus:border-sa-accent/50'}`}
+                                        placeholder="Re-enter password"
+                                    />
+                                    {form.confirmPassword && form.confirmPassword !== form.ownerPassword && (
+                                        <p className="text-[10px] text-red-400 mt-1">⚠ Passwords do not match</p>
+                                    )}
+                                    {form.confirmPassword && form.confirmPassword === form.ownerPassword && (
+                                        <p className="text-[10px] text-green-400 mt-1">✅ Passwords match</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -138,13 +289,13 @@ export const AddTenantModal: React.FC<AddTenantModalProps> = ({ isOpen, onClose,
                         </button>
                         <button
                             type="submit"
-                            disabled={creating}
+                            disabled={creating || form.ownerPassword !== form.confirmPassword || !form.ownerPhone}
                             className="flex-1 px-4 py-3 bg-sa-gradient text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-sa-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {creating ? (
                                 <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</>
                             ) : (
-                                'Create Tenant'
+                                'Create Salon'
                             )}
                         </button>
                     </div>

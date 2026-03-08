@@ -12,7 +12,9 @@ import {
     Moon,
     Sun,
     LogOut,
-    Building2
+    Building2,
+    UserCircle,
+    Lock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -28,11 +30,12 @@ const navItems = [
     { icon: Calendar, label: 'Bookings', id: 'bookings', roles: ['super_admin', 'owner', 'manager', 'staff'] },
     { icon: Users, label: 'Clients', id: 'clients', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
     { icon: UsersRound, label: 'Stylists', id: 'stylists', roles: ['super_admin', 'owner', 'manager'] },
-    { icon: BarChart3, label: 'Analytics', id: 'analytics', roles: ['super_admin', 'owner', 'manager'] },
+    { icon: BarChart3, label: 'Analytics', id: 'analytics', roles: ['super_admin', 'owner', 'manager'], minTier: 'pro' },
     { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
-    { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner', 'manager'] },
-    { icon: Bot, label: 'Bella AI', id: 'bella', roles: ['super_admin', 'owner', 'manager'] },
+    { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner'], minTier: 'pro' },
+    { icon: Bot, label: 'Bella AI', id: 'bella', roles: ['super_admin', 'owner', 'manager'], minTier: 'elite' },
     { icon: Settings, label: 'Settings', id: 'settings', roles: ['super_admin', 'owner'] },
+    { icon: UserCircle, label: 'My Profile', id: 'my_profile', roles: ['staff', 'manager', 'receptionist'] },
 ];
 
 const superAdminItems = [
@@ -55,7 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     toggleTheme,
     onLogout
 }) => {
-    const { salonName, salonTagline, logoUrl } = useTenant();
+    const { salonName, salonTagline, logoUrl, planTier } = useTenant();
     const { role } = useAuth(); // Use role from AuthContext
 
     const handleLogout = () => {
@@ -73,23 +76,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         !item.roles || (role && item.roles.includes(role))
     );
 
-    const filteredSuperAdminItems = superAdminItems.filter(item =>
+    const filteredSuperAdminItems = superAdminItems.filter(() =>
         role === 'super_admin'
     );
 
     return (
         <div className="w-64 h-screen bg-luxe-obsidian border-r border-white/5 flex flex-col p-6">
-            <div className="mb-10 flex items-center gap-3">
+            <div className="flex items-center gap-3 px-2 mb-6">
                 {logoUrl ? (
-                    <img src={logoUrl} alt={salonName} className="w-8 h-8 rounded-lg object-cover" />
+                    <img src={logoUrl} alt={salonName} className="w-10 h-10 flex-shrink-0 rounded-lg object-cover" />
                 ) : (
-                    <div className="w-8 h-8 bg-gold-gradient rounded-lg flex items-center justify-center">
-                        <span className="text-luxe-obsidian font-bold text-xl">{salonName.charAt(0)}</span>
+                    <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-yellow-500/20 text-yellow-500 font-bold text-lg">
+                        {salonName.charAt(0)}
                     </div>
                 )}
-                <div>
-                    <h1 className="text-luxe-white font-bold tracking-tight text-lg leading-none">{salonName.toUpperCase()}</h1>
-                    <p className="text-luxe-gold/60 text-[10px] uppercase tracking-[0.2em] mt-1">{salonTagline}</p>
+                <div className="flex flex-col justify-center overflow-hidden">
+                    <h1 className="text-sm font-extrabold text-white uppercase tracking-wider truncate leading-none mb-1">{salonName.toUpperCase()}</h1>
+                    <p className="text-[9px] text-yellow-500/70 font-bold uppercase tracking-[0.2em] truncate leading-none">{salonTagline}</p>
                 </div>
             </div>
 
@@ -129,27 +132,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
 
                 {/* Standard Nav Items */}
-                {filteredItems.map((item) => (
-                    <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={cn(
-                            "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-                            activeTab === item.id
-                                ? "bg-luxe-gold/10 text-luxe-gold"
-                                : "text-white/50 hover:text-white hover:bg-white/5"
-                        )}
-                    >
-                        <item.icon className={cn(
-                            "w-5 h-5",
-                            activeTab === item.id ? "text-luxe-gold" : "text-white/40 group-hover:text-white"
-                        )} />
-                        <span className="font-medium">{item.label}</span>
-                        {activeTab === item.id && (
-                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-luxe-gold shadow-[0_0_8px_#D4AF37]" />
-                        )}
-                    </button>
-                ))}
+                {filteredItems.map((item) => {
+                    // Check tier access
+                    const tierWeight = { basic: 0, pro: 1, elite: 2 };
+                    const currentWeight = tierWeight[(planTier as keyof typeof tierWeight)] || 0;
+                    const requiredWeight = item.minTier ? tierWeight[item.minTier as keyof typeof tierWeight] : 0;
+                    const isLocked = currentWeight < requiredWeight;
+
+                    return (
+                        <button
+                            key={item.id}
+                            onClick={() => !isLocked && setActiveTab(item.id)}
+                            className={cn(
+                                "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative",
+                                activeTab === item.id
+                                    ? "bg-luxe-gold/10 text-luxe-gold"
+                                    : "text-white/50 hover:text-white hover:bg-white/5",
+                                isLocked && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-white/50"
+                            )}
+                            title={isLocked ? `Requires ${item.minTier?.toUpperCase()} Plan` : ''}
+                        >
+                            <item.icon className={cn(
+                                "w-5 h-5",
+                                activeTab === item.id ? "text-luxe-gold" : "text-white/40 group-hover:text-white",
+                                isLocked && "text-white/30 group-hover:text-white/30"
+                            )} />
+                            <span className="font-medium">{item.label}</span>
+
+                            {/* Lock Badge */}
+                            {isLocked && (
+                                <div className="ml-auto flex items-center justify-center p-1 bg-white/10 rounded-full">
+                                    <Lock className="w-3.5 h-3.5 text-luxe-gold/70" />
+                                </div>
+                            )}
+
+                            {/* Active Dot */}
+                            {activeTab === item.id && !isLocked && (
+                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-luxe-gold shadow-[0_0_8px_#D4AF37]" />
+                            )}
+                        </button>
+                    );
+                })}
             </nav>
 
             <div className="mt-auto space-y-4">

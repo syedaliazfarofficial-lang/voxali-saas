@@ -1,17 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Megaphone,
-    Send,
-    Plus,
-    Loader2,
-    Users,
-    MessageSquare,
-    Mail,
-    X,
-    Rocket
+    Megaphone, Send, Plus, Loader2, Users, MessageSquare, Mail, X, Rocket,
+    CheckCircle2, Circle, Sparkles, Zap, Heart, Gift, Star, Clock, UserPlus, PartyPopper
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { TENANT_ID } from '../config/constants';
+import { supabase, supabaseAdmin } from '../lib/supabase';
+import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { ConfirmModal } from './ui/ConfirmModal';
 
@@ -24,6 +17,13 @@ interface Campaign {
     status: string;
     sent_count: number;
     created_at: string;
+}
+
+interface ClientItem {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
 }
 
 const AUDIENCE_LABELS: Record<string, string> = {
@@ -39,34 +39,78 @@ const CHANNEL_ICONS: Record<string, React.ElementType> = {
     both: Send,
 };
 
+const TEMPLATES = [
+    { icon: '⚡', name: 'Flash Sale', color: 'from-yellow-500/20 to-orange-500/20 border-yellow-500/30', msg: 'Hi {name}! ⚡ Flash Sale at {salon}! Get 15% off all services this weekend. Book your spot now!' },
+    { icon: '🎂', name: 'Birthday Special', color: 'from-pink-500/20 to-purple-500/20 border-pink-500/30', msg: 'Happy Birthday {name}! 🎉 Celebrate with 20% off your next visit at {salon}. Treat yourself!' },
+    { icon: '💛', name: 'VIP Reward', color: 'from-amber-500/20 to-yellow-500/20 border-amber-500/30', msg: 'Hi {name}! As a VIP client, enjoy a FREE service upgrade on your next booking at {salon}! 💛' },
+    { icon: '👋', name: 'We Miss You', color: 'from-blue-500/20 to-cyan-500/20 border-blue-500/30', msg: 'Hey {name}! It\'s been a while! Come back with 20% off your next visit at {salon}. We miss you! 👋' },
+    { icon: '🌸', name: 'Seasonal Promo', color: 'from-green-500/20 to-emerald-500/20 border-green-500/30', msg: '{name}, refresh your look this season! ✨ Enjoy special packages at {salon}. Book now!' },
+    { icon: '⭐', name: 'Referral Bonus', color: 'from-indigo-500/20 to-violet-500/20 border-indigo-500/30', msg: 'Hi {name}! Refer a friend to {salon} and you both get 15% off your next visit! ⭐' },
+    { icon: '🆕', name: 'New Service', color: 'from-teal-500/20 to-cyan-500/20 border-teal-500/30', msg: 'Hi {name}! We\'ve added something new at {salon}! Try our latest service with 10% off! 🆕' },
+    { icon: '📅', name: 'Last-Minute Slot', color: 'from-red-500/20 to-rose-500/20 border-red-500/30', msg: 'Hey {name}! A last-minute slot just opened up at {salon}! Book now before it\'s gone! 📅' },
+];
+
+const selectStyle: React.CSSProperties = { backgroundColor: '#1A1A1F', color: '#E0E0E0' };
+const optionStyle: React.CSSProperties = { backgroundColor: '#1A1A1F', color: '#E0E0E0' };
+
 export const Marketing: React.FC = () => {
+    const { tenantId, salonName: tenantSalonName } = useTenant();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [form, setForm] = useState({ name: '', message: '', audience: 'all_clients', channel: 'sms' });
+    const [form, setForm] = useState({ name: '', message: '', audience: 'all_clients', channel: 'email' });
     const [launching, setLaunching] = useState<string | null>(null);
     const [launchTarget, setLaunchTarget] = useState<Campaign | null>(null);
 
+    // Client selection state
+    const [showClientList, setShowClientList] = useState(false);
+    const [clients, setClients] = useState<ClientItem[]>([]);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [loadingClients, setLoadingClients] = useState(false);
+
+    const salonName = tenantSalonName || 'Salon';
+
     const fetchCampaigns = useCallback(async () => {
-        if (!TENANT_ID) return;
+        if (!tenantId) return;
         setLoading(true);
         const { data, error } = await supabase
             .from('marketing_campaigns')
             .select('*')
-            .eq('tenant_id', TENANT_ID)
+            .eq('tenant_id', tenantId)
             .order('created_at', { ascending: false });
         if (!error && data) setCampaigns(data as Campaign[]);
         setLoading(false);
-    }, []);
+    }, [tenantId]);
 
     useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+
+    // Fetch clients matching audience when launching
+    const fetchClients = async (audience: string) => {
+        setLoadingClients(true);
+        let query = supabaseAdmin.from('clients').select('id, name, email, phone').eq('tenant_id', tenantId);
+        if (audience === 'vip_only') query = query.eq('is_vip', true);
+        // For inactive and new_this_month, fetch all and let Edge Function filter
+        const { data } = await query.order('name');
+        const clientList = (data || []) as ClientItem[];
+        setClients(clientList);
+        setSelectedIds(new Set(clientList.map(c => c.id)));
+        setLoadingClients(false);
+    };
+
+    const handleSelectTemplate = (t: typeof TEMPLATES[0]) => {
+        setForm(p => ({
+            ...p,
+            name: t.name,
+            message: t.msg.replace(/\{salon\}/gi, salonName),
+        }));
+    };
 
     const handleSave = async () => {
         if (!form.name.trim() || !form.message.trim()) return;
         setSaving(true);
         const { error } = await supabase.from('marketing_campaigns').insert({
-            tenant_id: TENANT_ID,
+            tenant_id: tenantId,
             name: form.name.trim(),
             message: form.message.trim(),
             audience: form.audience,
@@ -74,7 +118,7 @@ export const Marketing: React.FC = () => {
             status: 'draft',
         });
         if (!error) {
-            setForm({ name: '', message: '', audience: 'all_clients', channel: 'sms' });
+            setForm({ name: '', message: '', audience: 'all_clients', channel: 'email' });
             setShowForm(false);
             showToast('Campaign saved as draft');
             fetchCampaigns();
@@ -84,39 +128,56 @@ export const Marketing: React.FC = () => {
         setSaving(false);
     };
 
+    // Open client selection modal before launching
+    const handlePreLaunch = (c: Campaign) => {
+        setLaunchTarget(c);
+        setShowClientList(true);
+        fetchClients(c.audience);
+    };
+
+    const toggleClient = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleAll = () => {
+        if (selectedIds.size === clients.length) setSelectedIds(new Set());
+        else setSelectedIds(new Set(clients.map(c => c.id)));
+    };
+
     const handleLaunch = async () => {
-        if (!launchTarget) return;
+        if (!launchTarget || selectedIds.size === 0) return;
         setLaunching(launchTarget.id);
 
-        // Update status to 'sending'
-        await supabase.from('marketing_campaigns')
-            .update({ status: 'sending' })
-            .eq('id', launchTarget.id);
+        try {
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const res = await fetch(`${supabaseUrl}/functions/v1/send-campaign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    campaign_id: launchTarget.id,
+                    tenant_id: tenantId,
+                    selected_client_ids: Array.from(selectedIds),
+                }),
+            });
+            const data = await res.json();
 
-        // Count target audience
-        let audienceCount = 0;
-        const { count } = await supabase
-            .from('clients')
-            .select('*', { count: 'exact', head: true })
-            .eq('tenant_id', TENANT_ID);
-        audienceCount = count || 0;
-
-        // Update to sent with count
-        const { error } = await supabase.from('marketing_campaigns')
-            .update({
-                status: 'sent',
-                sent_count: audienceCount,
-            })
-            .eq('id', launchTarget.id);
-
-        if (!error) {
-            showToast(`🚀 Campaign launched to ${audienceCount} clients!`);
-        } else {
-            showToast('Launch failed: ' + error.message, 'error');
+            if (!res.ok || data?.error) {
+                showToast('Launch failed: ' + (data?.error || res.statusText), 'error');
+            } else {
+                showToast(`🚀 Campaign launched! ${data?.sent || 0} sent, ${data?.failed || 0} failed`);
+            }
+        } catch (err: unknown) {
+            showToast('Launch error: ' + (err instanceof Error ? err.message : 'Unknown'), 'error');
         }
 
         setLaunching(null);
         setLaunchTarget(null);
+        setShowClientList(false);
         fetchCampaigns();
     };
 
@@ -152,7 +213,27 @@ export const Marketing: React.FC = () => {
 
             {/* Create Form */}
             {showForm && (
-                <div className="glass-panel p-6 border border-luxe-gold/20 space-y-4 animate-in slide-in-from-top-2 duration-300">
+                <div className="glass-panel p-6 border border-luxe-gold/20 space-y-5 animate-in slide-in-from-top-2 duration-300">
+                    {/* Template Cards */}
+                    <div>
+                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3 block flex items-center gap-2">
+                            <Sparkles className="w-3.5 h-3.5 text-luxe-gold" /> Quick Templates
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {TEMPLATES.map((t) => (
+                                <button
+                                    key={t.name}
+                                    onClick={() => handleSelectTemplate(t)}
+                                    className={`bg-gradient-to-br ${t.color} border rounded-xl p-3 text-left hover:scale-[1.03] active:scale-[0.97] transition-all group`}
+                                >
+                                    <span className="text-lg">{t.icon}</span>
+                                    <p className="text-[11px] font-bold text-white/80 mt-1 group-hover:text-white transition-colors">{t.name}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Form Fields */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Campaign Name</label>
@@ -172,9 +253,10 @@ export const Marketing: React.FC = () => {
                                     value={form.audience}
                                     onChange={(e) => setForm(p => ({ ...p, audience: e.target.value }))}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50"
+                                    style={selectStyle}
                                 >
                                     {Object.entries(AUDIENCE_LABELS).map(([k, v]) => (
-                                        <option key={k} value={k}>{v}</option>
+                                        <option key={k} value={k} style={optionStyle}>{v}</option>
                                     ))}
                                 </select>
                             </div>
@@ -185,10 +267,11 @@ export const Marketing: React.FC = () => {
                                     value={form.channel}
                                     onChange={(e) => setForm(p => ({ ...p, channel: e.target.value }))}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50"
+                                    style={selectStyle}
                                 >
-                                    <option value="sms">SMS</option>
-                                    <option value="email">Email</option>
-                                    <option value="both">SMS + Email</option>
+                                    <option value="sms" style={optionStyle}>SMS</option>
+                                    <option value="email" style={optionStyle}>Email</option>
+                                    <option value="both" style={optionStyle}>SMS + Email</option>
                                 </select>
                             </div>
                         </div>
@@ -198,10 +281,12 @@ export const Marketing: React.FC = () => {
                         <textarea
                             value={form.message}
                             onChange={(e) => setForm(p => ({ ...p, message: e.target.value }))}
-                            placeholder="Hi {name}! 💇‍♀️ Book this week and get 20% off any color service..."
+                            placeholder={`Hi {name}! 💇‍♀️ Book this week at ${salonName} and get 20% off any color service...`}
                             className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 h-28 resize-none"
                         />
-                        <p className="text-[10px] text-white/30 mt-1">{form.message.length} / 160 characters (SMS limit)</p>
+                        <p className="text-[10px] text-white/30 mt-1">
+                            {form.message.length} / 160 characters (SMS limit) • Use <span className="text-luxe-gold">{'{name}'}</span> for client name
+                        </p>
                     </div>
                     <button
                         onClick={handleSave}
@@ -276,7 +361,7 @@ export const Marketing: React.FC = () => {
                                         <td className="px-6 py-5 text-right">
                                             {c.status === 'draft' && (
                                                 <button
-                                                    onClick={() => setLaunchTarget(c)}
+                                                    onClick={() => handlePreLaunch(c)}
                                                     disabled={isLaunching}
                                                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/10 text-green-400 border border-green-500/20 text-xs font-bold hover:bg-green-500/20 transition-all disabled:opacity-50"
                                                 >
@@ -296,16 +381,87 @@ export const Marketing: React.FC = () => {
                 </div>
             )}
 
-            {/* Launch Confirmation */}
-            <ConfirmModal
-                open={!!launchTarget}
-                title="Launch Campaign"
-                message={`Launch "${launchTarget?.name}" to ${AUDIENCE_LABELS[launchTarget?.audience || ''] || launchTarget?.audience} via ${launchTarget?.channel?.toUpperCase()}? This will send the campaign immediately.`}
-                confirmLabel="🚀 Launch Now"
-                loading={!!launching}
-                onConfirm={handleLaunch}
-                onCancel={() => setLaunchTarget(null)}
-            />
+            {/* Client Selection Modal */}
+            {showClientList && launchTarget && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowClientList(false); setLaunchTarget(null); }}>
+                    <div className="bg-[#141417] border border-luxe-gold/20 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                        {/* Modal Header */}
+                        <div className="p-5 border-b border-white/10">
+                            <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-bold text-lg flex items-center gap-2">
+                                    <Rocket className="w-5 h-5 text-green-400" />
+                                    Launch: {launchTarget.name}
+                                </h3>
+                                <button onClick={() => { setShowClientList(false); setLaunchTarget(null); }} className="text-white/30 hover:text-white transition">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <p className="text-xs text-white/40">
+                                {AUDIENCE_LABELS[launchTarget.audience]} • {launchTarget.channel.toUpperCase()}
+                            </p>
+                            <div className="flex items-center justify-between mt-3">
+                                <button
+                                    onClick={toggleAll}
+                                    className="text-xs text-luxe-gold hover:text-luxe-gold/80 font-bold transition"
+                                >
+                                    {selectedIds.size === clients.length ? '☐ Deselect All' : '☑ Select All'}
+                                </button>
+                                <span className="text-xs bg-luxe-gold/10 text-luxe-gold px-3 py-1 rounded-full font-bold">
+                                    {selectedIds.size} of {clients.length} selected
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Client List */}
+                        <div className="flex-1 overflow-y-auto p-2">
+                            {loadingClients ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="w-6 h-6 text-luxe-gold animate-spin" />
+                                </div>
+                            ) : clients.length === 0 ? (
+                                <div className="text-center py-12 text-white/40 text-sm">No clients match this audience</div>
+                            ) : (
+                                clients.map((c) => {
+                                    const isSelected = selectedIds.has(c.id);
+                                    return (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => toggleClient(c.id)}
+                                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left ${isSelected ? 'bg-luxe-gold/10 border border-luxe-gold/20' : 'hover:bg-white/5 border border-transparent'
+                                                }`}
+                                        >
+                                            {isSelected
+                                                ? <CheckCircle2 className="w-5 h-5 text-luxe-gold flex-shrink-0" />
+                                                : <Circle className="w-5 h-5 text-white/20 flex-shrink-0" />
+                                            }
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-bold text-sm truncate">{c.name || 'Unknown'}</p>
+                                                <p className="text-[11px] text-white/40 truncate">
+                                                    {c.email || 'No email'} {c.phone ? `• ${c.phone}` : ''}
+                                                </p>
+                                            </div>
+                                        </button>
+                                    );
+                                })
+                            )}
+                        </div>
+
+                        {/* Send Button */}
+                        <div className="p-4 border-t border-white/10">
+                            <button
+                                onClick={handleLaunch}
+                                disabled={!!launching || selectedIds.size === 0}
+                                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-green-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {launching
+                                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>
+                                    : <><Send className="w-4 h-4" /> Send to {selectedIds.size} Client{selectedIds.size !== 1 ? 's' : ''}</>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
