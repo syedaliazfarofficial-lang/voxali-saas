@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
     try {
         const body = await req.json();
         const tenantId = body.tenant_id;
-        const areaCode = body.areaCode || body.area_code || '310'; // Default to Los Angeles area code if none provided
+        const countryCode = (body.country_code || 'US').toUpperCase();
 
         if (!tenantId) {
             return errorResponse('Missing tenant_id', 400);
@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
         if (!twilioSid || !twilioAuth) {
             console.warn('Twilio credentials missing. Simulating number provisioning.');
             // Update database with a fake number for demo/testing purposes
-            const fakeNumber = `+1${areaCode}555${Math.floor(1000 + Math.random() * 9000)}`;
+            const countryPrefix = countryCode === 'GB' ? '+44' : countryCode === 'AU' ? '+61' : '+1';
+            const fakeNumber = `${countryPrefix}555${Math.floor(1000 + Math.random() * 9000)}`;
 
             const supabaseAdmin = createClient(
                 Deno.env.get('SUPABASE_URL')!,
@@ -46,9 +47,11 @@ Deno.serve(async (req) => {
 
         const authString = btoa(`${twilioSid}:${twilioAuth}`);
 
-        // Step 1: Search for an available number
+        // Step 1: Search for an available number in the requested country
+        let searchUrl = `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/AvailablePhoneNumbers/${countryCode}/Local.json`;
+
         const searchRes = await fetch(
-            `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/AvailablePhoneNumbers/US/Local.json?AreaCode=${areaCode}`,
+            searchUrl,
             {
                 method: 'GET',
                 headers: { 'Authorization': `Basic ${authString}` }
@@ -63,7 +66,7 @@ Deno.serve(async (req) => {
         const availableNumbers = searchData.available_phone_numbers;
 
         if (!availableNumbers || availableNumbers.length === 0) {
-            return errorResponse(`No numbers available for area code ${areaCode}`, 404);
+            return errorResponse(`No numbers available for country ${countryCode}`, 404);
         }
 
         const targetNumber = availableNumbers[0].phone_number;
@@ -78,9 +81,11 @@ Deno.serve(async (req) => {
             const webhookUrl = supabaseUrl.replace('.supabase.co', '.supabase.co/functions/v1/twilio-webhook');
             purchaseParams.append('SmsUrl', webhookUrl);
             purchaseParams.append('SmsMethod', 'POST');
-            purchaseParams.append('VoiceUrl', webhookUrl);
-            purchaseParams.append('VoiceMethod', 'POST');
         }
+
+        // Critical ElevenLabs integration: Route all incoming voice calls directly to the AI
+        purchaseParams.append('VoiceUrl', 'https://api.us.elevenlabs.io/twilio/inbound_call');
+        purchaseParams.append('VoiceMethod', 'POST');
 
         const purchaseRes = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/IncomingPhoneNumbers.json`,

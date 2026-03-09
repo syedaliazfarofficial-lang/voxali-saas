@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { session_id, fullName, salonName, email, password } = body;
+    const { session_id, fullName, salonName, email, password, countryCode } = body;
 
     if (!session_id || !fullName || !salonName || !email || !password) {
       return errorResponse('Missing required fields for signup.', 400);
@@ -126,19 +126,41 @@ Deno.serve(async (req) => {
       { tenant_id: tenantId, name: "Color & Highlights", duration_minutes: 120, price: 150.00 }
     ]);
 
-    // Background APIs trigger for Twilio & ElevenLabs 
-    // We do this async via fire-and-forget loops (no await) since it might take a while
-    fetch(`${supabaseUrl}/functions/v1/provision-twilio-number`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
-      body: JSON.stringify({ tenant_id: tenantId, area_code: '212' })
-    }).catch(err => console.error("Twilio Init background error: ", err));
+    // Await the provisioning APIs to ensure Deno doesn't cancel them
+    // when this main function returns. We use allSettled so one failure 
+    // doesn't block the other or crash the whole signup process.
+    const TOOLS_KEY = Deno.env.get('TOOLS_KEY') || 'LUXE-AUREA-SECRET-2026';
 
-    fetch(`${supabaseUrl}/functions/v1/provision-elevenlabs-agent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseServiceKey}` },
-      body: JSON.stringify({ tenant_id: tenantId, salon_name: salonName })
-    }).catch(err => console.error("ElevenLabs Init background error: ", err));
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+
+    console.log(`Starting auto-provisioning for tenant ${tenantId}...`);
+
+    // Step A: Provision Agent First to get the Agent ID
+    let createdAgentId = null;
+    try {
+      const agentRes = await fetch(`${supabaseUrl}/functions/v1/provision-elevenlabs-agent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ tenant_id: tenantId, salon_name: salonName, country_code: countryCode || 'US' })
+      });
+      const agentData = await agentRes.json();
+      createdAgentId = agentData.agent_id;
+    } catch (err) {
+      console.error("ElevenLabs Init background error: ", err);
+    }
+
+    // Step B: Provision Twilio Number and link it to the new Agent ID
+    try {
+      await fetch(`${supabaseUrl}/functions/v1/provision-twilio-number`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
+        body: JSON.stringify({ tenant_id: tenantId, country_code: countryCode || 'US', agent_id: createdAgentId })
+      });
+    } catch (err) {
+      console.error("Twilio Init background error: ", err);
+    }
+
+    console.log(`Auto-provisioning completed for tenant ${tenantId}.`);
 
     return jsonResponse({
       success: true,

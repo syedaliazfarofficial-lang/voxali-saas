@@ -35,6 +35,7 @@ interface DashboardStats {
     revenue_today: number;
     new_clients: number;
     calls_today: number;
+    twilio_number?: string;
     ai_used?: number;
     ai_limit?: number;
     sms_used?: number;
@@ -90,7 +91,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                     .eq('tenant_id', tenantId).gte('created_at', todayISO),
                 supabaseAdmin.from('call_logs').select('id')
                     .eq('tenant_id', tenantId).gte('created_at', todayISO),
-                supabaseAdmin.from('tenants').select('ai_minutes_used, plan_ai_minutes_limit, sms_used, plan_sms_limit, emails_used, plan_email_limit')
+                supabaseAdmin.from('tenants').select('twilio_number, ai_minutes_used, plan_ai_minutes_limit, sms_used, plan_sms_limit, emails_used, plan_email_limit')
                     .eq('id', tenantId).single()
             ]);
 
@@ -102,6 +103,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                 revenue_today: revToday,
                 new_clients: clientsRes.data?.length || 0,
                 calls_today: callsRes.data?.length || 0,
+                twilio_number: tData.twilio_number || '',
                 ai_used: tData.ai_minutes_used || 0,
                 ai_limit: tData.plan_ai_minutes_limit || 150,
                 sms_used: tData.sms_used || 0,
@@ -284,6 +286,18 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             {/* AI Control Center */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="glass-panel p-6 border-l-4 border-l-luxe-gold">
+                    {stats?.twilio_number && (
+                        <div className="mb-6 p-4 rounded-xl bg-luxe-gold/10 border border-luxe-gold/20 flex flex-col gap-2">
+                            <h4 className="font-bold text-luxe-gold flex items-center gap-2">
+                                <PhoneCall className="w-5 h-5" />
+                                Your AI Receptionist Number
+                            </h4>
+                            <p className="text-2xl font-mono text-white/90 tracking-wide">{stats.twilio_number}</p>
+                            <p className="text-xs text-white/50">
+                                <b>Setup Instructions:</b> Using your current Salon phone provider's settings, set up <b>Call Forwarding</b> so missed calls or all incoming calls automatically forward to this number to have Bella answer them.
+                            </p>
+                        </div>
+                    )}
                     <div className="flex justify-between items-start mb-6">
                         <div>
                             <h3 className="font-bold text-lg flex items-center gap-2">

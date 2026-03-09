@@ -30,8 +30,8 @@ const navItems = [
     { icon: Calendar, label: 'Bookings', id: 'bookings', roles: ['super_admin', 'owner', 'manager', 'staff'] },
     { icon: Users, label: 'Clients', id: 'clients', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
     { icon: UsersRound, label: 'Stylists', id: 'stylists', roles: ['super_admin', 'owner', 'manager'] },
-    { icon: BarChart3, label: 'Analytics', id: 'analytics', roles: ['super_admin', 'owner', 'manager'], minTier: 'pro' },
-    { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
+    { icon: BarChart3, label: 'Analytics', id: 'analytics', roles: ['super_admin', 'owner', 'manager'] },
+    { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'], minTier: 'pro' },
     { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner'], minTier: 'pro' },
     { icon: Bot, label: 'Bella AI', id: 'bella', roles: ['super_admin', 'owner', 'manager'], minTier: 'elite' },
     { icon: Settings, label: 'Settings', id: 'settings', roles: ['super_admin', 'owner'] },
@@ -142,7 +142,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     return (
                         <button
                             key={item.id}
-                            onClick={() => !isLocked && setActiveTab(item.id)}
+                            onClick={() => {
+                                if (isLocked) {
+                                    alert(`The ${item.label} feature requires the ${item.minTier?.toUpperCase()} plan. Please upgrade to access it.`);
+                                } else {
+                                    setActiveTab(item.id);
+                                }
+                            }}
                             className={cn(
                                 "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative",
                                 activeTab === item.id

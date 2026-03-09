@@ -46,7 +46,8 @@ Deno.serve(async (req) => {
             conversation_config: {
                 agent: {
                     prompt: {
-                        prompt: `You are the AI receptionist for ${salonName}. Your job is to assist clients by providing business hours, answering simple queries, and helping them book an appointment. Be polite, professional, and friendly. Always keep your responses concise.`
+                        prompt: `You are the AI receptionist for ${salonName}. Your job is to assist clients by providing business hours, answering simple queries, and helping them book an appointment. Be polite, professional, and friendly. Always keep your responses concise.`,
+                        llm: "gemini-2.5-flash"
                     },
                     first_message: `Hello, thank you for calling ${salonName}. How can I help you book your appointment today?`,
                     language: "en"
@@ -54,7 +55,7 @@ Deno.serve(async (req) => {
             }
         };
 
-        const response = await fetch('https://api.elevenlabs.io/v1/convai/agents', {
+        const response = await fetch('https://api.elevenlabs.io/v1/convai/agents/create', {
             method: 'POST',
             headers: {
                 'xi-api-key': apiKey,

@@ -3,7 +3,8 @@ import {
     Clock, Plus, Edit3, Upload, Building2, Trash2,
     Loader2, X, Scissors, Save, ToggleLeft, ToggleRight,
     Search, ChevronDown, ChevronUp, Globe, Lock, Eye, EyeOff, KeyRound,
-    Phone, Mail, Zap, CreditCard, ExternalLink, Shield, AlertTriangle, Bot
+    Phone, Mail, Zap, CreditCard, ExternalLink, Shield, AlertTriangle, Bot,
+    CreditCard as BillingIcon, ShieldCheck
 } from 'lucide-react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -892,6 +893,7 @@ export const Settings: React.FC = () => {
                     { id: 'security', label: 'Security', icon: Lock },
                     { id: 'integrations', label: 'Integrations', icon: Zap },
                     { id: 'ai_knowledge', label: 'AI Knowledge', icon: Bot },
+                    { id: 'billing', label: 'Plan & Billing', icon: BillingIcon },
                     { id: 'payments', label: 'Payments', icon: CreditCard },
                 ].map(tab => {
                     const Icon = tab.icon;
@@ -1394,7 +1396,7 @@ export const Settings: React.FC = () => {
             )}
 
             {/* ============ INTEGRATIONS TAB ============ */}
-            {activeSettingsTab === 'integrations' && (
+            {activeSettingsTab === 'integrations' && tenantId && (
                 <IntegrationsTab
                     tenantId={tenantId}
                     twilioPhone={twilioPhone} setTwilioPhone={setTwilioPhone}
@@ -1406,13 +1408,105 @@ export const Settings: React.FC = () => {
             )}
 
             {/* ============ PAYMENTS TAB ============ */}
-            {activeSettingsTab === 'payments' && (
+            {activeSettingsTab === 'payments' && tenantId && (
                 <PaymentsTab tenantId={tenantId} />
             )}
 
             {/* ============ AI KNOWLEDGE BASE TAB ============ */}
-            {activeSettingsTab === 'ai_knowledge' && (
+            {activeSettingsTab === 'ai_knowledge' && tenantId && (
                 <AiKnowledgeTab tenantId={tenantId} />
+            )}
+
+            {/* ============ PLAN & BILLING TAB ============ */}
+            {activeSettingsTab === 'billing' && (
+                <div>
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
+                            <BillingIcon className="w-6 h-6 text-luxe-gold" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold">Plan & Billing</h3>
+                            <p className="text-xs text-white/40 uppercase tracking-widest">Manage your subscription</p>
+                        </div>
+                    </div>
+
+                    {/* Current Plan Card */}
+                    <div className="glass-panel border border-luxe-gold/30 p-8 mb-8 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-luxe-gold/5 blur-[100px] rounded-full pointer-events-none" />
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
+                            <div>
+                                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Current Plan</p>
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-3xl font-black text-white uppercase tracking-wide">
+                                        {planTier || 'Basic'} Tier
+                                    </h2>
+                                    <div className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-bold flex items-center gap-1">
+                                        <ShieldCheck className="w-3.5 h-3.5" /> ACTIVE
+                                    </div>
+                                </div>
+                            </div>
+                            <a href="https://billing.stripe.com/p/login/test_14k3cE9tX5G" target="_blank" rel="noreferrer"
+                                className="bg-white/5 border border-white/10 text-white px-6 py-3 rounded-xl font-bold hover:bg-white/10 transition-all flex items-center gap-2">
+                                Manage Billing in Stripe <ExternalLink className="w-4 h-4" />
+                            </a>
+                        </div>
+                    </div>
+
+                    {/* Upgrade Packages */}
+                    <h4 className="font-bold text-lg mb-4">Upgrade Your Plan</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Starter */}
+                        <div className={`p-6 rounded-2xl border transition-all \${planTier === 'basic' ? 'bg-white/5 border-luxe-gold/50 shadow-[0_0_30px_rgba(212,175,55,0.1)]' : 'bg-luxe-obsidian border-white/10 hover:border-white/20'}`}>
+                            {planTier === 'basic' && <div className="text-xs font-bold text-luxe-gold uppercase tracking-widest mb-4">Current Plan</div>}
+                            <h3 className="text-xl font-bold mb-2">Starter</h3>
+                            <div className="text-3xl font-black mb-6">$99<span className="text-sm font-normal text-white/40">/mo</span></div>
+                            <ul className="space-y-3 mb-8 text-sm text-white/70">
+                                <li className="flex gap-2">✓ Up to 3 staff members</li>
+                                <li className="flex gap-2">✓ 150 AI call minutes</li>
+                                <li className="flex gap-2">✓ 200 SMS credits</li>
+                                <li className="flex gap-2 text-white/30">✗ Advanced analytics</li>
+                                <li className="flex gap-2 text-white/30">✗ Bella AI customization</li>
+                            </ul>
+                            <a href="/pricing#pricing" target="_blank" rel="noreferrer" className={`w-full py-3 rounded-xl font-bold flex justify-center items-center \${planTier === 'basic' ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-white text-black hover:scale-[1.02]'} transition-all`}>
+                                {planTier === 'basic' ? 'Current' : 'Select Starter'}
+                            </a>
+                        </div>
+
+                        {/* Growth */}
+                        <div className={`p-6 rounded-2xl border transition-all \${planTier === 'pro' ? 'bg-white/5 border-luxe-gold/50 shadow-[0_0_30px_rgba(212,175,55,0.1)]' : 'bg-luxe-obsidian border-white/10 hover:border-luxe-gold/30'}`}>
+                            {planTier === 'pro' ? <div className="text-xs font-bold text-luxe-gold uppercase tracking-widest mb-4">Current Plan</div> : <div className="text-xs font-bold text-luxe-gold uppercase tracking-widest mb-4">Most Popular</div>}
+                            <h3 className="text-xl font-bold mb-2">Growth</h3>
+                            <div className="text-3xl font-black mb-6 text-luxe-gold">$199<span className="text-sm font-normal text-white/40">/mo</span></div>
+                            <ul className="space-y-3 mb-8 text-sm text-white/70">
+                                <li className="flex gap-2">✓ Up to 10 staff members</li>
+                                <li className="flex gap-2">✓ 400 AI call minutes</li>
+                                <li className="flex gap-2">✓ 1,000 SMS credits</li>
+                                <li className="flex gap-2">✓ Call Logs & Recordings</li>
+                                <li className="flex gap-2">✓ Email & SMS Marketing</li>
+                            </ul>
+                            <a href="/pricing#pricing" target="_blank" rel="noreferrer" className={`w-full py-3 rounded-xl font-bold flex justify-center items-center \${planTier === 'pro' ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-gold-gradient text-black hover:scale-[1.02]'} transition-all`}>
+                                {planTier === 'pro' ? 'Current' : 'Upgrade to Growth'}
+                            </a>
+                        </div>
+
+                        {/* Enterprise */}
+                        <div className={`p-6 rounded-2xl border transition-all \${planTier === 'elite' ? 'bg-white/5 border-luxe-gold/50 shadow-[0_0_30px_rgba(212,175,55,0.1)]' : 'bg-luxe-obsidian border-white/10 hover:border-white/20'}`}>
+                            {planTier === 'elite' && <div className="text-xs font-bold text-luxe-gold uppercase tracking-widest mb-4">Current Plan</div>}
+                            <h3 className="text-xl font-bold mb-2">Enterprise</h3>
+                            <div className="text-3xl font-black mb-6">$349<span className="text-sm font-normal text-white/40">/mo</span></div>
+                            <ul className="space-y-3 mb-8 text-sm text-white/70">
+                                <li className="flex gap-2">✓ Unlimited staff</li>
+                                <li className="flex gap-2">✓ 1,000 AI call minutes</li>
+                                <li className="flex gap-2">✓ 5,000 SMS credits</li>
+                                <li className="flex gap-2">✓ Custom AI Knowledge Base</li>
+                                <li className="flex gap-2">✓ Dedicated Account Manager</li>
+                            </ul>
+                            <a href="/pricing#pricing" target="_blank" rel="noreferrer" className={`w-full py-3 rounded-xl font-bold flex justify-center items-center \${planTier === 'elite' ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-white text-black hover:scale-[1.02]'} transition-all`}>
+                                {planTier === 'elite' ? 'Current' : 'Upgrade to Enterprise'}
+                            </a>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ============ SERVICE MODAL ============ */}
