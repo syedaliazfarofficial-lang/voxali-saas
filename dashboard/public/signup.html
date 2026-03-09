@@ -296,6 +296,7 @@
             submitBtn.disabled = false;
         }
 
+        const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqenhnamltYmNvcXN5bHJnbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk0MzAyOTAsImV4cCI6MjA4NTAwNjI5MH0.Az1hO8pFJcVIpeJJiSMe3MGEu5_u8oHaNqLW2gpBQn4';
         async function submitSetup(payload) {
             submitBtn.disabled = true;
             loadingScreen.classList.remove('hidden');
@@ -303,7 +304,10 @@
             try {
                 const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/setup-account`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${ANON_KEY}`
+                    },
                     body: JSON.stringify(payload)
                 });
 
