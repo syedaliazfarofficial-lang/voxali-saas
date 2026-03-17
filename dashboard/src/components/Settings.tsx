@@ -202,6 +202,275 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
     );
 };
 
+// ===== WALLET & BILLING TAB COMPONENT =====
+const WalletTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
+    const { planTier } = useTenant();
+    const [coinBalance, setCoinBalance] = useState<number>(0);
+    const [usage, setUsage] = useState({ ai_minutes_used: 0, sms_used: 0 });
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const limits = {
+        starter: { ai: 100, sms: 400 },
+        growth: { ai: 250, sms: 1000 },
+        elite: { ai: 500, sms: 2000 },
+        basic: { ai: 0, sms: 0 },
+        free: { ai: 50, sms: 50 }
+    }[planTier] || { ai: 150, sms: 200 };
+
+    const fetchWalletProps = useCallback(async () => {
+        setLoading(true);
+        // Fetch coin balance and usage
+        const { data: tenantData } = await supabase
+            .from('tenants')
+            .select('coin_balance, ai_minutes_used, sms_used')
+            .eq('id', tenantId)
+            .single();
+
+        if (tenantData) {
+            setCoinBalance(tenantData.coin_balance || 0);
+            setUsage({
+                ai_minutes_used: tenantData.ai_minutes_used || 0,
+                sms_used: tenantData.sms_used || 0
+            });
+        }
+
+        // Fetch recent transactions
+        const { data: txData } = await supabase
+            .from('coin_transactions')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (txData) setTransactions(txData);
+        setLoading(false);
+    }, [tenantId]);
+
+    useEffect(() => { fetchWalletProps(); }, [fetchWalletProps]);
+
+    const [charging, setCharging] = useState(false);
+
+    const handleTopUp = async (amount: number) => {
+        if (!tenantId) return;
+        setCharging(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Not authenticated');
+
+            // Find the VITE_SUPABASE_URL and build the correct Edge Function URL
+            const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
+            let functionUrl = 'https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/charge-coins';
+            if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
+                functionUrl = envUrl.replace(':54321', ':54321/functions/v1/charge-coins');
+            } else if (envUrl.includes('supabase.co')) {
+                functionUrl = envUrl.replace('.supabase.co', '.supabase.co/functions/v1/charge-coins');
+            }
+
+            const toolsKey = 'LUXE-AUREA-SECRET-2026';
+
+            const res = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'X-TOOLS-KEY': toolsKey
+                },
+                body: JSON.stringify({ tenant_id: tenantId, amount_coins: amount })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || err.message || 'Failed to create checkout session');
+            }
+
+            const { url } = await res.json();
+            if (url) {
+                window.location.href = url;
+            } else {
+                throw new Error('No checkout URL returned from Strip gateway');
+            }
+        } catch (err: any) {
+            console.error('Top-up error:', err);
+            showToast(err.message || 'Payment gateway error', 'error');
+            setCharging(false);
+        }
+    };
+
+    const handleManageBilling = async () => {
+        if (!tenantId) return;
+        setCharging(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Not authenticated');
+
+            const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
+            let functionUrl = 'https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/stripe-customer-portal';
+
+            if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
+                functionUrl = envUrl.replace(':54321', ':54321/functions/v1/stripe-customer-portal');
+            } else if (envUrl.includes('supabase.co')) {
+                functionUrl = envUrl.replace('.supabase.co', '.supabase.co/functions/v1/stripe-customer-portal');
+            }
+
+            const res = await fetch(functionUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026'
+                },
+                body: JSON.stringify({ tenant_id: tenantId })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || err.message || 'Failed to open billing portal');
+            }
+
+            const { url } = await res.json();
+            if (url) {
+                window.location.href = url;
+            } else {
+                throw new Error('No portal URL returned');
+            }
+        } catch (err: any) {
+            console.error('Portal error:', err);
+            showToast(err.message || 'Billing portal error', 'error');
+            setCharging(false);
+        }
+    };
+
+    if (loading) return <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-luxe-gold" /></div>;
+
+    return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
+                        <BillingIcon className="w-6 h-6 text-luxe-gold" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold">Wallet & Billing</h3>
+                        <p className="text-xs text-white/40 uppercase tracking-widest">Manage your plan and prepaid coins</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Top Cards Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Current Plan */}
+                <div className="glass-panel border border-white/5 p-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/5 blur-[50px] rounded-full pointer-events-none" />
+                    <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Current Plan</p>
+                    <div className="flex items-center gap-3 mb-4 relative z-10">
+                        <h2 className="text-3xl font-black text-white uppercase tracking-wide">
+                            {planTier === 'elite' ? 'AI Elite' : planTier === 'growth' ? 'AI Growth' : planTier === 'starter' ? 'AI Starter' : 'SaaS Basic'}
+                        </h2>
+                        <div className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-[10px] font-bold flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3" /> ACTIVE
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleManageBilling}
+                        disabled={charging}
+                        className="text-sm font-bold text-luxe-obsidian bg-luxe-gold hover:bg-yellow-400 px-6 py-2.5 rounded-xl transition-all flex items-center gap-2 relative z-10 shadow-[0_0_15px_rgba(212,175,55,0.3)] disabled:opacity-50"
+                    >
+                        {charging ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                        {charging ? 'LOADING...' : 'Upgrade or Manage Plan ↗'}
+                    </button>
+
+                    <div className="mt-6 pt-4 border-t border-white/10 relative z-10">
+                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">Plan Base Limits</p>
+
+                        <div className="space-y-4">
+                            <div>
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span className="text-white/60">AI Receptionist Minutes</span>
+                                    <span className="font-mono">{usage.ai_minutes_used} / {limits.ai}</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex">
+                                    <div className={`h-full rounded-full transition-all \${usage.ai_minutes_used >= limits.ai ? 'bg-red-500' : 'bg-luxe-gold'}`} style={{ width: `${Math.min((usage.ai_minutes_used / limits.ai) * 100, 100)}%` }} />
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between text-xs mb-1">
+                                    <span className="text-white/60">SMS / Text Reminders</span>
+                                    <span className="font-mono">{usage.sms_used} / {limits.sms}</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex">
+                                    <div className={`h-full rounded-full transition-all \${usage.sms_used >= limits.sms ? 'bg-red-500' : 'bg-luxe-gold'}`} style={{ width: `${Math.min((usage.sms_used / limits.sms) * 100, 100)}%` }} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Coin Wallet */}
+                <div className="glass-panel border border-luxe-gold/30 p-6 relative overflow-hidden shadow-[0_0_30px_rgba(212,175,55,0.05)]">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/10 blur-[50px] rounded-full pointer-events-none" />
+                    <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Prepaid Wallet</p>
+                    <div className="flex items-baseline gap-2 mb-4 relative z-10">
+                        <h2 className="text-4xl font-black text-luxe-gold">{coinBalance.toLocaleString()}</h2>
+                        <span className="text-sm font-bold text-white/40 uppercase tracking-widest">COINS</span>
+                    </div>
+
+                    <p className="text-[11px] text-white/60 mb-5 relative z-10 leading-relaxed border border-luxe-gold/20 bg-luxe-gold/5 p-3 rounded-lg">
+                        Coins are consumed when you exceed your plan's base limits. <br />
+                        <span className="text-luxe-gold font-bold">1 AI Minute = 10 Coins</span> • <span className="text-luxe-gold font-bold">1 SMS = 2 Coins</span>
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3 relative z-10 mt-2">
+                        <button onClick={() => handleTopUp(1000)} disabled={charging} className="bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-1 rounded-xl transition-all text-xs disabled:opacity-50 flex flex-col items-center justify-center h-[54px]">
+                            <span>+1000 Coins ($10)</span>
+                            <span className="text-[9px] text-white/40 font-normal mt-0.5">~100 AI Mins or 500 SMS</span>
+                        </button>
+                        <button onClick={() => handleTopUp(5000)} disabled={charging} className="bg-gold-gradient text-luxe-obsidian font-bold py-2 px-1 rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col items-center justify-center text-xs disabled:opacity-50 h-[54px]">
+                            <div className="flex items-center gap-1">
+                                {charging ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                                <span>+5000 Coins ($50)</span>
+                            </div>
+                            <span className={`text-[9px] font-normal mt-0.5 \${charging ? 'text-transparent' : 'text-luxe-obsidian/70'}`}>~500 AI Mins or 2500 SMS</span>
+                        </button>
+                    </div>
+
+                    {coinBalance <= 0 && (
+                        <p className="text-xs text-red-400 mt-4 flex items-center gap-1 bg-red-500/10 p-2 rounded-lg border border-red-500/20 relative z-10">
+                            <AlertTriangle className="w-4 h-4" /> AI Calls & SMS are currently paused.
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* Transaction History */}
+            <div className="glass-panel border border-white/5 p-6">
+                <h4 className="font-bold mb-4 flex items-center gap-2"><Clock className="w-5 h-5 text-luxe-gold" /> Recent Usage History</h4>
+
+                {transactions.length === 0 ? (
+                    <div className="text-center py-8 text-white/40">No transactions yet.</div>
+                ) : (
+                    <div className="space-y-3">
+                        {transactions.map(tx => (
+                            <div key={tx.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl">
+                                <div>
+                                    <p className="text-sm font-bold text-white">{tx.description || tx.transaction_type}</p>
+                                    <p className="text-xs text-white/40">{new Date(tx.created_at).toLocaleString()}</p>
+                                </div>
+                                <div className={`font-mono font-bold \${tx.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {tx.amount > 0 ? '+' : ''}{tx.amount}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 // ===== PAYMENTS TAB COMPONENT =====
 const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
     const [stripeStatus, setStripeStatus] = useState<any>(null);
@@ -214,11 +483,12 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
     const [lateCancelRefund, setLateCancelRefund] = useState(50);
     const [noShowRefund, setNoShowRefund] = useState(0);
     const [autoRefund, setAutoRefund] = useState(true);
+    const [paymentHoldMinutes, setPaymentHoldMinutes] = useState(30);
 
     const fetchStatus = async () => {
         // Get tenant refund settings
         const { data: tenant } = await supabase.from('tenants')
-            .select('stripe_account_id, stripe_onboarding_complete, cancellation_window_hours, late_cancel_refund_percent, no_show_refund_percent, auto_refund_enabled')
+            .select('stripe_account_id, stripe_onboarding_complete, cancellation_window_hours, late_cancel_refund_percent, no_show_refund_percent, auto_refund_enabled, payment_hold_minutes')
             .eq('id', tenantId).single();
 
         if (tenant) {
@@ -226,6 +496,7 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
             setLateCancelRefund(tenant.late_cancel_refund_percent ?? 50);
             setNoShowRefund(tenant.no_show_refund_percent ?? 0);
             setAutoRefund(tenant.auto_refund_enabled ?? true);
+            setPaymentHoldMinutes(tenant.payment_hold_minutes ?? 30);
 
             if (tenant.stripe_account_id) {
                 // Check live status from Stripe
@@ -275,6 +546,7 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
             late_cancel_refund_percent: lateCancelRefund,
             no_show_refund_percent: noShowRefund,
             auto_refund_enabled: autoRefund,
+            payment_hold_minutes: paymentHoldMinutes,
         }).eq('id', tenantId);
 
         if (!error) showToast('Refund policy saved!');
@@ -358,8 +630,24 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                 </div>
 
                 <div className="space-y-6">
-                    {/* Cancellation Window */}
+                    {/* Payment Hold Time */}
                     <div>
+                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">
+                            Payment Hold Time (AI Bookings)
+                        </label>
+                        <div className="flex items-center gap-4">
+                            <input
+                                type="range" min={15} max={120} step={5} value={paymentHoldMinutes}
+                                onChange={e => setPaymentHoldMinutes(Number(e.target.value))}
+                                className="flex-1 h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-luxe-gold"
+                            />
+                            <span className="text-sm font-bold text-luxe-gold min-w-[60px] text-right">{paymentHoldMinutes} min</span>
+                        </div>
+                        <p className="text-[10px] text-white/30 mt-1">If deposit is not paid within this time, the booking is automatically cancelled to free up the slot.</p>
+                    </div>
+
+                    {/* Cancellation Window */}
+                    <div className="pt-4 border-t border-white/5">
                         <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">
                             Free Cancellation Window
                         </label>
@@ -893,7 +1181,7 @@ export const Settings: React.FC = () => {
                     { id: 'security', label: 'Security', icon: Lock },
                     { id: 'integrations', label: 'Integrations', icon: Zap },
                     { id: 'ai_knowledge', label: 'AI Knowledge', icon: Bot },
-                    { id: 'billing', label: 'Plan & Billing', icon: BillingIcon },
+                    { id: 'billing', label: 'Wallet & Billing', icon: BillingIcon },
                     { id: 'payments', label: 'Payments', icon: CreditCard },
                 ].map(tab => {
                     const Icon = tab.icon;
@@ -1417,96 +1705,9 @@ export const Settings: React.FC = () => {
                 <AiKnowledgeTab tenantId={tenantId} />
             )}
 
-            {/* ============ PLAN & BILLING TAB ============ */}
-            {activeSettingsTab === 'billing' && (
-                <div>
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
-                            <BillingIcon className="w-6 h-6 text-luxe-gold" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold">Plan & Billing</h3>
-                            <p className="text-xs text-white/40 uppercase tracking-widest">Manage your subscription</p>
-                        </div>
-                    </div>
-
-                    {/* Current Plan Card */}
-                    <div className="glass-panel border border-luxe-gold/30 p-8 mb-8 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-luxe-gold/5 blur-[100px] rounded-full pointer-events-none" />
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
-                            <div>
-                                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Current Plan</p>
-                                <div className="flex items-center gap-3">
-                                    <h2 className="text-3xl font-black text-white uppercase tracking-wide">
-                                        {planTier || 'Basic'} Tier
-                                    </h2>
-                                    <div className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-bold flex items-center gap-1">
-                                        <ShieldCheck className="w-3.5 h-3.5" /> ACTIVE
-                                    </div>
-                                </div>
-                            </div>
-                            <a href="https://billing.stripe.com/p/login/test_14k3cE9tX5G" target="_blank" rel="noreferrer"
-                                className="bg-white/5 border border-white/10 text-white px-6 py-3 rounded-xl font-bold hover:bg-white/10 transition-all flex items-center gap-2">
-                                Manage Billing in Stripe <ExternalLink className="w-4 h-4" />
-                            </a>
-                        </div>
-                    </div>
-
-                    {/* Upgrade Packages */}
-                    <h4 className="font-bold text-lg mb-4">Upgrade Your Plan</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Starter */}
-                        <div className={`p-6 rounded-2xl border transition-all \${planTier === 'basic' ? 'bg-white/5 border-luxe-gold/50 shadow-[0_0_30px_rgba(212,175,55,0.1)]' : 'bg-luxe-obsidian border-white/10 hover:border-white/20'}`}>
-                            {planTier === 'basic' && <div className="text-xs font-bold text-luxe-gold uppercase tracking-widest mb-4">Current Plan</div>}
-                            <h3 className="text-xl font-bold mb-2">Starter</h3>
-                            <div className="text-3xl font-black mb-6">$99<span className="text-sm font-normal text-white/40">/mo</span></div>
-                            <ul className="space-y-3 mb-8 text-sm text-white/70">
-                                <li className="flex gap-2">✓ Up to 3 staff members</li>
-                                <li className="flex gap-2">✓ 150 AI call minutes</li>
-                                <li className="flex gap-2">✓ 200 SMS credits</li>
-                                <li className="flex gap-2 text-white/30">✗ Advanced analytics</li>
-                                <li className="flex gap-2 text-white/30">✗ Bella AI customization</li>
-                            </ul>
-                            <a href="/pricing#pricing" target="_blank" rel="noreferrer" className={`w-full py-3 rounded-xl font-bold flex justify-center items-center \${planTier === 'basic' ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-white text-black hover:scale-[1.02]'} transition-all`}>
-                                {planTier === 'basic' ? 'Current' : 'Select Starter'}
-                            </a>
-                        </div>
-
-                        {/* Growth */}
-                        <div className={`p-6 rounded-2xl border transition-all \${planTier === 'pro' ? 'bg-white/5 border-luxe-gold/50 shadow-[0_0_30px_rgba(212,175,55,0.1)]' : 'bg-luxe-obsidian border-white/10 hover:border-luxe-gold/30'}`}>
-                            {planTier === 'pro' ? <div className="text-xs font-bold text-luxe-gold uppercase tracking-widest mb-4">Current Plan</div> : <div className="text-xs font-bold text-luxe-gold uppercase tracking-widest mb-4">Most Popular</div>}
-                            <h3 className="text-xl font-bold mb-2">Growth</h3>
-                            <div className="text-3xl font-black mb-6 text-luxe-gold">$199<span className="text-sm font-normal text-white/40">/mo</span></div>
-                            <ul className="space-y-3 mb-8 text-sm text-white/70">
-                                <li className="flex gap-2">✓ Up to 10 staff members</li>
-                                <li className="flex gap-2">✓ 400 AI call minutes</li>
-                                <li className="flex gap-2">✓ 1,000 SMS credits</li>
-                                <li className="flex gap-2">✓ Call Logs & Recordings</li>
-                                <li className="flex gap-2">✓ Email & SMS Marketing</li>
-                            </ul>
-                            <a href="/pricing#pricing" target="_blank" rel="noreferrer" className={`w-full py-3 rounded-xl font-bold flex justify-center items-center \${planTier === 'pro' ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-gold-gradient text-black hover:scale-[1.02]'} transition-all`}>
-                                {planTier === 'pro' ? 'Current' : 'Upgrade to Growth'}
-                            </a>
-                        </div>
-
-                        {/* Enterprise */}
-                        <div className={`p-6 rounded-2xl border transition-all \${planTier === 'elite' ? 'bg-white/5 border-luxe-gold/50 shadow-[0_0_30px_rgba(212,175,55,0.1)]' : 'bg-luxe-obsidian border-white/10 hover:border-white/20'}`}>
-                            {planTier === 'elite' && <div className="text-xs font-bold text-luxe-gold uppercase tracking-widest mb-4">Current Plan</div>}
-                            <h3 className="text-xl font-bold mb-2">Enterprise</h3>
-                            <div className="text-3xl font-black mb-6">$349<span className="text-sm font-normal text-white/40">/mo</span></div>
-                            <ul className="space-y-3 mb-8 text-sm text-white/70">
-                                <li className="flex gap-2">✓ Unlimited staff</li>
-                                <li className="flex gap-2">✓ 1,000 AI call minutes</li>
-                                <li className="flex gap-2">✓ 5,000 SMS credits</li>
-                                <li className="flex gap-2">✓ Custom AI Knowledge Base</li>
-                                <li className="flex gap-2">✓ Dedicated Account Manager</li>
-                            </ul>
-                            <a href="/pricing#pricing" target="_blank" rel="noreferrer" className={`w-full py-3 rounded-xl font-bold flex justify-center items-center \${planTier === 'elite' ? 'bg-white/5 text-white/40 cursor-not-allowed' : 'bg-white text-black hover:scale-[1.02]'} transition-all`}>
-                                {planTier === 'elite' ? 'Current' : 'Upgrade to Enterprise'}
-                            </a>
-                        </div>
-                    </div>
-                </div>
+            {/* ============ WALLET & BILLING TAB ============ */}
+            {activeSettingsTab === 'billing' && tenantId && (
+                <WalletTab tenantId={tenantId} />
             )}
 
             {/* ============ SERVICE MODAL ============ */}
