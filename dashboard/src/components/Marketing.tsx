@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useCallback } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import {
     Megaphone, Send, Plus, Loader2, Users, MessageSquare, Mail, X, Rocket,
