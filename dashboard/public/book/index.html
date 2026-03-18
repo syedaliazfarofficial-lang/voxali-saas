@@ -655,7 +655,7 @@
 
             try {
                 // Fetch all data from Edge Function (uses service role key, bypasses RLS)
-                var res = await fetch(API_URL + '?slug=' + SLUG + '&format=json');
+                var res = await fetch(API_URL + '?slug=' + encodeURIComponent(SLUG) + '&format=json');
                 if (!res.ok) {
                     showError();
                     return;
