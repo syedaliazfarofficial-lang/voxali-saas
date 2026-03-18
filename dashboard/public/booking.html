@@ -636,8 +636,9 @@
         // Get tenant_id from URL
         const tempSlug = new URLSearchParams(window.location.search).get('salon');
         // Extract slug from path like /book/pak-salon
-        const pathParts = window.location.pathname.split('/');
-        const SLUG = pathParts[pathParts.length - 1] || tempSlug;
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        let rawSlug = pathParts.length > 1 ? pathParts[pathParts.length - 1] : tempSlug;
+        const SLUG = rawSlug ? decodeURIComponent(rawSlug) : null;
 
         let SERVICES = [];
         let STAFF = [];
@@ -800,7 +801,7 @@
             document.getElementById('slots-container').innerHTML = '<div class="slots-loading"><div class="mini-spinner"></div>Loading available slots...</div>';
 
             try {
-                var slotsUrl = API_URL + '?slug=' + SLUG + '&format=slots&date=' + dateVal + '&service_id=' + selectedServiceIds[0];
+                var slotsUrl = API_URL + '?slug=' + encodeURIComponent(SLUG) + '&format=slots&date=' + dateVal + '&service_id=' + selectedServiceIds[0];
                 // Send all service IDs for combined duration slot calculation
                 selectedServiceIds.forEach(function (sid, i) { if (i > 0) slotsUrl += '&service_id=' + sid; });
                 if (selectedStaffId) slotsUrl += '&staff_id=' + selectedStaffId;
@@ -947,7 +948,7 @@
             btn.innerHTML = '<span class="loading-btn"></span> Booking...';
 
             try {
-                var res = await fetch(API_URL + '?slug=' + SLUG, {
+                var res = await fetch(API_URL + '?slug=' + encodeURIComponent(SLUG), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
