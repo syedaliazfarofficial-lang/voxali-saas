@@ -5,15 +5,20 @@ import {
     ShieldCheck,
     Save,
     Loader2,
-
     RotateCcw,
     Megaphone,
     Power,
-    PowerOff
+    PowerOff,
+    Mic,
+    PhoneOff,
+    MessageSquare,
+    Wrench
 } from 'lucide-react';
 import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
+import Vapi from '@vapi-ai/web';
+import { VapiChatBox } from './VapiChatBox';
 
 interface AgentConfig {
     id: string;
@@ -32,6 +37,56 @@ export const BellaAI: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
 
+    // Vapi Web SDK State
+    const [assistantId, setAssistantId] = useState<string | null>(null);
+    const [callStatus, setCallStatus] = useState<'inactive' | 'loading' | 'active'>('inactive');
+    const [vapi, setVapi] = useState<InstanceType<typeof Vapi> | null>(null);
+
+    // New Text Chat & Provisioning State
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [provisioning, setProvisioning] = useState(false);
+
+    // Initialize Vapi SDK Client
+    useEffect(() => {
+        const vapiKey = import.meta.env.VITE_VAPI_PUBLIC_KEY;
+        if (vapiKey) {
+            const vapiInstance = new Vapi(vapiKey);
+            setVapi(vapiInstance);
+
+            vapiInstance.on('call-start', () => setCallStatus('active'));
+            vapiInstance.on('call-end', () => setCallStatus('inactive'));
+            vapiInstance.on('error', (e: unknown) => {
+                console.error("Vapi Error:", e);
+                setCallStatus('inactive');
+                showToast("Failed to connect to AI");
+            });
+
+            return () => {
+                vapiInstance.stop();
+            };
+        }
+    }, []);
+
+    const toggleCall = async () => {
+        if (!vapi || !assistantId) {
+            showToast("AI Agent not fully configured yet.");
+            return;
+        }
+        if (callStatus === 'active' || callStatus === 'loading') {
+            vapi.stop();
+            setCallStatus('inactive');
+        } else {
+            setCallStatus('loading');
+            try {
+                await vapi.start(assistantId);
+            } catch (e) {
+                console.error(e);
+                setCallStatus('inactive');
+                showToast("Failed to start call");
+            }
+        }
+    };
+
     const fetchConfig = useCallback(async () => {
         if (!tenantId) return;
         setLoading(true);
@@ -40,16 +95,79 @@ export const BellaAI: React.FC = () => {
             .select('*')
             .eq('tenant_id', tenantId)
             .single();
-        if (!error && data) {
-            const c = data as AgentConfig;
+
+        // Fetch specific vapi_assistant_id linked to the tenant
+        const { data: tenantData } = await supabaseAdmin
+            .from('tenants')
+            .select('vapi_assistant_id')
+            .eq('id', tenantId)
+            .single();
+
+        let activeConfig = data;
+
+        // Auto-create config if it doesn't exist
+        if (error && error.code === 'PGRST116') {
+            const { data: newConf } = await supabaseAdmin
+                .from('ai_agent_config')
+                .insert({
+                    tenant_id: tenantId,
+                    system_prompt: 'You are Aria, the AI receptionist. Please assist the customer in booking an appointment.',
+                    announcements: '',
+                    is_active: true
+                })
+                .select()
+                .single();
+            activeConfig = newConf;
+        }
+
+        if (activeConfig) {
+            const c = activeConfig as AgentConfig;
             setConfig(c);
-            setEditPrompt(c.system_prompt);
+            setEditPrompt(c.system_prompt || '');
             setEditAnnouncements(c.announcements || '');
         }
+
+        if (tenantData?.vapi_assistant_id) {
+            setAssistantId(tenantData.vapi_assistant_id);
+        }
         setLoading(false);
-    }, []);
+    }, [tenantId]);
 
     useEffect(() => { fetchConfig(); }, [fetchConfig]);
+
+    const handleProvisionAgent = async () => {
+        if (!tenantId) return;
+        setProvisioning(true);
+        try {
+            const { data: tenantProfile } = await supabaseAdmin.from('tenants').select('name').eq('id', tenantId).single();
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+            const res = await fetch(`${supabaseUrl}/functions/v1/provision-vapi-agent`, {
+                method: 'POST',
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-TOOLS-KEY": "LUXE-AUREA-SECRET-2026"
+                },
+                body: JSON.stringify({
+                    tenantId: tenantId,
+                    salonName: tenantProfile?.name || 'My Salon',
+                    countryCode: 'US'
+                })
+            });
+
+            if (res.ok) {
+                showToast("AI Agent Setup Complete! 🎉");
+                fetchConfig(); // refresh to get the new assistant_id
+            } else {
+                throw new Error("Provisioning failed");
+            }
+        } catch (error) {
+            console.error(error);
+            showToast("Failed to setup AI Agent. Please contact support.", "error");
+        } finally {
+            setProvisioning(false);
+        }
+    };
 
     useEffect(() => {
         if (!config) return;
@@ -90,7 +208,7 @@ export const BellaAI: React.FC = () => {
 
     const handleReset = () => {
         if (!config) return;
-        setEditPrompt(config.system_prompt);
+        setEditPrompt(config.system_prompt || '');
         setEditAnnouncements(config.announcements || '');
     };
 
@@ -102,15 +220,7 @@ export const BellaAI: React.FC = () => {
         );
     }
 
-    if (!config) {
-        return (
-            <div className="glass-panel p-16 flex flex-col items-center justify-center text-center">
-                <Bot className="w-12 h-12 text-white/10 mb-4" />
-                <h4 className="font-bold text-lg text-white/50">No AI config found</h4>
-                <p className="text-white/30 text-sm mt-1">Run the SQL migration to create the ai_agent_config table and seed data.</p>
-            </div>
-        );
-    }
+    if (!config) return null;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -129,6 +239,37 @@ export const BellaAI: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {/* Vapi Web SDK Call Button */}
+                    <button
+                        onClick={toggleCall}
+                        disabled={callStatus === 'loading' || !config.is_active}
+                        className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 text-xs font-bold ${callStatus === 'active'
+                            ? 'bg-red-500/20 text-red-400 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.3)] hover:bg-red-500/30'
+                            : 'bg-luxe-gold/10 text-luxe-gold border-luxe-gold/20 hover:bg-luxe-gold/20'
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                        {callStatus === 'loading' ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : callStatus === 'active' ? (
+                            <PhoneOff className="w-4 h-4" />
+                        ) : (
+                            <Mic className="w-4 h-4" />
+                        )}
+                        <span className="hidden sm:inline">
+                            {callStatus === 'loading' ? 'CONNECTING...' : callStatus === 'active' ? 'END CALL' : 'TALK TO BELLA'}
+                        </span>
+                    </button>
+
+                    {/* Chat with Bella Button */}
+                    <button
+                        onClick={() => setIsChatOpen(true)}
+                        disabled={!config.is_active || !assistantId}
+                        className="p-2.5 rounded-xl border transition-all flex items-center gap-2 text-xs font-bold bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                        <span className="hidden sm:inline">CHAT VIA TEXT</span>
+                    </button>
+
                     {/* Status Badge */}
                     <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${config.is_active
                         ? 'bg-green-500/10 text-green-400 border-green-500/20'
@@ -160,6 +301,27 @@ export const BellaAI: React.FC = () => {
                         <p className="font-bold text-red-400 text-sm">Bella is currently OFFLINE</p>
                         <p className="text-red-400/60 text-xs mt-0.5">All incoming calls will go to voicemail. Click START to resume.</p>
                     </div>
+                </div>
+            )}
+
+            {/* Agent Not Provisioned Warning */}
+            {!assistantId && config.is_active && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between gap-4">
+                    <div className="flex gap-3">
+                        <ShieldAlert className="w-6 h-6 text-amber-400 flex-shrink-0" />
+                        <div>
+                            <p className="font-bold text-amber-400 text-sm">AI Agent Not Fully Setup</p>
+                            <p className="text-amber-400/60 text-xs mt-0.5">Your Voice/Chat logic is missing. Click the Setup button to fix it in 5 seconds.</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={handleProvisionAgent}
+                        disabled={provisioning}
+                        className="flex-shrink-0 bg-gold-gradient text-[#1A1A1A] px-4 py-2 font-bold text-xs rounded-xl flex items-center gap-2"
+                    >
+                        {provisioning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wrench className="w-4 h-4" />}
+                        FIX AGENT
+                    </button>
                 </div>
             )}
 
@@ -218,6 +380,15 @@ export const BellaAI: React.FC = () => {
                     SAVE CHANGES
                 </button>
             </div>
+
+            {/* Internal Chat UI */}
+            {assistantId && (
+                <VapiChatBox
+                    assistantId={assistantId}
+                    isOpen={isChatOpen}
+                    onClose={() => setIsChatOpen(false)}
+                />
+            )}
         </div>
     );
 };

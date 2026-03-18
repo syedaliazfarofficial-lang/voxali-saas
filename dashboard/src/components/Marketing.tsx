@@ -54,7 +54,7 @@ const selectStyle: React.CSSProperties = { backgroundColor: '#1A1A1F', color: '#
 const optionStyle: React.CSSProperties = { backgroundColor: '#1A1A1F', color: '#E0E0E0' };
 
 export const Marketing: React.FC = () => {
-    const { tenantId, salonName: tenantSalonName } = useTenant();
+    const { tenantId, salonName: tenantSalonName, slug } = useTenant();
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -210,6 +210,36 @@ export const Marketing: React.FC = () => {
                     {showForm ? 'CANCEL' : 'NEW CAMPAIGN'}
                 </button>
             </div>
+
+            {/* Share Booking Link Section */}
+            {slug && (
+                <div className="glass-panel p-6 border border-luxe-gold/20 flex flex-col sm:flex-row justify-between items-center gap-4 animate-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center gap-4 w-full">
+                        <div className="p-3 bg-luxe-gold/10 rounded-full flex-shrink-0">
+                            <Star className="w-5 h-5 text-luxe-gold" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-white font-bold text-sm">Your Online Booking Link</h4>
+                            <div className="flex items-center gap-2 mt-2">
+                                <input 
+                                    readOnly 
+                                    value={`https://voxali.net/book/${slug}`} 
+                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/70 outline-none"
+                                />
+                                <button 
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(`https://voxali.net/book/${slug}`);
+                                        showToast('Booking link copied to clipboard!');
+                                    }}
+                                    className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-xs font-bold transition-colors flex-shrink-0"
+                                >
+                                    COPY
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Create Form */}
             {showForm && (

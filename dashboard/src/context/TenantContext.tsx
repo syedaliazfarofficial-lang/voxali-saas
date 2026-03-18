@@ -16,6 +16,7 @@ interface TenantBranding {
     ownerName: string;
     timezone: string;
     planTier: 'basic' | 'pro' | 'elite' | string;
+    slug: string | null;
 }
 
 interface TenantContextType extends TenantBranding {
@@ -35,6 +36,7 @@ const defaults: TenantBranding = {
     ownerName: '',
     timezone: 'America/New_York',
     planTier: 'basic',
+    slug: null,
 };
 
 const TenantContext = createContext<TenantContextType>({
@@ -107,7 +109,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
             const { data, error } = await supabaseAdmin
                 .from('tenants')
-                .select('salon_name, salon_tagline, logo_url, owner_name, name, timezone, plan_tier')
+                .select('slug, salon_name, salon_tagline, logo_url, owner_name, name, timezone, plan_tier')
                 .eq('id', tenantId)
                 .single();
 
@@ -119,6 +121,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     ownerName: data.owner_name || defaults.ownerName,
                     timezone: data.timezone || defaults.timezone,
                     planTier: data.plan_tier || defaults.planTier,
+                    slug: data.slug || null,
                 });
             }
         } catch (err) {

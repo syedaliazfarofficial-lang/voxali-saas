@@ -33,7 +33,7 @@ const navItems = [
     { icon: BarChart3, label: 'Analytics', id: 'analytics', roles: ['super_admin', 'owner', 'manager'] },
     { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'], minTier: 'pro' },
     { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner'], minTier: 'pro' },
-    { icon: Bot, label: 'Bella AI', id: 'bella', roles: ['super_admin', 'owner', 'manager'], minTier: 'elite' },
+    { icon: Bot, label: 'Bella AI', id: 'bella', roles: ['super_admin', 'owner', 'manager'] },
     { icon: Settings, label: 'Settings', id: 'settings', roles: ['super_admin', 'owner'] },
     { icon: UserCircle, label: 'My Profile', id: 'my_profile', roles: ['staff', 'manager', 'receptionist'] },
 ];
@@ -134,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Standard Nav Items */}
                 {filteredItems.map((item) => {
                     // Check tier access
-                    const tierWeight = { basic: 0, pro: 1, elite: 2 };
+                    const tierWeight = { basic: 0, starter: 1, growth: 2, elite: 3 };
                     const currentWeight = tierWeight[(planTier as keyof typeof tierWeight)] || 0;
                     const requiredWeight = item.minTier ? tierWeight[item.minTier as keyof typeof tierWeight] : 0;
                     const isLocked = currentWeight < requiredWeight;

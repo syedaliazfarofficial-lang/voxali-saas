@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Features — Voxali AI Receptionist</title>
+    <meta name="description"
+        content="Discover the full power of Voxali: AI Voice Receptionist, Smart Booking, CRM, and Payments all in one platform.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        luxe: {
+                            obsidian: '#0A0A0A',
+                            charcoal: '#151515',
+                            gold: '#D4AF37',
+                            muted: '#A1A1AA',
+                            surface: '#1E1E1E'
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-up': 'slideUp 0.8s cubic-bezier(0, 0, 0.2, 1) forwards'
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { opacity: 0.4 },
+                            '50%': { opacity: 0.1 },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(40px)', opacity: 0 },
+                            '100%': { transform: 'translateY(0)', opacity: 1 },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0A0A0A;
+            color: #F5F5F7;
+        }
+
+        .glass-nav {
+            backdrop-filter: blur(20px);
+            background: rgba(10, 10, 15, 0.85);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #FDE68A 0%, #D4AF37 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .bg-gradient-gold {
+            background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+        }
+
+        .glass-card {
+            background: rgba(21, 21, 21, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .glass-card:hover {
+            border-color: rgba(212, 175, 55, 0.3);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 20px rgba(212, 175, 55, 0.05);
+        }
+
+        .hero-glow {
+            position: absolute;
+            top: 0%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1000px;
+            height: 1000px;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
+    </style>
+</head>
+
+<body class="antialiased overflow-x-hidden selection:bg-luxe-gold selection:text-black">
+
+    <div class="hero-glow animate-pulse-glow"></div>
+
+    <!-- NAVBAR -->
+    <nav class="fixed w-full z-50 glass-nav transition-all duration-300 py-4 px-6 md:px-12">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="/" class="text-2xl font-black tracking-widest text-white flex items-center gap-2">
+                <span class="text-gradient">VOXALI</span>
+            </a>
+            
+            <div class="hidden md:flex items-center gap-8">
+                <a href="/" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Home</a>
+                <a href="/features.html" class="text-sm font-medium text-white transition-colors">Features</a>
+                <a href="/pricing" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Pricing</a>
+                <a href="/how-it-works.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">How it Works</a>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <a href="/app/" class="hidden md:block text-sm font-semibold text-white border border-white/10 hover:border-white/30 px-5 py-2.5 rounded-lg transition-all">
+                    Sign In
+                </a>
+                <a href="/pricing" class="text-sm font-bold text-black bg-gradient-gold px-6 py-2.5 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all hover:-translate-y-0.5">
+                    Get Started
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HEADER SECTION -->
+    <main class="relative pt-40 pb-20 px-6 text-center">
+        <div class="max-w-4xl mx-auto animate-[slideUp_0.8s_ease-out]">
+            <h2 class="text-sm font-bold tracking-widest text-luxe-gold uppercase mb-4">The Complete Platform</h2>
+            <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-6">
+                Everything you need to <br><span class="text-gradient">run a $1M salon.</span>
+            </h1>
+            <p class="text-xl text-luxe-muted font-medium mb-10 max-w-2xl mx-auto">
+                Voxali is the world's only platform that combines a human-like AI voice receptionist with an elite, full-suite salon management dashboard.
+            </p>
+        </div>
+    </main>
+
+    <!-- PILLAR 1: AI INTELLIGENCE -->
+    <section class="py-20 px-6 animate-[slideUp_0.8s_ease-out_200ms_both]">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex items-center gap-4 mb-12 border-b border-white/10 pb-6">
+                <div class="w-12 h-12 rounded-xl bg-luxe-gold/10 flex items-center justify-center">
+                    <span class="text-2xl">🤖</span>
+                </div>
+                <div>
+                    <h2 class="text-3xl font-black">AI Intelligence</h2>
+                    <p class="text-luxe-muted">The core engine that powers your automated front desk.</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">24/7 Voice Receptionist</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Aria answers every call instantly. She speaks naturally, understands context, checks real-time availability, and books appointments securely over the phone.</p>
+                </div>
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Smart Rescheduling</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Clients can call to change or cancel appointments. Aria automatically deletes the old slot and finds new available times based on your specific calendar rules.</p>
+                </div>
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Multilingual Support (Soon)</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Aria will soon converse fluently in English, Spanish, Arabic, and Urdu, ensuring you never lose a client due to a language barrier.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PILLAR 2: BOOKING & CRM -->
+    <section class="py-20 px-6 bg-luxe-charcoal border-y border-white/5">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex items-center gap-4 mb-12 border-b border-white/10 pb-6">
+                <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                    <span class="text-2xl">📅</span>
+                </div>
+                <div>
+                    <h2 class="text-3xl font-black">Booking & Client Management</h2>
+                    <p class="text-luxe-muted">Say goodbye to double bookings and lost sticky notes.</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Conflict-Free Calendar</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Multi-stylist availability engine instantly calculates open slots, preventing overlaps and respecting your custom buffer times.</p>
+                </div>
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Detailed Client Profiles</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Store comprehensive client histories including preferences, past services, total spent, and specific notes (e.g., "allergic to sulfate").</p>
+                </div>
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Automated SMS Reminders</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Reduce no-shows by 85%. The system automatically sends customizable SMS and email reminders 24 hours and 2 hours before appointments.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PILLAR 3: PAYMENTS -->
+    <section class="py-20 px-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex items-center gap-4 mb-12 border-b border-white/10 pb-6">
+                <div class="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+                    <span class="text-2xl">💳</span>
+                </div>
+                <div>
+                    <h2 class="text-3xl font-black">Payments & Revenue</h2>
+                    <p class="text-luxe-muted">Secure your bookings and track every dollar.</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Deposit System</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Require upfront deposits for specific high-value services. Links are sent via SMS, and slots are automatically released if unpaid within your set time limit.</p>
+                </div>
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Stripe Integration</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Enterprise-grade security powered by Stripe. Accept all major credit cards, Apple Pay, and Google Pay with instant payouts to your bank.</p>
+                </div>
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Revenue Analytics</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Visual dashboards tracking your daily, weekly, and monthly revenue. Break down earnings by specific stylists or services to identify growth areas.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BOTTOM CTA -->
+    <section class="py-24 px-6 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-gold opacity-5"></div>
+        <div class="max-w-4xl mx-auto text-center relative z-10 glass-card p-12 rounded-3xl border-luxe-gold/20 shadow-[0_0_50px_rgba(212,175,55,0.05)]">
+            <h2 class="text-3xl md:text-5xl font-black mb-6">Stop missing opportunities.</h2>
+            <p class="text-lg text-luxe-muted mb-10">Get the full suite of Voxali features today. Let Aria handle the phones while you focus on the art.</p>
+            <a href="/pricing" class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-gold text-black font-bold rounded-xl text-lg hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all hover:-translate-y-1">
+                View Plans & Pricing
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+            </a>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-white/5 py-12 px-6 bg-luxe-charcoal">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-2">
+                <span class="text-xl font-black tracking-wider text-gradient">VOXALI</span>
+                <span class="text-sm text-luxe-muted ml-4">&copy; 2026 Voxali Inc. All rights reserved.</span>
+            </div>
+            
+            <div class="flex items-center gap-6 text-sm font-medium text-luxe-muted">
+                <a href="/terms" class="hover:text-luxe-gold transition-colors">Terms of Service</a>
+                <a href="/privacy" class="hover:text-luxe-gold transition-colors">Privacy Policy</a>
+                <a href="/app/" class="hover:text-white transition-colors border border-white/10 px-4 py-1.5 rounded-md">Log In</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

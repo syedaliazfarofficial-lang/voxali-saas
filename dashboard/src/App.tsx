@@ -15,6 +15,7 @@ import { TenantProvider, useTenant } from './context/TenantContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider, showToast } from './components/ui/ToastNotification'
 import { SuperAdminLayout } from './components/SuperAdmin/SuperAdminLayout'
+import { SessionTimeout } from './components/SessionTimeout'
 import { ArrowLeft, AlertTriangle, LogOut, Loader2, Plus, Clock } from 'lucide-react'
 
 // ─── Floating "Back to Admin" bar for impersonation ───
@@ -331,6 +332,7 @@ function App() {
     <AuthProvider>
       <TenantProvider>
         <ToastProvider>
+          <SessionTimeout />
           <AppContent />
         </ToastProvider>
       </TenantProvider>

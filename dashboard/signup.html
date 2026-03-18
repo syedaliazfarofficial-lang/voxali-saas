@@ -175,6 +175,14 @@
                         <option value="GB">United Kingdom (+44)</option>
                         <option value="CA">Canada (+1)</option>
                         <option value="AU">Australia (+61)</option>
+                        <option value="NZ">New Zealand (+64)</option>
+                        <option value="AE">United Arab Emirates (+971)</option>
+                        <option value="SA">Saudi Arabia (+966)</option>
+                        <option value="DE">Germany (+49)</option>
+                        <option value="FR">France (+33)</option>
+                        <option value="ES">Spain (+34)</option>
+                        <option value="IT">Italy (+39)</option>
+                        <option value="PK">Pakistan (+92)</option>
                     </select>
                 </div>
                 <p class="text-xs text-zinc-500 mt-1">This determines your AI Agent's local phone number and language.
@@ -237,6 +245,37 @@
             <p class="text-zinc-400 text-sm text-center">We're verifying your payment, creating your dashboard, and
                 provisioning your AI agent...</p>
         </div>
+    </div>
+
+    <!-- Step 3: Success Screen (Hidden initially) -->
+    <div class="signup-container" id="success-screen" style="display: none; text-align: center; padding: 40px 20px;">
+        <div style="font-size: 60px; margin-bottom: 20px;">🎉</div>
+        <h2 style="font-size: 28px; margin-bottom: 12px;">Setup Complete!</h2>
+        <p style="color: #A0A0A0; margin-bottom: 30px; font-size: 15px;">Your AI Receptionist is being trained and your
+            dashboard is ready.</p>
+
+        <div
+            style="background: rgba(212, 175, 55, 0.05); border: 1px solid #D4AF37; border-radius: 12px; padding: 24px; margin-bottom: 30px; text-align: left;">
+            <h3 style="color: #D4AF37; font-size: 16px; margin-bottom: 10px;">📱 Your New AI Phone Number</h3>
+            <p style="font-size: 14px; color: #ccc; margin-bottom: 15px;">This is the dedicated number assigned to your
+                salon's AI receptionist:</p>
+            <div id="assigned-number"
+                style="font-size: 24px; font-weight: 700; color: #fff; letter-spacing: 2px; margin-bottom: 15px;">
+                Locating...</div>
+            <div id="call-forwarding-instructions"
+                style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="font-size: 13px; color: #888; margin-bottom: 8px;"><strong>How to connect your existing Salon
+                        Number:</strong></p>
+                <div id="forwarding-code"
+                    style="font-family: monospace; font-size: 18px; color: #D4AF37; margin-bottom: 8px; letter-spacing: 1px;">
+                    *21* +1 (AI Number) #</div>
+                <p id="forwarding-note" style="font-size: 12px; color: #777;">Please contact your local telecom provider
+                    to verify international call diverting rates.</p>
+            </div>
+        </div>
+
+        <button onclick="window.location.href='/'" class="btn btn-primary" style="width: 100%;">Go to My
+            Dashboard</button>
     </div>
 
     <script>
@@ -335,10 +374,59 @@
 
                 if (!response.ok) {
                     throw new Error(data.error || 'Failed to create account. Please try again or contact support.');
+                    // Success! Show success screen instead of auto redirect
                 }
 
-                // Success! Redirect to login/dashboard
-                window.location.href = '/?signup_success=true';
+                // Success! Show success screen instead of auto redirect
+                loadingScreen.classList.add('hidden');
+                document.getElementById('setup-form').style.display = 'none';
+                document.getElementById('success-screen').style.display = 'block';
+
+                // Try to wait a moment for background provisioning to finish, then fetch the number
+                setTimeout(async () => {
+                    try {
+                        const tenantRes = await fetch(`${SUPABASE_PROJECT_URL}/rest/v1/tenants?id=eq.${data.tenant_id}&select=twilio_number`, {
+                            headers: {
+                                'apikey': ANON_KEY,
+                                'Authorization': `Bearer ${ANON_KEY}`
+                            }
+                        });
+                        const tenantData = await tenantRes.json();
+                        const numberEl = document.getElementById('assigned-number');
+                        if (tenantData && tenantData[0] && tenantData[0].twilio_number) {
+                            const newNumber = tenantData[0].twilio_number;
+                            numberEl.textContent = newNumber;
+                            numberEl.style.color = '#22c55e';
+
+                            // Call Forwarding dynamic logic
+                            const defaultNote = "Please verify international call diverting rates with your local telecom provider.";
+                            const fwdCodeEl = document.getElementById('forwarding-code');
+                            const fwdNoteEl = document.getElementById('forwarding-note');
+                            switch (countryCode) {
+                                case 'US':
+                                case 'CA':
+                                    fwdCodeEl.textContent = `*72 1 ${newNumber.replace('+1', '')}`;
+                                    fwdNoteEl.textContent = "For AT&T, T-Mobile, or Rogers use *21*1 [number] #. For Verizon/Bell use *72.";
+                                    break;
+                                case 'PK':
+                                    fwdCodeEl.textContent = `**21* ${newNumber} #`;
+                                    fwdNoteEl.textContent = "Standard international charges apply for Jazz/Telenor users without an add-on.";
+                                    break;
+                                default:
+                                    fwdCodeEl.textContent = `*21* ${newNumber} #`;
+                                    fwdNoteEl.textContent = defaultNote;
+                                    break;
+                            }
+                        } else {
+                            numberEl.textContent = "Check Dashboard";
+                            numberEl.style.fontSize = "18px";
+                            numberEl.style.color = "#A0A0A0";
+                        }
+                    } catch (e) {
+                        document.getElementById('assigned-number').textContent = "Check Dashboard";
+                    }
+                }, 3000); // Wait 3 seconds to let Twilio finish
+
 
             } catch (err) {
                 console.error("Setup Error:", err);
