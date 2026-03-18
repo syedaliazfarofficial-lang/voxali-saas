@@ -291,14 +291,6 @@ export const Marketing: React.FC = () => {
                                     fgColor={"#000000"}
                                     level={"H"}
                                     includeMargin={false}
-                                    imageSettings={{
-                                        src: '/favicon.ico',
-                                        x: undefined,
-                                        y: undefined,
-                                        height: 32,
-                                        width: 32,
-                                        excavate: true,
-                                    }}
                                 />
                             </div>
                             
