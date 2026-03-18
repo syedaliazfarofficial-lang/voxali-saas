@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { QRCodeCanvas } from 'qrcode.react';
 import {
     Megaphone, Send, Plus, Loader2, Users, MessageSquare, Mail, X, Rocket,
-    CheckCircle2, Circle, Sparkles, Zap, Heart, Gift, Star, Clock, UserPlus, PartyPopper
+    CheckCircle2, Circle, Sparkles, Zap, Heart, Gift, Star, Clock, UserPlus, PartyPopper,
+    Download, Share2, QrCode
 } from 'lucide-react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -181,6 +182,37 @@ export const Marketing: React.FC = () => {
         fetchCampaigns();
     };
 
+    const handleDownloadQR = () => {
+        const canvas = document.getElementById('booking-qr-code') as HTMLCanvasElement;
+        if (!canvas) return;
+        const pngUrl = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
+        const downloadLink = document.createElement('a');
+        downloadLink.href = pngUrl;
+        downloadLink.download = `${salonName.replace(/\\s+/g, '_')}_Booking_QR.png`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        showToast('QR Code download started!');
+    };
+
+    const handleShareQR = async () => {
+        const url = `https://voxali.net/book/${slug}`;
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `Book an Appointment at ${salonName}`,
+                    text: `Book your next appointment with us!`,
+                    url: url,
+                });
+            } catch (err) {
+                console.log("Share cancelled or failed");
+            }
+        } else {
+            navigator.clipboard.writeText(url);
+            showToast('Link copied! (Native sharing not supported here)');
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -211,30 +243,81 @@ export const Marketing: React.FC = () => {
                 </button>
             </div>
 
-            {/* Share Booking Link Section */}
+            {/* Booking Page & QR Section */}
             {slug && (
-                <div className="glass-panel p-6 border border-luxe-gold/20 flex flex-col sm:flex-row justify-between items-center gap-4 animate-in slide-in-from-top-2 duration-300">
-                    <div className="flex items-center gap-4 w-full">
-                        <div className="p-3 bg-luxe-gold/10 rounded-full flex-shrink-0">
-                            <Star className="w-5 h-5 text-luxe-gold" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <h4 className="text-white font-bold text-sm">Your Online Booking Link</h4>
-                            <div className="flex items-center gap-2 mt-2">
+                <div className="glass-panel p-6 lg:p-8 border-2 border-luxe-gold/30 rounded-3xl animate-in slide-in-from-top-2 duration-300 relative overflow-hidden group">
+                    {/* Glowing Accent */}
+                    <div className="absolute -right-20 -top-20 w-64 h-64 bg-luxe-gold/10 rounded-full blur-3xl group-hover:bg-luxe-gold/20 transition-all duration-700 pointer-events-none"></div>
+
+                    <div className="flex flex-col lg:flex-row items-center gap-8 relative z-10">
+                        {/* Left Side: Link & Info */}
+                        <div className="flex-1 space-y-4 w-full text-center lg:text-left">
+                            <div className="flex items-center gap-3 justify-center lg:justify-start">
+                                <div className="p-2.5 bg-luxe-gold/20 rounded-xl">
+                                    <Star className="w-6 h-6 text-luxe-gold" />
+                                </div>
+                                <h4 className="text-xl font-black text-white">Your Booking Portal</h4>
+                            </div>
+                            <p className="text-sm text-white/60">
+                                Share this link on your Instagram, Facebook, or WhatsApp so clients can book appointments and automatically pay deposits 24/7.
+                            </p>
+                            
+                            <div className="flex items-center gap-2 max-w-lg mx-auto lg:mx-0 bg-black/50 p-1.5 rounded-xl border border-white/10 overflow-hidden">
                                 <input 
                                     readOnly 
                                     value={`https://voxali.net/book/${slug}`} 
-                                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/70 outline-none"
+                                    className="flex-1 bg-transparent border-none text-white/90 text-sm font-medium px-3 outline-none"
                                 />
                                 <button 
                                     onClick={() => {
                                         navigator.clipboard.writeText(`https://voxali.net/book/${slug}`);
                                         showToast('Booking link copied to clipboard!');
                                     }}
-                                    className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg text-xs font-bold transition-colors flex-shrink-0"
+                                    className="bg-gold-gradient text-black px-5 py-2 rounded-lg text-xs font-black uppercase tracking-wider hover:opacity-90 transition-opacity whitespace-nowrap"
                                 >
-                                    COPY
+                                    Copy Link
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Right Side: QR Code Generator */}
+                        <div className="flex flex-col items-center p-5 bg-black/40 border border-white/10 rounded-2xl min-w-[280px]">
+                            <div className="bg-white p-3 rounded-xl mb-4 shadow-xl shadow-black/50 overflow-hidden group-hover:scale-105 transition-transform duration-500">
+                                <QRCodeCanvas
+                                    id="booking-qr-code"
+                                    value={`https://voxali.net/book/${slug}`}
+                                    size={160}
+                                    bgColor={"#ffffff"}
+                                    fgColor={"#000000"}
+                                    level={"H"}
+                                    includeMargin={false}
+                                    imageSettings={{
+                                        src: '/favicon.ico',
+                                        x: undefined,
+                                        y: undefined,
+                                        height: 32,
+                                        width: 32,
+                                        excavate: true,
+                                    }}
+                                />
+                            </div>
+                            
+                            <div className="text-center w-full">
+                                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-3">Share Offline</p>
+                                <div className="flex gap-2 justify-center">
+                                    <button 
+                                        onClick={handleDownloadQR}
+                                        className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2.5 rounded-xl text-xs font-bold transition-colors"
+                                    >
+                                        <Download className="w-3.5 h-3.5" /> Download
+                                    </button>
+                                    <button 
+                                        onClick={handleShareQR}
+                                        className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-2.5 rounded-xl text-xs font-bold transition-colors text-luxe-gold border-luxe-gold/30 hover:bg-luxe-gold/10"
+                                    >
+                                        <Share2 className="w-3.5 h-3.5" /> Share
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
