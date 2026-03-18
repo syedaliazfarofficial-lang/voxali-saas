@@ -63,14 +63,36 @@ Deno.serve(async (req) => {
             is_closed: h.is_open === false,
         }));
 
+        // Compute today and tomorrow correctly using local timezone date parts
+        const todayISO = now.toLocaleDateString('en-CA', { timeZone: tz });
+        const [yr, mo, dy] = todayISO.split('-').map(Number);
+        const addDays = (d: number) => new Date(yr, mo - 1, dy + d).toLocaleDateString('en-CA');
+
+        const tomorrowISO = addDays(1);
+        const dayOfWeek = new Date(yr, mo - 1, dy).getDay(); // 0=Sun
+        const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+
         return jsonResponse({
             salon_name: tenant.salon_name, salon_tagline: tenant.salon_tagline,
             salon_email: tenant.salon_email, salon_phone: tenant.salon_phone_owner,
             salon_website: tenant.salon_website, timezone: tz,
             current_date: `${g('month')}/${g('day')}/${g('year')}`,
+            current_date_iso: todayISO,
+            tomorrow_date_iso: tomorrowISO,
             current_time: `${g('hour')}:${g('minute')} ${g('dayPeriod')}`,
             current_day: g('weekday'), current_year: g('year'),
             business_hours: formattedHours, google_review_url: tenant.google_review_url,
+            // PRE-COMPUTED date expressions — use these DIRECTLY, never guess dates
+            date_expressions: {
+                today: todayISO,
+                tomorrow: tomorrowISO,
+                day_after_tomorrow: addDays(2),
+                this_saturday: addDays((6 - dayOfWeek + 7) % 7 || 7),
+                next_monday: addDays(daysUntilMonday),
+                next_week_start: addDays(daysUntilMonday),
+                in_2_days: addDays(2),
+                in_3_days: addDays(3),
+            },
         });
     } catch (e: any) {
         return errorResponse(`Server error: ${e.message}`, 500);

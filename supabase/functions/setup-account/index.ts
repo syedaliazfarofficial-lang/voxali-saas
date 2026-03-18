@@ -70,6 +70,26 @@ Deno.serve(async (req) => {
     const randomSuffix = Math.random().toString(36).substring(2, 6);
     const slug = `${baseSlug}-${randomSuffix}`;
 
+    // Map country code to currency and timezone
+    let currencyStr = 'USD';
+    let timezoneStr = 'UTC';
+
+    switch (countryCode) {
+      case 'GB': currencyStr = 'GBP'; timezoneStr = 'Europe/London'; break;
+      case 'AU': currencyStr = 'AUD'; timezoneStr = 'Australia/Sydney'; break;
+      case 'CA': currencyStr = 'CAD'; timezoneStr = 'America/Toronto'; break;
+      case 'AE': currencyStr = 'AED'; timezoneStr = 'Asia/Dubai'; break;
+      case 'SA': currencyStr = 'SAR'; timezoneStr = 'Asia/Riyadh'; break;
+      case 'DE': currencyStr = 'EUR'; timezoneStr = 'Europe/Berlin'; break;
+      case 'FR': currencyStr = 'EUR'; timezoneStr = 'Europe/Paris'; break;
+      case 'ES': currencyStr = 'EUR'; timezoneStr = 'Europe/Madrid'; break;
+      case 'IT': currencyStr = 'EUR'; timezoneStr = 'Europe/Rome'; break;
+      case 'NZ': currencyStr = 'NZD'; timezoneStr = 'Pacific/Auckland'; break;
+      case 'PK': currencyStr = 'PKR'; timezoneStr = 'Asia/Karachi'; break;
+      case 'US': currencyStr = 'USD'; timezoneStr = 'America/New_York'; break;
+      default: currencyStr = 'USD'; timezoneStr = 'UTC'; break;
+    }
+
     const { data: newTenant, error: tenantErr } = await supabaseAdmin
       .from('tenants')
       .insert({
@@ -81,7 +101,9 @@ Deno.serve(async (req) => {
         plan_ai_minutes_limit: limits.ai_minutes,
         plan_sms_limit: limits.sms,
         plan_email_limit: limits.emails,
-        subscription_status: 'active'
+        subscription_status: 'active',
+        currency: currencyStr,
+        timezone: timezoneStr
       })
       .select('id')
       .single();
@@ -135,26 +157,27 @@ Deno.serve(async (req) => {
 
     console.log(`Starting auto-provisioning for tenant ${tenantId}...`);
 
-    // Step A: Provision Agent First to get the Agent ID
-    let createdAgentId = null;
+    // Step A: Provision Vapi Agent First to get the Assistant ID
+    let createdAssistantId = null;
     try {
-      const agentRes = await fetch(`${supabaseUrl}/functions/v1/provision-elevenlabs-agent`, {
+      const agentRes = await fetch(`${supabaseUrl}/functions/v1/provision-vapi-agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
-        body: JSON.stringify({ tenant_id: tenantId, salon_name: salonName, country_code: countryCode || 'US' })
+        body: JSON.stringify({ tenantId: tenantId, salonName: salonName, countryCode: countryCode || 'US' })
       });
       const agentData = await agentRes.json();
-      createdAgentId = agentData.agent_id;
+      createdAssistantId = agentData.assistantId;
     } catch (err) {
-      console.error("ElevenLabs Init background error: ", err);
+      console.error("Vapi Init background error: ", err);
     }
 
-    // Step B: Provision Twilio Number and link it to the new Agent ID
+    // Step B: Provision Twilio Number and link it to the new Vapi Assistant ID
+    // IMPORTANT: Always pass 'US' to bypass Twilio KYC restrictions globally
     try {
       await fetch(`${supabaseUrl}/functions/v1/provision-twilio-number`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
-        body: JSON.stringify({ tenant_id: tenantId, country_code: countryCode || 'US', agent_id: createdAgentId })
+        body: JSON.stringify({ tenant_id: tenantId, country_code: 'US', vapi_assistant_id: createdAssistantId })
       });
     } catch (err) {
       console.error("Twilio Init background error: ", err);

@@ -33,6 +33,13 @@ Deno.serve(async (req) => {
                 ADD COLUMN IF NOT EXISTS plan_email_limit INTEGER DEFAULT 500;
             `;
 
+            await connection.queryObject`
+                ALTER TABLE tenants
+                ADD COLUMN IF NOT EXISTS currency VARCHAR(3) DEFAULT 'USD',
+                ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC';
+            `;
+
+
             return new Response(JSON.stringify({ success: true, message: 'Migration applied successfully' }), {
                 headers: { 'Content-Type': 'application/json' }
             });

@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
                 tenant_id: tenantId,
                 client_name: clientName,
                 client_phone: normalizedPhone,
+                client_email: clientEmail || null,
                 service_id: serviceId || null,
                 preferred_date: preferredDate || null,
                 preferred_time: preferredTime || null,

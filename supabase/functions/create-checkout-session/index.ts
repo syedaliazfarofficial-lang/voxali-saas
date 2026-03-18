@@ -3,24 +3,26 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
-const PLAN_CONFIG: Record<string, { name: string; priceAmount: number; trialDays: number; limits: any }> = {
+const PLAN_CONFIG: Record<string, { name: string; priceAmount: number; limits: any }> = {
+    basic: {
+        name: 'SaaS Basic',
+        priceAmount: 4900, // $49
+        limits: { staff: 2, ai_minutes: 0, sms: 0, emails: 500, coins: 0 },
+    },
     starter: {
-        name: 'Voxali Starter',
-        priceAmount: 9900, // $99 in cents
-        trialDays: 14,
-        limits: { staff: 3, ai_minutes: 150, sms: 200, emails: 500 },
+        name: 'AI Starter',
+        priceAmount: 9900, // $99
+        limits: { staff: 5, ai_minutes: 0, sms: 0, emails: 1000, coins: 1500 }, // Coins act as the combined limit now
     },
     growth: {
-        name: 'Voxali Growth',
+        name: 'AI Growth',
         priceAmount: 19900, // $199
-        trialDays: 14,
-        limits: { staff: 10, ai_minutes: 400, sms: 1000, emails: 5000 },
+        limits: { staff: 15, ai_minutes: 0, sms: 0, emails: 5000, coins: 4000 },
     },
-    enterprise: {
-        name: 'Voxali Enterprise',
+    elite: {
+        name: 'AI Elite',
         priceAmount: 34900, // $349
-        trialDays: 14,
-        limits: { staff: -1, ai_minutes: 1000, sms: 5000, emails: -1 }, // -1 = unlimited
+        limits: { staff: -1, ai_minutes: 0, sms: 0, emails: -1, coins: 10000 }, // -1 = unlimited
     },
 };
 
@@ -46,7 +48,7 @@ Deno.serve(async (req) => {
         const { plan, email, salon_name } = body;
 
         if (!plan || !PLAN_CONFIG[plan]) {
-            return new Response(JSON.stringify({ error: 'Invalid plan. Choose: starter, professional, or enterprise' }), {
+            return new Response(JSON.stringify({ error: 'Invalid plan. Choose: basic, starter, growth, or elite' }), {
                 status: 400, headers: corsHeaders,
             });
         }
@@ -59,8 +61,8 @@ Deno.serve(async (req) => {
         }
 
         const config = PLAN_CONFIG[plan];
-        const successUrl = `https://voxali-dashboard.pages.dev/signup.html?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`;
-        const cancelUrl = `https://voxali-dashboard.pages.dev/pricing.html`;
+        const successUrl = `https://voxali.net/signup.html?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`;
+        const cancelUrl = `https://voxali.net/pricing.html`;
 
         // Step 1: Create a Stripe Price (ad-hoc) for the subscription
         const priceRes = await fetch('https://api.stripe.com/v1/prices', {
@@ -93,7 +95,6 @@ Deno.serve(async (req) => {
             'line_items[0][quantity]': '1',
             'success_url': successUrl,
             'cancel_url': cancelUrl,
-            'subscription_data[trial_period_days]': String(config.trialDays),
             'subscription_data[metadata][plan]': plan,
             'subscription_data[metadata][limits]': JSON.stringify(config.limits),
             'metadata[plan]': plan,
@@ -128,7 +129,7 @@ Deno.serve(async (req) => {
             checkout_url: checkoutData.url,
             session_id: checkoutData.id,
             plan: plan,
-            trial_days: config.trialDays,
+            trial_days: 0,
         }), { headers: corsHeaders });
 
     } catch (e: any) {

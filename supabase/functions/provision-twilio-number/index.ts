@@ -15,6 +15,7 @@ Deno.serve(async (req) => {
         const body = await req.json();
         const tenantId = body.tenant_id;
         const countryCode = (body.country_code || 'US').toUpperCase();
+        const vapiAssistantId = body.vapi_assistant_id; // Added to link the number directly to the assistant
 
         if (!tenantId) {
             return errorResponse('Missing tenant_id', 400);
@@ -22,9 +23,10 @@ Deno.serve(async (req) => {
 
         const twilioSid = Deno.env.get('TWILIO_ACCOUNT_SID');
         const twilioAuth = Deno.env.get('TWILIO_AUTH_TOKEN');
+        const isTestMode = Deno.env.get('TWILIO_TEST_MODE') === 'true';
 
-        if (!twilioSid || !twilioAuth) {
-            console.warn('Twilio credentials missing. Simulating number provisioning.');
+        if (!twilioSid || !twilioAuth || isTestMode) {
+            console.warn('Twilio test mode is ON or credentials missing. Simulating number provisioning to avoid charges.');
             // Update database with a fake number for demo/testing purposes
             const countryPrefix = countryCode === 'GB' ? '+44' : countryCode === 'AU' ? '+61' : '+1';
             const fakeNumber = `${countryPrefix}555${Math.floor(1000 + Math.random() * 9000)}`;
@@ -39,7 +41,7 @@ Deno.serve(async (req) => {
             return jsonResponse({
                 success: true,
                 simulated: true,
-                message: 'Twilio credentials not found. Simulated number assignment.',
+                message: 'Test mode enabled. Simulated number assignment to avoid charges.',
                 phone_number: fakeNumber,
                 tenant_id: tenantId
             });
@@ -83,9 +85,37 @@ Deno.serve(async (req) => {
             purchaseParams.append('SmsMethod', 'POST');
         }
 
-        // Critical ElevenLabs integration: Route all incoming voice calls directly to the AI
-        purchaseParams.append('VoiceUrl', 'https://api.us.elevenlabs.io/twilio/inbound_call');
-        purchaseParams.append('VoiceMethod', 'POST');
+        // Step 3: Link Number to Vapi Assistant
+        const vapiApiKey = Deno.env.get('VAPI_API_KEY');
+        if (vapiApiKey && vapiAssistantId) {
+            const vapiPayload = {
+                provider: 'twilio',
+                number: targetNumber,
+                twilioAccountSid: twilioSid,
+                twilioAuthToken: twilioAuth,
+                assistantId: vapiAssistantId
+            };
+
+            try {
+                const vapiRes = await fetch("https://api.vapi.ai/phone-number", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${vapiApiKey}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(vapiPayload)
+                });
+
+                if (vapiRes.ok) {
+                    console.log(`Successfully linked ${targetNumber} to Vapi Assistant ${vapiAssistantId}`);
+                } else {
+                    console.error("Failed to link Vapi number:", await vapiRes.text());
+                }
+            } catch (err) {
+                console.error("Vapi API Error during number linking:", err);
+            }
+        }
+
 
         const purchaseRes = await fetch(
             `https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/IncomingPhoneNumbers.json`,

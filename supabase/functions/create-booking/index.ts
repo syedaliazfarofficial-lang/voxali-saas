@@ -24,8 +24,8 @@ Deno.serve(async (req) => {
         };
         if (!client.name && !client.phone) return errorResponse('Client name or phone is required');
 
-        let serviceId = body.service_id || '';
-        const serviceName = body.service_name || '';
+        let serviceId = body.service_id || body.service_ids || '';
+        const serviceName = body.service_name || body.service_ids || '';
         let stylistId = body.stylist_id || body.staff_id || '';
         const stylistName = body.stylist_name || body.staff_name || '';
         const notes = body.notes || '';
@@ -62,7 +62,9 @@ Deno.serve(async (req) => {
 
         // Stylist lookup
         if (stylistId && isUUID(stylistId)) {
-            parallelQueries.push(Promise.resolve({ data: [{ id: stylistId }] }));
+            parallelQueries.push(
+                supabase.from('staff').select('id, full_name').eq('id', stylistId).limit(1)
+            );
         } else if (stylistName) {
             parallelQueries.push(
                 supabase.from('staff')
@@ -113,7 +115,15 @@ Deno.serve(async (req) => {
             startTime = rawStart + getTzOffset(tz, datePart);
         }
 
-        const startDate = new Date(startTime);
+        let startDate = new Date(startTime);
+        const currentYear = new Date().getFullYear();
+        const bookingYear = startDate.getFullYear();
+        // Clamp wrong years: past years OR future years more than 1 year ahead (VAPI hallucination guard)
+        if (bookingYear < currentYear || bookingYear > currentYear + 1) {
+            startDate.setFullYear(currentYear);
+            startTime = startDate.toISOString();
+        }
+
         const endDate = new Date(startDate.getTime() + (service.duration || 30) * 60000);
         const endTime = endDate.toISOString();
 
@@ -167,8 +177,8 @@ Deno.serve(async (req) => {
                         'line_items[0][quantity]': '1',
                         'metadata[booking_id]': booking.id,
                         'metadata[tenant_id]': tenantId!,
-                        'success_url': `https://voluble-sprinkles-8ee4f2.netlify.app/?booking_id=${booking.id}`,
-                        'cancel_url': `https://voluble-sprinkles-8ee4f2.netlify.app/?booking_id=${booking.id}&cancelled=true`,
+                        'success_url': `https://voxali-payment.pages.dev/?booking_id=${booking.id}`,
+                        'cancel_url': `https://voxali-payment.pages.dev/?booking_id=${booking.id}&cancelled=true`,
                     };
 
                     // If salon has connected AND onboarded Stripe account, use Connect transfer
@@ -206,26 +216,6 @@ Deno.serve(async (req) => {
                             stripe_payment_link_id: stripeData.id, status: 'pending',
                         });
                         if (payErr) console.error('Payment insert error:', payErr.message, payErr.code);
-                        // Manually queue notification WITH payment_link
-                        // (DB trigger skips pending_deposit bookings to avoid race condition)
-                        await supabase.from('notification_queue').insert({
-                            tenant_id: tenantId,
-                            event_type: 'booking_created',
-                            booking_id: booking.id,
-                            client_phone: client.phone,
-                            client_email: client.email,
-                            client_name: client.name,
-                            booking_details: {
-                                service: service.name,
-                                stylist: (Array.isArray(staffData) ? staffData[0]?.full_name : staffData?.full_name) || 'Any Available',
-                                date: startDate.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz }),
-                                time: startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }),
-                                price: service.price,
-                                status: booking.status,
-                                payment_link: paymentLink,
-                                deposit_amount: service.deposit_amount,
-                            },
-                        });
                     } else {
                         const errBody = await stripeRes.json().catch(() => ({}));
                         console.error('Stripe Checkout failed:', stripeRes.status, errBody.error?.message);
@@ -236,19 +226,68 @@ Deno.serve(async (req) => {
             }
         }
 
+        // === Always Queue Notification (regardless of deposit) ===
+        // Fetch client email if not provided (existing clients)
+        let clientEmail = client.email;
+        if (!clientEmail && clientRes.data?.id) {
+            const { data: existingClient } = await supabase
+                .from('clients')
+                .select('email')
+                .eq('id', clientRes.data.id)
+                .single();
+            clientEmail = existingClient?.email || '';
+        }
+
+        await supabase.from('notification_queue').insert({
+            tenant_id: tenantId,
+            event_type: 'booking_created',
+            booking_id: booking.id,
+            client_phone: client.phone,
+            client_email: clientEmail,
+            client_name: client.name,
+            booking_details: {
+                service: service.name,
+                stylist: (Array.isArray(staffData) ? staffData[0]?.full_name : staffData?.full_name) || 'Any Available',
+                date: startDate.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz }),
+                time: startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }),
+                price: service.price,
+                status: booking.status,
+                payment_link: paymentLink,
+                deposit_amount: service.deposit_amount,
+            },
+        });
+        console.log('Notification queued for:', clientEmail || client.phone);
+
         // === Response ===
         const formattedDate = startDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: tz });
         const formattedTime = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz });
 
+        // Trigger notification worker synchronously to prevent Deno from dropping the process
+        try {
+            const edgeUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+            console.log("Triggering email worker...");
+            await fetch(edgeUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            console.log("Worker triggered successfully.");
+        } catch (e) {
+            console.error('Trigger error', e);
+        }
+
         return jsonResponse({
             success: true,
             message: `Booking confirmed for ${client.name} on ${formattedDate} at ${formattedTime}.` +
-                (paymentLink ? ` A deposit of $${service.deposit_amount} is required. Payment link has been sent.` : ''),
+                (paymentLink ? ` A deposit of $${service.deposit_amount} is required. A secure payment link has been sent to the client via SMS and email.` : ''),
             booking_id: booking.id, client_name: client.name, service: service.name,
             date: formattedDate, time: formattedTime,
             total_price: service.price, deposit_amount: service.deposit_amount || 0,
             deposit_required: service.deposit_required || false,
-            payment_link: paymentLink, status: booking.status,
+            payment_sent: paymentLink ? true : false,
+            status: booking.status,
         });
     } catch (e: any) {
         return errorResponse(`Server error: ${e.message}`, 500);

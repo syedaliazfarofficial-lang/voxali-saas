@@ -20,6 +20,53 @@ Deno.serve(async (req) => {
 
         const supabase = getSupabase();
 
+        // ===== CHECKOUT COMPLETED — Coin Topup =====
+        if (eventType === 'checkout.session.completed' && obj.mode === 'payment' && obj.metadata?.payment_type === 'coin_topup') {
+            const tenantId = obj.metadata.tenant_id;
+            const amountCoins = parseInt(obj.metadata.amount_coins || '0', 10);
+
+            if (!tenantId || !amountCoins) {
+                return errorResponse('Missing tenant_id or amount_coins in metadata', 400);
+            }
+
+            console.log(`Processing coin topup: ${amountCoins} coins for tenant ${tenantId}`);
+
+            // Fetch current balance
+            const { data: tenant, error: fetchErr } = await supabase
+                .from('tenants')
+                .select('coin_balance')
+                .eq('id', tenantId)
+                .single();
+
+            if (fetchErr || !tenant) {
+                return errorResponse('Tenant not found', 404);
+            }
+
+            const newBalance = (tenant.coin_balance || 0) + amountCoins;
+
+            // Update balance
+            const { error: updateErr } = await supabase
+                .from('tenants')
+                .update({ coin_balance: newBalance })
+                .eq('id', tenantId);
+
+            if (updateErr) {
+                console.error("Failed to update coin balance:", updateErr);
+                return errorResponse('Failed to update balance', 500);
+            }
+
+            // Log transaction
+            await supabase.from('coin_transactions').insert({
+                tenant_id: tenantId,
+                amount: amountCoins,
+                transaction_type: 'topup',
+                description: `Purchased ${amountCoins} coins via Stripe`
+            });
+
+            console.log(`Successfully credited ${amountCoins} coins. New balance: ${newBalance}`);
+            return jsonResponse({ received: true, message: `Credited ${amountCoins} coins to tenant ${tenantId}` });
+        }
+
         // ===== CHECKOUT COMPLETED — Deposit Paid =====
         if (eventType === 'checkout.session.completed') {
             const bookingId = obj.metadata?.booking_id;

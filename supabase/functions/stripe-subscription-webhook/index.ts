@@ -26,6 +26,53 @@ Deno.serve(async (req) => {
             auth: { autoRefreshToken: false, persistSession: false }
         });
 
+        // ===== CHECKOUT COMPLETED (Payment for Coins) =====
+        if (eventType === 'checkout.session.completed' && obj.mode === 'payment' && obj.metadata?.payment_type === 'coin_topup') {
+            const tenantId = obj.metadata.tenant_id;
+            const amountCoins = parseInt(obj.metadata.amount_coins || '0', 10);
+
+            if (!tenantId || !amountCoins) {
+                return errorResponse('Missing tenant_id or amount_coins in metadata', 400);
+            }
+
+            console.log(`Processing coin topup: ${amountCoins} coins for tenant ${tenantId}`);
+
+            // Fetch current balance
+            const { data: tenant, error: fetchErr } = await supabaseAdmin
+                .from('tenants')
+                .select('coin_balance')
+                .eq('id', tenantId)
+                .single();
+
+            if (fetchErr || !tenant) {
+                return errorResponse('Tenant not found', 404);
+            }
+
+            const newBalance = (tenant.coin_balance || 0) + amountCoins;
+
+            // Update balance
+            const { error: updateErr } = await supabaseAdmin
+                .from('tenants')
+                .update({ coin_balance: newBalance })
+                .eq('id', tenantId);
+
+            if (updateErr) {
+                console.error("Failed to update coin balance:", updateErr);
+                return errorResponse('Failed to update balance', 500);
+            }
+
+            // Log transaction
+            await supabaseAdmin.from('coin_transactions').insert({
+                tenant_id: tenantId,
+                amount: amountCoins,
+                transaction_type: 'topup',
+                description: `Purchased ${amountCoins} coins via Stripe`
+            });
+
+            console.log(`Successfully credited ${amountCoins} coins. New balance: ${newBalance}`);
+            return jsonResponse({ received: true, message: `Credited ${amountCoins} coins to tenant ${tenantId}` });
+        }
+
         // ===== CHECKOUT COMPLETED (New Subscription) =====
         if (eventType === 'checkout.session.completed' && obj.mode === 'subscription') {
 
@@ -107,6 +154,61 @@ Deno.serve(async (req) => {
                 message: 'Tenant and Admin User created successfully. Welcome email sent & onboarding automated.',
                 tenant_id: tenantId
             });
+        }
+
+        // ===== INVOICE PAYMENT SUCCEEDED (Recurring Monthly Reset) =====
+        if (eventType === 'invoice.payment_succeeded' && obj.subscription) {
+            const customerEmail = obj.customer_email || '';
+            const customerId = obj.customer;
+            const billingReason = obj.billing_reason; // e.g., 'subscription_cycle'
+
+            if (!customerEmail) {
+                return jsonResponse({ received: true, message: 'No customer email found, skipping.' });
+            }
+
+            console.log(`Processing recurring payment for ${customerEmail}. Reason: ${billingReason}`);
+
+            // Find the tenant by email
+            const { data: tenant, error: fetchErr } = await supabaseAdmin
+                .from('tenants')
+                .select('id, plan_tier, coin_balance')
+                .eq('email', customerEmail)
+                .single();
+
+            if (tenant) {
+                const tier = tenant.plan_tier || 'basic';
+                let monthlyCoins = 0;
+                if (tier === 'starter') monthlyCoins = 2000;
+                else if (tier === 'growth') monthlyCoins = 5000;
+                else if (tier === 'elite') monthlyCoins = 10000;
+
+                if (monthlyCoins > 0 && billingReason === 'subscription_cycle') {
+                    // Accumulate coins (Rollover Option 1)
+                    const currentBalance = tenant.coin_balance || 0;
+                    const newBalance = currentBalance + monthlyCoins;
+
+                    const { error: updateErr } = await supabaseAdmin
+                        .from('tenants')
+                        .update({
+                            coin_balance: newBalance,
+                            ai_minutes_used: 0,
+                            sms_used: 0
+                        })
+                        .eq('id', tenant.id);
+
+                    if (!updateErr) {
+                        await supabaseAdmin.from('coin_transactions').insert({
+                            tenant_id: tenant.id,
+                            amount: monthlyCoins,
+                            transaction_type: 'monthly_reset',
+                            description: `Monthly Subscription Renewed. Added ${monthlyCoins} Coins. New Balance: ${newBalance}.`
+                        });
+                        console.log(`Rollover: Added ${monthlyCoins} to ${tenant.id}. New Balance: ${newBalance}.`);
+                    }
+                }
+            }
+
+            return jsonResponse({ received: true, message: 'Recurring payment processed.' });
         }
 
         return jsonResponse({ received: true, message: `Unhandled event: ${eventType}` });

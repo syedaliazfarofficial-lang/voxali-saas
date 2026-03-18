@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "node-fetch": "^2.7.0",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "supabase": "^2.78.1"
+  }
+}

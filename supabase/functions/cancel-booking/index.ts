@@ -15,8 +15,10 @@ Deno.serve(async (req) => {
         try { body = await req.json(); } catch { }
         const tenantId = auth.tenantId || body.tenant_id;
         if (!tenantId) return errorResponse('Missing tenant_id');
-        const clientName = body.name || body.client_name || '';
-        const clientPhone = body.phone || body.client_phone || '';
+        console.log('[CANCEL] Raw Body:', JSON.stringify(body));
+
+        const clientName = body.name || body.client_name || body.clientName || '';
+        const clientPhone = body.phone || body.client_phone || body.clientPhone || '';
         let bookingId = body.booking_id || body.bookingId || '';
 
         // Validate UUID format
@@ -98,8 +100,8 @@ Deno.serve(async (req) => {
         const serviceData = serviceRes.data;
         const stylistData = stylistRes.data;
 
-        // Queue notification (fire-and-forget for speed)
-        supabase.from('notification_queue').insert({
+        // Queue notification (MUST await — fire-and-forget gets killed by Deno runtime)
+        await supabase.from('notification_queue').insert({
             tenant_id: tenantId,
             event_type: 'booking_cancelled',
             booking_id: bid,
@@ -113,6 +115,93 @@ Deno.serve(async (req) => {
             },
             status: 'pending',
         });
+
+        // Trigger notification worker synchronously to prevent Deno from dropping the process
+        try {
+            const edgeUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+            await fetch(edgeUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        } catch (e) {
+            console.error('Trigger error', e);
+        }
+
+        // ============================================================
+        // WAITLIST CHECK — notify waiting clients for same date+service
+        // ============================================================
+        const cancelledDateISO = startTime ? startTime.toLocaleDateString('en-CA', { timeZone: tz }) : null;
+        if (cancelledDateISO) {
+            const { data: waitlistEntries } = await supabase
+                .from('waitlist')
+                .select('id, client_name, client_phone, client_email, notes')
+                .eq('tenant_id', tenantId)
+                .eq('preferred_date', cancelledDateISO)
+                .eq('status', 'waiting')
+                .limit(5);
+
+            if (waitlistEntries && waitlistEntries.length > 0) {
+                console.log(`[CANCEL] Found ${waitlistEntries.length} waitlist entries for ${cancelledDateISO}, notifying...`);
+
+                // Get salon info for booking link
+                const { data: salonInfo } = await supabase
+                    .from('tenants')
+                    .select('salon_name, salon_website')
+                    .eq('id', tenantId).single();
+
+                for (const entry of waitlistEntries) {
+                    // Lookup client email by phone
+                    const { data: waitlistClient } = await supabase
+                        .from('clients')
+                        .select('email')
+                        .eq('tenant_id', tenantId)
+                        .eq('phone', entry.client_phone)
+                        .limit(1).single();
+
+                    // Queue waitlist notification
+                    await supabase.from('notification_queue').insert({
+                        tenant_id: tenantId,
+                        event_type: 'waitlist_slot_available',
+                        booking_id: null,
+                        client_name: entry.client_name || '',
+                        client_phone: entry.client_phone || '',
+                        client_email: waitlistClient?.email || entry.client_email || '',
+                        booking_details: {
+                            date: dateStr,
+                            time: timeStr,
+                            service: serviceData?.name || '',
+                            stylist: stylistData?.full_name || '',
+                            price: serviceData?.price || 0,
+                            salon_name: salonInfo?.salon_name || tenant?.salon_name || '',
+                            waitlist_message: `Great news! A slot has opened up for ${serviceData?.name || 'your requested service'} on ${dateStr} at ${timeStr}. Please call us to secure your appointment.`,
+                        },
+                        status: 'pending',
+                    });
+
+                    // Mark waitlist entry as notified
+                    await supabase.from('waitlist')
+                        .update({ status: 'notified' })
+                        .eq('id', entry.id);
+                }
+
+                // Trigger notification worker
+                try {
+                    const edgeUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+                    await fetch(edgeUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                } catch (e) {
+                    console.error('[CANCEL] Waitlist notification trigger error', e);
+                }
+            }
+        }
 
         return jsonResponse({
             success: true,

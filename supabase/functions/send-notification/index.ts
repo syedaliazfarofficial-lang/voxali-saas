@@ -35,6 +35,10 @@ const SMS_TEMPLATES: Record<string, (d: any) => string> = {
         `⏰ Reminder: ${d.client_name}, your appointment at ${d.salon_name} is TOMORROW!\n` +
         `📅 ${d.date} at ${d.time}\n💇 ${d.service} with ${d.stylist}\n` +
         `See you soon! ✨`,
+    waitlist_slot_available: (d) => 
+        `🔔 Hi ${d.client_name}! A slot has opened up at ${d.salon_name} for ${d.service} on ${d.date} at ${d.time}. Reply YES to book it before it's gone!`,
+    payment_expired: (d) =>
+        `⚠️ Hi ${d.client_name}, your hold for ${d.salon_name} on ${d.date} expired because the deposit wasn't paid. Please visit our website to rebook!`,
 };
 
 // ===== EMAIL SUBJECTS =====
@@ -48,6 +52,8 @@ const EMAIL_SUBJECTS: Record<string, (d: any) => string> = {
     booking_checked_in: (d) => `Checked In — ${d.salon_name}`,
     booking_no_show: (d) => `We missed you — ${d.salon_name}`,
     appointment_reminder: (d) => `⏰ Reminder: Your appointment tomorrow — ${d.salon_name}`,
+    waitlist_slot_available: (d) => `🔔 Slot Available! — ${d.salon_name}`,
+    payment_expired: (d) => `⏳ Hold Expired — ${d.salon_name}`,
 };
 
 // ===== SEND SMS VIA TWILIO =====
@@ -115,6 +121,8 @@ function buildEmailHTML(eventType: string, d: any): string {
         booking_checked_in: { label: 'Checked In', color: '#F59E0B', bg: '#F59E0B20', icon: '●' },
         booking_no_show: { label: 'No Show', color: '#6B7280', bg: '#6B728020', icon: '!' },
         appointment_reminder: { label: 'Appointment Reminder', color: '#F59E0B', bg: '#F59E0B20', icon: '⏰' },
+        waitlist_slot_available: { label: 'Slot Now Available!', color: '#8B5CF6', bg: '#8B5CF620', icon: '🔔' },
+        payment_expired: { label: 'Hold Expired', color: '#EF4444', bg: '#EF444420', icon: '⏳' },
     };
     const badge = badges[eventType] || badges.booking_created;
 
@@ -129,6 +137,8 @@ function buildEmailHTML(eventType: string, d: any): string {
         booking_checked_in: `Welcome to ${salonName}! You've been checked in.`,
         booking_no_show: `We missed you today! Would you like to reschedule your appointment?`,
         appointment_reminder: `This is a friendly reminder that your appointment at ${salonName} is <strong style="color:#F59E0B;">tomorrow</strong>! We look forward to seeing you.`,
+        waitlist_slot_available: d.waitlist_message || `Great news! A slot has opened up for ${d.service || 'your requested service'} on ${d.date} at ${d.time}. Please call us or book online to secure your spot!`,
+        payment_expired: `Your temporary hold for ${d.date} at ${d.time} has expired because the <strong style="color:#D4AF37;">$${d.deposit_amount || '15'}</strong> deposit was not completed within the ${d.payment_hold_minutes || '30'}-minute window.`,
     };
 
     // ===== INFO SECTION PER EVENT =====
@@ -159,6 +169,11 @@ function buildEmailHTML(eventType: string, d: any): string {
             'Arrive 10 minutes early for consultation',
             'If you need to reschedule, please call us as soon as possible',
             'Free parking available at our location',
+        ],
+        payment_expired: [
+            'Appointments are only confirmed after the deposit is paid',
+            'You can still rebook if the slot is currently available',
+            'If you need assistance, please reply to this email',
         ],
     };
 
@@ -300,7 +315,7 @@ serve(async (_req) => {
         for (const item of pending) {
             const { data: tenant } = await supabase
                 .from('tenants')
-                .select('twilio_phone_number, notification_email_from, salon_name, salon_tagline, salon_email, salon_website, salon_phone_owner, google_review_url')
+                .select('twilio_phone_number, notification_email_from, salon_name, salon_tagline, salon_email, salon_website, salon_phone_owner, google_review_url, coin_balance')
                 .eq('id', item.tenant_id)
                 .single();
 
@@ -368,11 +383,20 @@ serve(async (_req) => {
             if (TWILIO_SID && TWILIO_TOKEN && tenant.twilio_phone_number && item.client_phone) {
                 const tmpl = SMS_TEMPLATES[item.event_type];
                 if (tmpl) {
-                    const smsResult = await sendSMS(
-                        item.client_phone, tmpl(details), tenant.twilio_phone_number
-                    );
-                    if (!smsResult.success) errors.push(`SMS: ${smsResult.error}`);
-                    else smsSent++;
+                    // Pre-check Coin Balance (Need at least 2 coins for 1 SMS)
+                    const currentCoins = tenant.coin_balance || 0;
+                    if (currentCoins < 2) {
+                        errors.push(`SMS Skipped: Insufficient Coins (${currentCoins} available, 2 required)`);
+                    } else {
+                        const smsResult = await sendSMS(
+                            item.client_phone, tmpl(details), tenant.twilio_phone_number
+                        );
+                        if (!smsResult.success) {
+                            errors.push(`SMS: ${smsResult.error}`);
+                        } else {
+                            smsSent++;
+                        }
+                    }
                 }
             }
 
@@ -380,7 +404,7 @@ serve(async (_req) => {
             if (RESEND_API_KEY && item.client_email) {
                 const subjectFn = EMAIL_SUBJECTS[item.event_type];
                 if (subjectFn) {
-                    const fromAddr = `${tenant.salon_name || 'Voxali'} <onboarding@resend.dev>`;
+                    const fromAddr = `${tenant.salon_name || 'Voxali'} <noreply@voxali.net>`;
                     const emailResult = await sendEmail(
                         fromAddr, item.client_email,
                         subjectFn(details), buildEmailHTML(item.event_type, details)
@@ -391,20 +415,33 @@ serve(async (_req) => {
             }
 
             // Usage Tracking Increment
+            // Usage Tracking & Coin Deduction Increment
             if (smsSent > 0 || emailsSent > 0) {
-                // To avoid reading first, we can use a raw SQL update via RPC, but since we don't 
-                // easily have an RPC, we fetch the current values and update them.
                 const { data: usageData } = await supabase
                     .from('tenants')
-                    .select('sms_used, emails_used')
+                    .select('sms_used, emails_used, coin_balance')
                     .eq('id', item.tenant_id)
                     .single();
 
                 if (usageData) {
+                    const smsCoinsToDeduct = smsSent * 2; // 2 coins per SMS
+                    const newBalance = (usageData.coin_balance || 0) - smsCoinsToDeduct;
+
                     await supabase.from('tenants').update({
                         sms_used: (usageData.sms_used || 0) + smsSent,
-                        emails_used: (usageData.emails_used || 0) + emailsSent
+                        emails_used: (usageData.emails_used || 0) + emailsSent,
+                        coin_balance: newBalance
                     }).eq('id', item.tenant_id);
+
+                    // Add coin transaction log if SMS was sent
+                    if (smsSent > 0) {
+                        await supabase.from('coin_transactions').insert({
+                            tenant_id: item.tenant_id,
+                            amount: -smsCoinsToDeduct,
+                            transaction_type: 'sms',
+                            description: `Sent ${smsSent} SMS @ 2 coins/SMS`
+                        });
+                    }
                 }
             }
 

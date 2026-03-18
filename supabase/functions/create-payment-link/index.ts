@@ -88,9 +88,9 @@ Deno.serve(async (req) => {
 
         return jsonResponse({
             success: true,
-            payment_link: stripeData.url,
+            payment_sent: true,
             amount: depositAmount,
-            message: `Payment link created for $${depositAmount} deposit.`,
+            message: `A secure payment link for the $${depositAmount} deposit has been sent to the client via SMS and email. Do NOT share the URL in the conversation — it has already been delivered.`,
         });
     } catch (e: any) {
         return errorResponse(`Server error: ${e.message}`, 500);

@@ -15,16 +15,25 @@ Deno.serve(async (req) => {
         try { body = await req.json(); } catch { }
         const tenantId = auth.tenantId || body.tenant_id;
         if (!tenantId) return errorResponse('Missing tenant_id');
-        const clientName = body.name || body.client_name || '';
-        const clientPhone = body.phone || body.client_phone || '';
-        const newDate = body.new_date || body.date || '';
-        const newTime = body.new_time || body.time || '';
+        console.log('[RESCHEDULE] Raw Body:', JSON.stringify(body));
+
+        const clientName = body.name || body.client_name || body.clientName || '';
+        const clientPhone = body.phone || body.client_phone || body.clientPhone || '';
+
+        let newDate = body.new_date || body.date || body.newDate || '';
+        let newTime = body.new_time || body.time || body.newTime || '';
+        const dt = body.datetime || body.new_datetime || body.dateTime || body.new_start_at || body.start_at;
+
+        if (dt && !newDate) {
+            newDate = dt.substring(0, 10);
+            if (dt.length > 10) newTime = dt.substring(11, 16);
+        }
 
         if (!clientName && !clientPhone) {
             return errorResponse('Client name or phone is required');
         }
         if (!newDate || !newTime) {
-            return errorResponse('new_date (YYYY-MM-DD) and new_time (HH:MM) are required');
+            return errorResponse(`new_date (YYYY-MM-DD) and new_time (HH:MM) are required. Received: ${JSON.stringify(body)}`);
         }
 
         const supabase = getSupabase();
@@ -162,6 +171,20 @@ Deno.serve(async (req) => {
             },
             status: 'pending',
         });
+
+        // Trigger notification worker synchronously to prevent Deno from dropping the process
+        try {
+            const edgeUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-notification`;
+            await fetch(edgeUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        } catch (e) {
+            console.error('Trigger error', e);
+        }
 
         return jsonResponse({
             success: true,

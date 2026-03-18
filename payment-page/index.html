@@ -201,16 +201,30 @@
             }
 
             try {
-                // Fetch booking with joins
+                // Use Edge Function to fetch booking (bypasses RLS)
                 const res = await fetch(
-                    `${SUPABASE_URL}/rest/v1/bookings?id=eq.${bookingId}&select=id,status,start_time,total_price,deposit_paid_amount,clients(name,email),services(name),staff(full_name),tenants(salon_name,salon_tagline)`,
-                    { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } }
+                    `${SUPABASE_URL}/functions/v1/get-booking-public?booking_id=${bookingId}`,
+                    { headers: { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } }
                 );
-                const data = await res.json();
-                const booking = Array.isArray(data) ? data[0] : data;
 
-                if (!booking) {
-                    card.innerHTML = renderError('Booking Not Found', 'We couldn\'t find this booking. It may have been cancelled.');
+                let booking = null;
+
+                if (res.ok) {
+                    booking = await res.json();
+                }
+
+                // Fallback: try direct REST with anon key (works if RLS allows)
+                if (!booking || booking.error) {
+                    const res2 = await fetch(
+                        `${SUPABASE_URL}/rest/v1/bookings?id=eq.${bookingId}&select=id,status,start_time,total_price,deposit_paid_amount,deposit_amount,clients(name,email),services(name),staff(full_name),tenants(salon_name,salon_tagline)`,
+                        { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } }
+                    );
+                    const data2 = await res2.json();
+                    booking = Array.isArray(data2) ? data2[0] : data2;
+                }
+
+                if (!booking || !booking.id) {
+                    card.innerHTML = renderError('Booking Not Found', 'We could not find this booking. It may have been cancelled or the link has expired.');
                     return;
                 }
 
@@ -218,9 +232,11 @@
                 const service = booking.services || {};
                 const staff = booking.staff || {};
                 const tenant = booking.tenants || {};
-                const depositPaid = booking.deposit_paid_amount || 0;
-                const remaining = (booking.total_price || 0) - depositPaid;
+                const depositPaid = booking.deposit_paid_amount || booking.deposit_amount || 0;
+                const remaining = Math.max(0, (booking.total_price || 0) - depositPaid);
                 const startTime = new Date(booking.start_time);
+                // Use salon's timezone so time is always correct regardless of browser timezone
+                const salonTz = tenant.timezone || 'UTC';
 
                 card.innerHTML = renderSuccess({
                     salonName: tenant.salon_name || 'Salon',
@@ -228,8 +244,8 @@
                     clientName: client.name || 'Valued Customer',
                     serviceName: service.name || 'Service',
                     stylist: staff.full_name || 'Any Available',
-                    date: startTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
-                    time: startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+                    date: startTime.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: salonTz }),
+                    time: startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: salonTz }),
                     depositPaid: depositPaid.toFixed(2),
                     remaining: remaining.toFixed(2),
                     totalPrice: (booking.total_price || 0).toFixed(2),

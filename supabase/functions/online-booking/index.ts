@@ -16,24 +16,43 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 Deno.serve(async (req) => {
     const url = new URL(req.url);
-    const tenantId = url.searchParams.get('tenant_id');
+    let tenantId = url.searchParams.get('tenant_id');
+    const slug = url.searchParams.get('slug');
 
-    if (!tenantId) {
-        return new Response('Missing tenant_id parameter', { status: 400 });
+    if (!tenantId && !slug) {
+        return new Response('Missing tenant_id or slug parameter', { status: 400 });
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-    // Fetch salon info
-    const { data: tenant } = await supabase
-        .from('tenants')
-        .select('id, salon_name, salon_tagline, salon_email, salon_phone_owner, timezone, logo_url')
-        .eq('id', tenantId)
-        .single();
+    // Fetch salon info by slug or tenantId
+    let tenantRow;
+    let tenantErr;
 
-    if (!tenant) {
+    if (slug) {
+        const result = await supabase
+            .from('tenants')
+            .select('id, salon_name, salon_tagline, salon_email, salon_phone_owner, timezone, logo_url')
+            .eq('slug', slug)
+            .single();
+        tenantRow = result.data;
+        tenantErr = result.error;
+        if (tenantRow) tenantId = tenantRow.id;
+    } else {
+        const result = await supabase
+            .from('tenants')
+            .select('id, salon_name, salon_tagline, salon_email, salon_phone_owner, timezone, logo_url')
+            .eq('id', tenantId)
+            .single();
+        tenantRow = result.data;
+        tenantErr = result.error;
+    }
+
+    if (!tenantRow || tenantErr) {
         return new Response('Salon not found', { status: 404 });
     }
+    
+    const tenant = tenantRow;
 
     // Fetch services
     const { data: services } = await supabase
