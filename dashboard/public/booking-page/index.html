@@ -654,6 +654,13 @@
             }
 
             try {
+                if (new URLSearchParams(window.location.search).get('success') === 'true') {
+                    document.getElementById('loading-state').style.display = 'none';
+                    document.getElementById('booking-flow').style.display = 'block';
+                    document.getElementById('success-msg').innerHTML = 'Your secure payment was successful. Your appointment is fully confirmed!<br><br>Thank you for your booking.';
+                    goStep(4);
+                    return;
+                }
                 // Fetch all data from Edge Function (uses service role key, bypasses RLS)
                 var res = await fetch(API_URL + '?slug=' + encodeURIComponent(SLUG) + '&format=json');
                 if (!res.ok) {
