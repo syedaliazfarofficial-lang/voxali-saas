@@ -973,14 +973,17 @@
                 var data = await res.json();
 
                 if (data.success) {
+                    if (data.payment_url) {
+                        btn.innerHTML = '<span class="loading-btn"></span> Redirecting to Secure Payment...';
+                        window.location.href = data.payment_url;
+                        return;
+                    }
+
                     var msg = 'Your appointment for <strong>' + (data.details ? data.details.service : '') + '</strong> on <strong>' + (data.details ? data.details.date : '') + '</strong> at <strong>' + (data.details ? data.details.time : '') + '</strong> has been confirmed.';
                     msg += '<br><br>A confirmation email has been sent to <strong>' + document.getElementById('client-email').value + '</strong>.';
 
                     document.getElementById('success-msg').innerHTML = msg;
-
-                    if (data.payment_url) {
-                        document.getElementById('pay-btn-wrapper').innerHTML = '<a href="' + data.payment_url + '" class="btn btn-gold" style="display:inline-block;text-decoration:none;padding:16px 40px;max-width:300px;">💳 Pay $' + (data.details ? data.details.deposit : 0) + ' Deposit</a><div style="color:#666;font-size:12px;margin-top:8px">Secure payment via Stripe</div>';
-                    }
+                    document.getElementById('pay-btn-wrapper').style.display = 'none';
 
                     goStep(4);
                 } else {
