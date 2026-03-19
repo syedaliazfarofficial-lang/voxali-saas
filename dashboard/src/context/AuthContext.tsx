@@ -304,12 +304,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 .eq('id', sess.user.id)
                 .single();
 
-            if (profErr || !prof) {
+            // Only log out if specifically not found (PGRST116). Network errors should be ignored.
+            if (profErr && profErr.code === 'PGRST116') {
                 console.warn('[Heartbeat] Profile deleted — forcing logout');
                 alert('Your account has been removed. You will be logged out.');
                 await forceLogout();
                 return;
+            } else if (profErr) {
+                return; // Ignore temporary network errors
             }
+            if (!prof) return;
 
             // Check 2: If can_login is explicitly false (banned by admin)
             if (prof.can_login === false) {
@@ -327,12 +331,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     .eq('id', prof.staff_id)
                     .single();
 
-                if (staffErr || !staffRec) {
+                if (staffErr && staffErr.code === 'PGRST116') {
                     console.warn('[Heartbeat] Staff record deleted — forcing logout');
                     alert('Your staff account has been removed. You will be logged out.');
                     await forceLogout();
                     return;
+                } else if (staffErr) {
+                    return; // Ignore network errors
                 }
+                if (!staffRec) return;
 
                 if (staffRec.is_active === false) {
                     console.warn('[Heartbeat] Staff deactivated:', staffRec.full_name, '— forcing logout');
@@ -344,11 +351,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Check 4: If owner, check tenant is still active
             if (prof.role === 'owner' && prof.tenant_id) {
-                const { data: tenantRec } = await supabaseAdmin
+                const { data: tenantRec, error: tenantErr } = await supabaseAdmin
                     .from('tenants')
                     .select('is_active')
                     .eq('id', prof.tenant_id)
                     .single();
+
+                if (tenantErr) return; // Ignore network errors
 
                 if (tenantRec && tenantRec.is_active === false) {
                     console.warn('[Heartbeat] Tenant deactivated — forcing owner logout');
