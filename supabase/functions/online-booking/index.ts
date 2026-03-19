@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
                 p_service_id: allServiceIds[0],
                 p_start_at: startTime,
                 p_end_at: endTimeUTC.toISOString(),
-                p_status: 'pending',
+                p_status: totalDeposit > 0 ? 'pending_deposit' : 'pending',
                 p_notes: `Online booking by ${client_name} (${selectedServices.map((s: any) => s.name).join(', ')})`,
                 p_payment_method: 'card',
                 p_total_price: totalPrice,
@@ -268,6 +268,7 @@ Deno.serve(async (req) => {
                             amount: totalDeposit,
                             client_email: client_email,
                             client_name: client_name,
+                            slug: slug || '',
                         }),
                     });
                     const payData = await payRes.json();

@@ -17,6 +17,7 @@ Deno.serve(async (req) => {
         if (!tenantId) return errorResponse('Missing tenant_id');
         const bookingId = body.booking_id || '';
         const amount = body.amount || 0;
+        const slug = body.slug || '';
 
         if (!bookingId) {
             return errorResponse('booking_id is required');
@@ -65,7 +66,7 @@ Deno.serve(async (req) => {
                 'metadata[booking_id]': bookingId,
                 'metadata[tenant_id]': tenantId!,
                 'after_completion[type]': 'redirect',
-                'after_completion[redirect][url]': `https://voluble-sprinkles-8ee4f2.netlify.app/?booking_id=${bookingId}`,
+                'after_completion[redirect][url]': slug ? `https://voxali.net/book/${slug}?success=true&booking_id=${bookingId}` : `https://voxali.net/?booking_id=${bookingId}`,
             }),
         });
 
@@ -90,6 +91,7 @@ Deno.serve(async (req) => {
             success: true,
             payment_sent: true,
             amount: depositAmount,
+            payment_url: stripeData.url,
             message: `A secure payment link for the $${depositAmount} deposit has been sent to the client via SMS and email. Do NOT share the URL in the conversation — it has already been delivered.`,
         });
     } catch (e: any) {

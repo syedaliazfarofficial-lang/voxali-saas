@@ -11,6 +11,7 @@ import { BellaAI } from './components/BellaAI'
 import { Settings } from './components/Settings'
 import { MyProfile } from './components/MyProfile'
 import { LoginPage } from './components/LoginPage'
+import { ClientFeedback } from './components/ClientFeedback'
 import { TenantProvider, useTenant } from './context/TenantContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider, showToast } from './components/ui/ToastNotification'
@@ -328,6 +329,13 @@ function AppContent() {
 }
 
 function App() {
+  const params = new URLSearchParams(window.location.search);
+  const feedbackId = params.get('feedback');
+
+  if (feedbackId) {
+    return <ClientFeedback bookingId={feedbackId} />;
+  }
+
   return (
     <AuthProvider>
       <TenantProvider>

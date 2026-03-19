@@ -11,7 +11,7 @@ import { showToast } from './ui/ToastNotification';
 interface Staff { id: string; full_name: string; role: string; color: string; }
 interface Service { id: string; name: string; duration: number; price: number; }
 interface Booking {
-    id: string; stylist_id: string; client_name: string; service_name: string;
+    id: string; stylist_id: string; client_id: string; client_name: string; service_name: string;
     start_hour: number; duration_hours: number; status: string;
     start_time: string; date_label: string; price: number;
     is_gap_booking: boolean;
@@ -101,6 +101,10 @@ export const BookingsCalendar: React.FC = () => {
     const [wPhone, setWPhone] = useState('');
     const [wService, setWService] = useState('');
     const [wStylist, setWStylist] = useState('');
+    // Walk-in recurrence
+    const [wRecurring, setWRecurring] = useState('none');
+    const [wRecurringCount, setWRecurringCount] = useState(4);
+
     // Get current time in salon's timezone
     const getSalonTime = () => {
         const tz = timezone || 'America/New_York';
@@ -130,7 +134,7 @@ export const BookingsCalendar: React.FC = () => {
         const { start, end } = getDateRange(viewMode, dateOffset);
         const { data: bookData } = await supabase
             .from('bookings').select(`
-                id, stylist_id, status, start_time, end_time, total_price, is_gap_booking,
+                id, stylist_id, client_id, status, start_time, end_time, total_price, is_gap_booking,
                 deposit_amount, deposit_paid_amount, payment_status,
                 clients(name), services(name)
             `)
@@ -143,7 +147,7 @@ export const BookingsCalendar: React.FC = () => {
         if (isStaff && staffId) {
             const { data: filteredData } = await supabase
                 .from('bookings').select(`
-                    id, stylist_id, status, start_time, end_time, total_price, is_gap_booking,
+                    id, stylist_id, client_id, status, start_time, end_time, total_price, is_gap_booking,
                     deposit_amount, deposit_paid_amount, payment_status,
                     clients(name), services(name)
                 `)
@@ -160,6 +164,7 @@ export const BookingsCalendar: React.FC = () => {
                     return {
                         id: b.id,
                         stylist_id: b.stylist_id,
+                        client_id: b.client_id,
                         client_name: b.clients?.name || 'Walk-in',
                         service_name: b.services?.name || 'Service',
                         start_hour: toSalonHour(b.start_time, tz),
@@ -191,6 +196,7 @@ export const BookingsCalendar: React.FC = () => {
                 return {
                     id: b.id,
                     stylist_id: b.stylist_id,
+                    client_id: b.client_id,
                     client_name: b.clients?.name || 'Walk-in',
                     service_name: b.services?.name || 'Service',
                     start_hour: toSalonHour(b.start_time, tz),
@@ -260,8 +266,8 @@ export const BookingsCalendar: React.FC = () => {
                 clientId = newClient.id;
             }
 
-            // Step 2: Insert booking
-            const { error: bookErr } = await supabase
+            // Step 2: Insert initial booking
+            const { data: firstBooking, error: firstErr } = await supabase
                 .from('bookings')
                 .insert({
                     tenant_id: tenantId,
@@ -272,13 +278,58 @@ export const BookingsCalendar: React.FC = () => {
                     end_time: endISO,
                     total_price: selectedService.price,
                     status: 'confirmed',
-                });
+                    is_recurring: wRecurring !== 'none',
+                    parent_booking_id: null
+                }).select('id').single();
 
-            if (bookErr) throw new Error(bookErr.message);
+            if (firstErr || !firstBooking) throw new Error(firstErr?.message || 'Failed to create booking');
 
-            showToast('Walk-in booked!');
+            // Step 3: Insert future occurrences if recurring
+            if (wRecurring !== 'none' && wRecurringCount > 1) {
+                const futureBookings = [];
+                const baseStartDt = new Date(`${today}T${wStartTime}:00`);
+                const baseEndDt = wEndTime 
+                    ? new Date(`${today}T${wEndTime}:00`)
+                    : new Date(baseStartDt.getTime() + selectedService.duration * 60000);
+
+                for (let i = 1; i < wRecurringCount; i++) {
+                    const nextStart = new Date(baseStartDt);
+                    const nextEnd = new Date(baseEndDt);
+                    if (wRecurring === 'weekly') {
+                        nextStart.setDate(nextStart.getDate() + (i * 7));
+                        nextEnd.setDate(nextEnd.getDate() + (i * 7));
+                    } else if (wRecurring === 'bi-weekly') {
+                        nextStart.setDate(nextStart.getDate() + (i * 14));
+                        nextEnd.setDate(nextEnd.getDate() + (i * 14));
+                    } else if (wRecurring === 'monthly') {
+                        nextStart.setMonth(nextStart.getMonth() + i);
+                        nextEnd.setMonth(nextEnd.getMonth() + i);
+                    }
+                    futureBookings.push({
+                        tenant_id: tenantId,
+                        client_id: clientId,
+                        stylist_id: wStylist,
+                        service_id: wService,
+                        start_time: nextStart.toISOString(),
+                        end_time: nextEnd.toISOString(),
+                        total_price: selectedService.price,
+                        status: 'confirmed',
+                        is_recurring: true,
+                        parent_booking_id: firstBooking.id
+                    });
+                }
+                
+                if (futureBookings.length > 0) {
+                    const { error: batchErr } = await supabase.from('bookings').insert(futureBookings);
+                    if (batchErr) throw new Error("Future bookings partially failed: " + batchErr.message);
+                }
+            }
+
+            // Success
+            showToast(wRecurring === 'none' ? 'Walk-in booked!' : `Booked ${wRecurringCount} recurring appointments!`);
             setShowModal(false);
             setWName(''); setWPhone(''); setWService(''); setWStylist('');
+            setWRecurring('none'); setWRecurringCount(4);
             setWStartTime(getSalonTime());
             setWEndTime('');
             fetchData();
@@ -295,19 +346,44 @@ export const BookingsCalendar: React.FC = () => {
         confirmed: 'checked_in',
         checked_in: 'completed',
     };
-    const handleStatusCycle = async (bookingId: string, currentStatus: string) => {
+    const handleStatusCycle = async (booking: Booking) => {
+        const currentStatus = booking.status;
         if (currentStatus === 'pending_deposit') {
             showToast('Deposit payment required before advancing', 'error');
             return;
         }
         const nextStatus = STATUS_FLOW[currentStatus];
         if (!nextStatus) return; // completed or unknown — no next status
+
+        // === LOYALTY PROGRAM: Award points on completion ===
+        if (nextStatus === 'completed' && booking.client_id) {
+            try {
+                // Get tenant's multiplier
+                const { data: tenant } = await supabase.from('tenants').select('loyalty_points_multiplier').eq('id', tenantId).single();
+                const multiplier = tenant?.loyalty_points_multiplier || 1.0;
+                const pointsEarned = Math.floor(booking.price * multiplier);
+
+                if (pointsEarned > 0) {
+                    // Fetch client's current points
+                    const { data: clientData } = await supabase.from('clients').select('loyalty_points').eq('id', booking.client_id).single();
+                    const currentPoints = clientData?.loyalty_points || 0;
+
+                    // Update points
+                    await supabase.from('clients').update({ loyalty_points: currentPoints + pointsEarned }).eq('id', booking.client_id);
+                    showToast(`🎉 Client earned ${pointsEarned} loyalty points!`);
+                }
+            } catch (err) {
+                console.error("Failed to assign loyalty points", err);
+            }
+        }
+
         const { error } = await supabase
             .from('bookings')
             .update({ status: nextStatus })
-            .eq('id', bookingId);
+            .eq('id', booking.id);
+            
         if (!error) {
-            showToast(`Status → ${nextStatus.replace('_', ' ')}`);
+            if (nextStatus !== 'completed') showToast(`Status → ${nextStatus.replace('_', ' ')}`);
             fetchData();
         } else {
             showToast('Failed: ' + error.message, 'error');
@@ -523,7 +599,7 @@ export const BookingsCalendar: React.FC = () => {
                                                 </div>
                                                 {/* Status Badge */}
                                                 <span
-                                                    onClick={() => handleStatusCycle(b.id, b.status)}
+                                                    onClick={() => handleStatusCycle(b)}
                                                     title={
                                                         b.status === 'pending_deposit' ? 'Deposit required — cannot advance'
                                                             : STATUS_FLOW[b.status] ? `Click → ${STATUS_FLOW[b.status].replace('_', ' ')}`

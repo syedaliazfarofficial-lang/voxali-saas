@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-    Clock, Plus, Edit3, Upload, Building2, Trash2,
-    Loader2, X, Scissors, Save, ToggleLeft, ToggleRight,
-    Search, ChevronDown, ChevronUp, Globe, Lock, Eye, EyeOff, KeyRound,
-    Phone, Mail, Zap, CreditCard, ExternalLink, Shield, AlertTriangle, Bot,
+import { Save, Plus, X, Search, MoreHorizontal, Link, Check, Smartphone, CheckCircle2, Copy, Zap, MessageSquare, Megaphone, ToggleLeft, ToggleRight, Phone, CalendarIcon, Clock, Edit3, Upload, Building2, Trash2,
+    Loader2, Scissors, ChevronDown, ChevronUp, Globe, Lock, Eye, EyeOff, KeyRound,
+    Mail, CreditCard, ExternalLink, Shield, AlertTriangle, Bot,
     CreditCard as BillingIcon, ShieldCheck
 } from 'lucide-react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
@@ -66,6 +64,7 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
     const [salonEmail, setSalonEmail] = useState('');
     const [salonWebsite, setSalonWebsite] = useState('');
     const [googleReviewUrl, setGoogleReviewUrl] = useState('');
+    const [copied, setCopied] = useState(false);
 
     // Fetch on mount
     useEffect(() => {
@@ -118,6 +117,41 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
                     <h3 className="text-xl font-bold">Integrations</h3>
                     <p className="text-xs text-white/40 uppercase tracking-widest">Notifications & Salon Contact Info</p>
                 </div>
+            </div>
+
+            {/* Calendar Sync (ICS) */}
+            <div className="glass-panel border border-white/5 p-6 mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <CalendarIcon className="w-5 h-5 text-luxe-gold" />
+                    <div>
+                        <h4 className="font-bold">Google & Apple Calendar Sync</h4>
+                        <p className="text-xs text-white/40 mt-1">Live sync your Voxali bookings to your personal calendar</p>
+                    </div>
+                </div>
+                <div className="bg-luxe-obsidian/50 border border-white/10 rounded-xl p-4 flex items-center justify-between gap-4">
+                    <div className="flex-1 overflow-hidden">
+                        <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Calendar Feed URL</p>
+                        <p className="text-sm font-mono text-white/80 truncate select-all px-3 py-2 bg-white/5 rounded-lg border border-white/5">
+                            https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/calendar-feed?tenant={tenantId}
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            navigator.clipboard.writeText(`https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/calendar-feed?tenant=${tenantId}`);
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 2000);
+                            showToast('Calendar link copied! Paste this in Google/Apple Calendar.');
+                        }}
+                        className="bg-gold-gradient text-luxe-obsidian px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        {copied ? 'COPIED' : 'COPY'}
+                    </button>
+                </div>
+                <p className="text-xs text-white/30 mt-4 leading-relaxed">
+                    <strong className="text-white/50">Google Calendar:</strong> Settings &gt; Add Calendar &gt; From URL &gt; Paste Link.<br/>
+                    <strong className="text-white/50">Apple Calendar:</strong> File &gt; New Calendar Subscription &gt; Paste Link.
+                </p>
             </div>
 
             {/* Notifications Toggle */}
@@ -854,6 +888,10 @@ export const Settings: React.FC = () => {
     const [selectedTz, setSelectedTz] = useState(timezone || 'America/New_York');
     const [tzSaving, setTzSaving] = useState(false);
 
+    // Loyalty state
+    const [loyaltyMultiplier, setLoyaltyMultiplier] = useState<number>(1.0);
+    const [loyaltySaving, setLoyaltySaving] = useState(false);
+
     // Tab navigation
     const [activeSettingsTab, setActiveSettingsTab] = useState('general');
 
@@ -964,8 +1002,14 @@ export const Settings: React.FC = () => {
             .from('tenant_hours').select('*')
             .eq('tenant_id', tenantId).order('day_of_week');
 
+        const { data: tenantData } = await supabaseAdmin
+            .from('tenants').select('loyalty_points_multiplier')
+            .eq('id', tenantId).single();
+
         if (svcData) setServices(svcData);
         if (hourData) setHours(hourData);
+        if (tenantData?.loyalty_points_multiplier !== undefined) setLoyaltyMultiplier(tenantData.loyalty_points_multiplier);
+        
         setLoading(false);
     }, [tenantId]);
 
@@ -1322,6 +1366,56 @@ export const Settings: React.FC = () => {
                                 >
                                     {brandingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                     {brandingSaving ? 'SAVING...' : 'SAVE BRANDING'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ============ LOYALTY PROGRAM SETTINGS ============ */}
+                    <div className="flex items-center gap-3 mt-10 mb-6">
+                        <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
+                            <Zap className="w-6 h-6 text-luxe-gold" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold">Loyalty Program & Points</h3>
+                            <p className="text-xs text-white/40 uppercase tracking-widest">Reward clients for their visits</p>
+                        </div>
+                    </div>
+
+                    <div className="glass-panel border border-white/5 p-6 mb-6">
+                        <p className="text-sm text-white/60 mb-6 border border-luxe-gold/20 bg-luxe-gold/5 p-4 rounded-xl">
+                            Set how many points a client earns per <strong className="text-luxe-gold">$1 spent</strong>. Points are automatically awarded when an appointment is marked as <strong>Completed</strong>.
+                        </p>
+                        
+                        <div className="flex flex-col md:flex-row gap-8 items-start">
+                            <div className="flex-1 space-y-4 w-full">
+                                <div>
+                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Points per $1 Spent</label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="number" step="0.5" min="0" value={loyaltyMultiplier}
+                                            onChange={e => setLoyaltyMultiplier(parseFloat(e.target.value) || 0)}
+                                            className="w-32 bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all font-bold text-center"
+                                        />
+                                        <div className="text-xs text-white/40 leading-relaxed">
+                                            <span>e.g., <strong>1.0</strong> means $100 service = 100 points. <br/> <strong>0.5</strong> means $100 service = 50 points.</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button
+                                    onClick={async () => {
+                                        setLoyaltySaving(true);
+                                        const { error } = await supabaseAdmin.from('tenants').update({ loyalty_points_multiplier: loyaltyMultiplier }).eq('id', tenantId);
+                                        if (!error) showToast('Loyalty settings saved!');
+                                        else showToast('Failed to save: ' + error.message, 'error');
+                                        setLoyaltySaving(false);
+                                    }}
+                                    disabled={loyaltySaving}
+                                    className="bg-gold-gradient text-luxe-obsidian px-8 py-3 rounded-xl font-bold shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mt-4"
+                                >
+                                    {loyaltySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    {loyaltySaving ? 'SAVING...' : 'SAVE LOYALTY RULES'}
                                 </button>
                             </div>
                         </div>

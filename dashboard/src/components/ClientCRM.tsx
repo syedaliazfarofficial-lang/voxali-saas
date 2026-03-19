@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Users, Search, Plus, CreditCard, Calendar, DollarSign,
     MoreHorizontal, Mail, Phone, Tag, Loader2, X, Edit3,
-    Trash2, Download, FileText
+    Trash2, Download, FileText, Upload
 } from 'lucide-react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -14,6 +14,8 @@ import autoTable from 'jspdf-autotable';
 interface Client {
     id: string; name: string; phone: string; email: string | null;
     total_visits: number; total_spend: number; created_at: string;
+    notes?: string | null; tags?: string[] | null;
+    loyalty_points: number;
 }
 
 export const ClientCRM: React.FC = () => {
@@ -33,12 +35,16 @@ export const ClientCRM: React.FC = () => {
     const [editName, setEditName] = useState('');
     const [editPhone, setEditPhone] = useState('');
     const [editEmail, setEditEmail] = useState('');
+    const [editNotes, setEditNotes] = useState('');
+    const [editTags, setEditTags] = useState('');
 
     // Dropdown & delete state
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
     const [deleting, setDeleting] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [importing, setImporting] = useState(false);
 
     const fetchClients = useCallback(async () => {
         if (!tenantId) return;
@@ -46,7 +52,7 @@ export const ClientCRM: React.FC = () => {
 
         const { data } = await supabase
             .from('clients')
-            .select('id, name, phone, email, created_at')
+            .select('id, name, phone, email, notes, tags, created_at, loyalty_points')
             .eq('tenant_id', tenantId)
             .order('created_at', { ascending: false });
 
@@ -85,6 +91,71 @@ export const ClientCRM: React.FC = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !tenantId) return;
+
+        setImporting(true);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const text = event.target?.result as string;
+                // Basic CSV parsing splitting by newlines and commas
+                const rows = text.split('\n').map(row => row.split(',').map(col => col.trim().replace(/^"|"$/g, '')));
+                
+                if (rows.length < 2) {
+                    showToast('CSV is empty or invalid.', 'error');
+                    setImporting(false);
+                    return;
+                }
+
+                // Header mapping
+                const header = rows[0].map(h => h.toLowerCase());
+                const nameIdx = header.findIndex(h => h.includes('name') || h === 'client');
+                const phoneIdx = header.findIndex(h => h.includes('phone') || h === 'contact');
+                const emailIdx = header.findIndex(h => h.includes('email'));
+
+                if (nameIdx === -1 || phoneIdx === -1) {
+                    showToast('CSV MUST contain "Name" and "Phone" columns.', 'error');
+                    setImporting(false);
+                    return;
+                }
+
+                const validRows = rows.slice(1).filter(r => r.length > Math.max(nameIdx, phoneIdx) && r[nameIdx] && r[phoneIdx]);
+                let successCount = 0;
+
+                // Process sequentially to be safe with Supabase limits
+                for (const row of validRows) {
+                    const name = row[nameIdx];
+                    let phone = row[phoneIdx];
+                    const email = emailIdx !== -1 ? row[emailIdx] : null;
+
+                    // Ensure phone has + prefix if missing but looks like it needs one
+                    if (phone && !phone.startsWith('+')) {
+                        // Very naive approach - user should provide country codes in CSV
+                        // phone = '+' + phone.replace(/\D/g, ''); 
+                    }
+
+                    const { error } = await supabase
+                        .from('clients')
+                        .insert({ tenant_id: tenantId, name, phone, email: email || null });
+                    
+                    if (!error) successCount++;
+                }
+
+                showToast(`Successfully imported ${successCount} clients!`, 'success');
+                fetchClients();
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to parse CSV file.', 'error');
+            } finally {
+                setImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file);
+    };
+
     const handleAddClient = async () => {
         if (!formName || !formPhone) return;
         setSaving(true);
@@ -112,6 +183,8 @@ export const ClientCRM: React.FC = () => {
         setEditName(client.name);
         setEditPhone(client.phone);
         setEditEmail(client.email || '');
+        setEditNotes(client.notes || '');
+        setEditTags(client.tags ? client.tags.join(', ') : '');
         setShowEditModal(true);
         setOpenMenu(null);
     };
@@ -120,9 +193,17 @@ export const ClientCRM: React.FC = () => {
         if (!editingClient || !editName || !editPhone) return;
         setSaving(true);
 
+        const tagsArray = editTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+
         const { error } = await supabase
             .from('clients')
-            .update({ name: editName, phone: editPhone, email: editEmail || null })
+            .update({ 
+                name: editName, 
+                phone: editPhone, 
+                email: editEmail || null,
+                notes: editNotes || null,
+                tags: tagsArray.length > 0 ? tagsArray : null
+            })
             .eq('id', editingClient.id);
 
         if (!error) {
@@ -238,13 +319,28 @@ export const ClientCRM: React.FC = () => {
                     </div>
                     <button
                         onClick={exportPDF}
-                        className="px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-luxe-gold hover:border-luxe-gold/30 transition-all flex items-center gap-2 text-xs font-bold"
+                        className="px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-luxe-gold hover:border-luxe-gold/30 transition-all flex items-center gap-2 text-xs font-bold whitespace-nowrap"
                     >
-                        <FileText className="w-4 h-4" /> EXPORT PDF
+                        <FileText className="w-4 h-4" /> PDF
                     </button>
                     <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={importing}
+                        className="px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-luxe-gold hover:border-luxe-gold/30 transition-all flex items-center gap-2 text-xs font-bold disabled:opacity-50 whitespace-nowrap"
+                    >
+                        {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        {importing ? 'IMPORTING...' : 'IMPORT CSV'}
+                    </button>
+                    <input 
+                        type="file" 
+                        accept=".csv" 
+                        ref={fileInputRef} 
+                        onChange={handleFileUpload} 
+                        className="hidden" 
+                    />
+                    <button
                         onClick={() => setShowModal(true)}
-                        className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                        className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all whitespace-nowrap"
                     >
                         <Plus className="w-5 h-5" />
                         ADD CLIENT
@@ -289,17 +385,42 @@ export const ClientCRM: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="grid grid-cols-3 gap-2 mb-6">
                                 <div className="p-3 bg-white/5 rounded-xl border border-white/5 group-hover:bg-white/10 transition-colors">
-                                    <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mb-1">Lifetime</p>
+                                    <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mb-1">Spent</p>
                                     <p className="text-sm font-bold text-green-400">${client.total_spend.toLocaleString()}</p>
                                 </div>
                                 <div className="p-3 bg-white/5 rounded-xl border border-white/5 group-hover:bg-white/10 transition-colors">
                                     <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mb-1">Visits</p>
-                                    <p className="text-sm font-bold">{client.total_visits} times</p>
+                                    <p className="text-sm font-bold">{client.total_visits}</p>
+                                </div>
+                                <div className="p-3 bg-luxe-gold/5 rounded-xl border border-luxe-gold/10 group-hover:bg-luxe-gold/10 transition-colors">
+                                    <p className="text-[9px] text-luxe-gold/60 uppercase font-black tracking-widest mb-1">Points</p>
+                                    <p className="text-sm font-black text-luxe-gold">{client.loyalty_points || 0}</p>
                                 </div>
                             </div>
-                            <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between">
+
+                            {/* Tags & Notes UI */}
+                            {(client.tags && client.tags.length > 0) || client.notes ? (
+                                <div className="mb-6 space-y-3">
+                                    {client.tags && client.tags.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {client.tags.map((tag, idx) => (
+                                                <span key={idx} className="bg-luxe-gold/10 text-luxe-gold border border-luxe-gold/20 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {client.notes && (
+                                        <p className="text-xs text-white/50 bg-white/5 p-3 rounded-lg border border-white/5 italic">
+                                            "{client.notes}"
+                                        </p>
+                                    )}
+                                </div>
+                            ) : null}
+
+                            <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
                                 <p className="text-[10px] text-white/30">
                                     {client.email || 'No email'}
                                 </p>
@@ -412,6 +533,16 @@ export const ClientCRM: React.FC = () => {
                                 <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Email (optional)</label>
                                 <input value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="jessica@email.com"
                                     className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Tags (Comma Separated)</label>
+                                <input value={editTags} onChange={e => setEditTags(e.target.value)} placeholder="VIP, Needs Coffee, Allergy"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Internal Notes</label>
+                                <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Client preferences..."
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all min-h-[80px]" />
                             </div>
                         </div>
                         <button

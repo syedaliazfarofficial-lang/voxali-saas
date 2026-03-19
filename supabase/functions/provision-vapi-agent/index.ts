@@ -190,6 +190,23 @@ serve(async (req) => {
                     }
                 },
                 server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "escalate_to_human",
+                    description: "Escalate the call to a human manager by sending them an SMS alert. Use this ONLY when the caller explicitly asks for a manager, owner, or human, or if you are completely unable to help them after multiple attempts.",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            tenant_id: { type: "string" },
+                            caller_phone: { type: "string", description: "The phone number of the caller" },
+                            issue_summary: { type: "string", description: "A brief 1-sentence summary of why they want a human" }
+                        },
+                        required: ["tenant_id", "caller_phone", "issue_summary"]
+                    }
+                },
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
             }
         ];
 

@@ -12,7 +12,8 @@ import {
     Mic,
     PhoneOff,
     MessageSquare,
-    Wrench
+    Wrench,
+    Phone
 } from 'lucide-react';
 import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -25,6 +26,7 @@ interface AgentConfig {
     system_prompt: string;
     announcements: string;
     is_active: boolean;
+    escalation_phone?: string;
     updated_at: string;
 }
 
@@ -33,6 +35,7 @@ export const BellaAI: React.FC = () => {
     const { tenantId } = useTenant();
     const [editPrompt, setEditPrompt] = useState('');
     const [editAnnouncements, setEditAnnouncements] = useState('');
+    const [editEscalationPhone, setEditEscalationPhone] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
@@ -113,6 +116,7 @@ export const BellaAI: React.FC = () => {
                     tenant_id: tenantId,
                     system_prompt: 'You are Aria, the AI receptionist. Please assist the customer in booking an appointment.',
                     announcements: '',
+                    escalation_phone: null,
                     is_active: true
                 })
                 .select()
@@ -125,6 +129,7 @@ export const BellaAI: React.FC = () => {
             setConfig(c);
             setEditPrompt(c.system_prompt || '');
             setEditAnnouncements(c.announcements || '');
+            setEditEscalationPhone(c.escalation_phone || '');
         }
 
         if (tenantData?.vapi_assistant_id) {
@@ -171,8 +176,12 @@ export const BellaAI: React.FC = () => {
 
     useEffect(() => {
         if (!config) return;
-        setHasChanges(editPrompt !== config.system_prompt || editAnnouncements !== (config.announcements || ''));
-    }, [editPrompt, editAnnouncements, config]);
+        setHasChanges(
+            editPrompt !== config.system_prompt || 
+            editAnnouncements !== (config.announcements || '') ||
+            editEscalationPhone !== (config.escalation_phone || '')
+        );
+    }, [editPrompt, editAnnouncements, editEscalationPhone, config]);
 
     const handleSave = async () => {
         if (!config) return;
@@ -182,11 +191,12 @@ export const BellaAI: React.FC = () => {
             .update({
                 system_prompt: editPrompt,
                 announcements: editAnnouncements,
+                escalation_phone: editEscalationPhone || null,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', config.id);
         if (!error) {
-            setConfig(prev => prev ? { ...prev, system_prompt: editPrompt, announcements: editAnnouncements } : prev);
+            setConfig(prev => prev ? { ...prev, system_prompt: editPrompt, announcements: editAnnouncements, escalation_phone: editEscalationPhone || undefined } : prev);
             setHasChanges(false);
             showToast('Saved successfully!');
         }
@@ -210,6 +220,7 @@ export const BellaAI: React.FC = () => {
         if (!config) return;
         setEditPrompt(config.system_prompt || '');
         setEditAnnouncements(config.announcements || '');
+        setEditEscalationPhone(config.escalation_phone || '');
     };
 
     if (loading) {
@@ -357,6 +368,24 @@ export const BellaAI: React.FC = () => {
                     onChange={(e) => setEditAnnouncements(e.target.value)}
                     placeholder="Enter any temporary announcements here..."
                     className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-luxe-gold/50 h-32 resize-none transition-all"
+                />
+            </div>
+
+            {/* Human Handoff Number */}
+            <div className="glass-panel p-6 border border-white/5">
+                <h4 className="font-bold flex items-center gap-2 mb-4">
+                    <Phone className="w-5 h-5 text-luxe-gold" />
+                    Human Handoff Number
+                </h4>
+                <p className="text-xs text-white/40 mb-3">If Bella encounters an issue she cannot resolve, or if a caller explicitly requests a human, she will send an emergency SMS to this number with the caller's details.</p>
+                <input
+                    type="tel"
+                    value={editEscalationPhone}
+                    onChange={(e) => setEditEscalationPhone(e.target.value)}
+                    placeholder="e.g. +1234567890"
+                    title="Human Handoff Number"
+                    aria-label="Human Handoff Number"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-luxe-gold/50 transition-all font-mono"
                 />
             </div>
 
