@@ -45,6 +45,7 @@ DROP FUNCTION IF EXISTS rpc_cancel_staff_leave(uuid, uuid) CASCADE;
 DROP TABLE IF EXISTS booking_items CASCADE;
 DROP TABLE IF EXISTS notification_queue CASCADE;
 DROP TABLE IF EXISTS marketing_campaigns CASCADE;
+DROP TABLE IF EXISTS salon_reviews CASCADE;
 DROP TABLE IF EXISTS ai_agent_config CASCADE;
 DROP TABLE IF EXISTS waitlist CASCADE;
 DROP TABLE IF EXISTS call_logs CASCADE;
@@ -128,6 +129,8 @@ CREATE TABLE staff (
     is_active BOOLEAN DEFAULT TRUE,
     can_take_bookings BOOLEAN DEFAULT TRUE,
     notes TEXT,
+    commission_percent DECIMAL(5, 2) DEFAULT 0,
+    base_salary DECIMAL(10, 2) DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -255,6 +258,7 @@ CREATE TABLE payments (
     booking_id UUID REFERENCES bookings(id),
     client_id UUID REFERENCES clients(id),
     amount DECIMAL(10, 2) NOT NULL,
+    tip_amount DECIMAL(10, 2) DEFAULT 0,
     payment_method TEXT,
     stripe_payment_id TEXT,
     payment_link TEXT,
@@ -346,6 +350,28 @@ CREATE TABLE notification_queue (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     processed_at TIMESTAMPTZ
 );
+-- 2.18 STAFF PAYMENTS (Ledger)
+CREATE TABLE staff_payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) NOT NULL,
+    staff_id UUID REFERENCES staff(id) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    payment_type TEXT NOT NULL CHECK (payment_type IN ('advance', 'salary_clearance', 'commission_payout', 'tip_payout')),
+    payment_date TIMESTAMPTZ DEFAULT NOW(),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- 2.19 EXPENSES TABLE (P&L Tracking)
+CREATE TABLE expenses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) NOT NULL,
+    title TEXT NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('supplies', 'machinery', 'rent', 'utilities', 'marketing', 'other')),
+    amount DECIMAL(10, 2) NOT NULL,
+    expense_date DATE DEFAULT CURRENT_DATE,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 -- 2.18 MARKETING CAMPAIGNS
 CREATE TABLE marketing_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -383,6 +409,50 @@ CREATE TABLE IF NOT EXISTS error_logs (
     error_details JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- 2.21 COMMUNICATIONS (Unified Inbox)
+CREATE TABLE communications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) NOT NULL,
+    client_id UUID REFERENCES clients(id),
+    booking_id UUID REFERENCES bookings(id),
+    type TEXT NOT NULL CHECK (type IN ('sms', 'email', 'whatsapp')),
+    direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    status TEXT DEFAULT 'sent' CHECK (status IN ('pending', 'sent', 'delivered', 'failed', 'received')),
+    content TEXT NOT NULL,
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- 2.22 PAYROLL RUNS (Locked Payroll Periods)
+CREATE TABLE payroll_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) NOT NULL,
+    staff_id UUID REFERENCES staff(id) NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    base_salary_allocated DECIMAL(10, 2) DEFAULT 0,
+    total_commission DECIMAL(10, 2) DEFAULT 0,
+    total_tips DECIMAL(10, 2) DEFAULT 0,
+    deductions DECIMAL(10, 2) DEFAULT 0,
+    net_payout DECIMAL(10, 2) GENERATED ALWAYS AS (base_salary_allocated + total_commission + total_tips - deductions) STORED,
+    status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'paid', 'cancelled')),
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+-- 2.23 SALON REVIEWS
+CREATE TABLE salon_reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) NOT NULL,
+    booking_id UUID REFERENCES bookings(id),
+    client_name TEXT NOT NULL,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    review_text TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    is_public BOOLEAN DEFAULT false,
+    replied_text TEXT,
+    replied_at TIMESTAMPTZ
+);
 -- =============================================
 -- PART 3: PERFORMANCE INDEXES
 -- =============================================
@@ -410,6 +480,12 @@ CREATE INDEX idx_staff_working_hours_tenant ON staff_working_hours(tenant_id);
 CREATE INDEX idx_staff_working_hours_staff ON staff_working_hours(staff_id, day_of_week);
 CREATE INDEX idx_marketing_campaigns_tenant ON marketing_campaigns(tenant_id);
 CREATE INDEX idx_booking_items_booking ON booking_items(booking_id);
+CREATE INDEX idx_staff_payments_tenant ON staff_payments(tenant_id);
+CREATE INDEX idx_staff_payments_staff ON staff_payments(staff_id);
+CREATE INDEX idx_expenses_tenant ON expenses(tenant_id);
+CREATE INDEX idx_expenses_date ON expenses(tenant_id, expense_date);
+CREATE INDEX idx_communications_client_id ON communications(client_id);
+CREATE INDEX idx_payroll_runs_staff_id ON payroll_runs(staff_id);
 -- =============================================
 -- PART 4: ROW LEVEL SECURITY (RLS)
 -- =============================================
@@ -430,7 +506,10 @@ ALTER TABLE staff_services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_hours ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_queue ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marketing_campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE salon_reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agent_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE communications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payroll_runs ENABLE ROW LEVEL SECURITY;
 -- Helper function
 CREATE OR REPLACE FUNCTION get_my_tenant_id() RETURNS UUID AS $$
 SELECT tenant_id
@@ -456,10 +535,14 @@ CREATE POLICY "Tenant isolation" ON products FOR ALL USING (tenant_id = get_my_t
 CREATE POLICY "Tenant isolation" ON payments FOR ALL USING (tenant_id = get_my_tenant_id());
 CREATE POLICY "Tenant isolation" ON waitlist FOR ALL USING (tenant_id = get_my_tenant_id());
 CREATE POLICY "Tenant isolation" ON call_logs FOR ALL USING (tenant_id = get_my_tenant_id());
+CREATE POLICY "Tenant isolation" ON communications FOR ALL USING (tenant_id = get_my_tenant_id());
+CREATE POLICY "Tenant isolation" ON payroll_runs FOR ALL USING (tenant_id = get_my_tenant_id());
 CREATE POLICY "Tenant isolation" ON sms_templates FOR ALL USING (tenant_id = get_my_tenant_id());
 CREATE POLICY "Tenant isolation" ON staff_working_hours FOR ALL USING (tenant_id = get_my_tenant_id());
 CREATE POLICY "Tenant isolation" ON staff_timeoff FOR ALL USING (tenant_id = get_my_tenant_id());
 CREATE POLICY "Tenant isolation" ON tenant_hours FOR ALL USING (tenant_id = get_my_tenant_id());
+CREATE POLICY "Tenant isolation" ON staff_payments FOR ALL USING (tenant_id = get_my_tenant_id());
+CREATE POLICY "Tenant isolation" ON expenses FOR ALL USING (tenant_id = get_my_tenant_id());
 -- Staff services policy (no tenant_id, join through staff)
 CREATE POLICY "Staff services access" ON staff_services FOR ALL USING (
     staff_id IN (
@@ -472,6 +555,12 @@ CREATE POLICY "Staff services access" ON staff_services FOR ALL USING (
 CREATE POLICY "Service role full access on notification_queue" ON notification_queue FOR ALL USING (true) WITH CHECK (true);
 -- Marketing & AI config open policies (for anon access via RPC)
 CREATE POLICY "anon_marketing_all" ON marketing_campaigns FOR ALL USING (true) WITH CHECK (true);
+
+-- Salon Reviews policies
+CREATE POLICY "Super Admin full access on salon_reviews" ON salon_reviews FOR ALL USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.user_id = auth.uid() AND profiles.role = 'super_admin'));
+CREATE POLICY "Tenants full access to own reviews" ON salon_reviews FOR ALL USING (tenant_id = get_my_tenant_id());
+CREATE POLICY "anon_reviews_insert" ON salon_reviews FOR INSERT WITH CHECK (true);
+CREATE POLICY "anon_reviews_read_public" ON salon_reviews FOR SELECT USING (is_public = true);
 CREATE POLICY "anon_ai_config_all" ON ai_agent_config FOR ALL USING (true) WITH CHECK (true);
 -- Super Admin policies
 CREATE POLICY "Super Admin full tenants access" ON tenants FOR ALL TO authenticated USING (
@@ -983,7 +1072,8 @@ ORDER BY count DESC;
 END;
 $$;
 -- 6.7 Staff Board
-CREATE OR REPLACE FUNCTION rpc_staff_board(p_tenant_id UUID) RETURNS TABLE(
+CREATE OR REPLACE FUNCTION rpc_staff_board(p_tenant_id UUID) 
+RETURNS TABLE(
         id UUID,
         full_name TEXT,
         role TEXT,
@@ -991,7 +1081,9 @@ CREATE OR REPLACE FUNCTION rpc_staff_board(p_tenant_id UUID) RETURNS TABLE(
         is_active BOOLEAN,
         bookings_count BIGINT,
         revenue NUMERIC,
-        is_blocked_today BOOLEAN
+        is_blocked_today BOOLEAN,
+        commission_percent NUMERIC,
+        base_salary NUMERIC
     ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public AS $$ BEGIN RETURN QUERY
 SELECT s.id,
@@ -1007,7 +1099,9 @@ SELECT s.id,
         WHERE t.staff_id = s.id
             AND t.start_datetime::date <= CURRENT_DATE
             AND t.end_datetime::date >= CURRENT_DATE
-    )
+    ),
+    s.commission_percent,
+    s.base_salary
 FROM staff s
     LEFT JOIN bookings b ON b.stylist_id = s.id
     AND b.start_time >= date_trunc('month', CURRENT_DATE)
@@ -1017,8 +1111,27 @@ GROUP BY s.id,
     s.full_name,
     s.role,
     s.color,
-    s.is_active
+    s.is_active,
+    s.commission_percent,
+    s.base_salary
 ORDER BY revenue DESC;
+END;
+$$;
+
+-- 6.7.1 Update Staff Payroll
+CREATE OR REPLACE FUNCTION rpc_update_payroll(
+    p_tenant_id UUID, 
+    p_staff_id UUID, 
+    p_commission NUMERIC,
+    p_salary NUMERIC
+) RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+    UPDATE staff 
+    SET commission_percent = p_commission,
+        base_salary = p_salary
+    WHERE id = p_staff_id AND tenant_id = p_tenant_id;
+    
+    RETURN json_build_object('success', true);
 END;
 $$;
 -- 6.8 Block/Unblock Staff

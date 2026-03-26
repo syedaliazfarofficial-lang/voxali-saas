@@ -7,11 +7,14 @@ import { StaffBoard } from './components/StaffBoard'
 import { CallLogs } from './components/CallLogs'
 import { Analytics } from './components/Analytics'
 import { Marketing } from './components/Marketing'
+import { Reviews } from './components/Reviews'
 import { BellaAI } from './components/BellaAI'
 import { Settings } from './components/Settings'
 import { MyProfile } from './components/MyProfile'
 import { LoginPage } from './components/LoginPage'
 import { ClientFeedback } from './components/ClientFeedback'
+import { PublicFeedback } from './components/PublicFeedback'
+import { POSSystem } from './components/POSSystem'
 import { TenantProvider, useTenant } from './context/TenantContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider, showToast } from './components/ui/ToastNotification'
@@ -127,11 +130,11 @@ function AppContent() {
 
   // ─── RBAC: Allowed tabs per role ───
   const ALLOWED_TABS: Record<string, string[]> = {
-    super_admin: ['dashboard', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'bella', 'settings'],
-    owner: ['dashboard', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'bella', 'settings'],
-    manager: ['dashboard', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'bella', 'my_profile'],
+    super_admin: ['dashboard', 'pos', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'reviews', 'bella', 'settings'],
+    owner: ['dashboard', 'pos', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'reviews', 'bella', 'settings'],
+    manager: ['dashboard', 'pos', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'reviews', 'bella', 'my_profile'],
     staff: ['bookings', 'my_profile'],
-    receptionist: ['bookings', 'clients', 'calls', 'my_profile'],
+    receptionist: ['pos', 'bookings', 'clients', 'calls', 'my_profile'],
   }
 
   const DEFAULT_TAB: Record<string, string> = {
@@ -237,12 +240,14 @@ function AppContent() {
   // ─── Salon Dashboard (normal users OR impersonating super admin) ───
   const tabTitles: Record<string, string> = {
     dashboard: 'Dashboard',
+    pos: 'Point of Sale',
     bookings: 'Bookings',
     clients: 'Clients',
     stylists: 'Stylists',
     analytics: 'Analytics',
     calls: 'Call Logs',
     marketing: 'Marketing',
+    reviews: 'Review Management',
     bella: 'Bella AI',
     settings: 'Settings',
     my_profile: 'My Profile',
@@ -311,12 +316,14 @@ function AppContent() {
             {/* Dynamic Content Area */}
             <div className="space-y-6 flex-1 flex flex-col h-full">
               {activeTab === 'dashboard' && <DashboardHome setActiveTab={safeSetActiveTab} />}
+              {activeTab === 'pos' && <POSSystem />}
               {activeTab === 'bookings' && <BookingsCalendar />}
               {activeTab === 'clients' && <ClientCRM />}
               {activeTab === 'stylists' && <StaffBoard />}
               {activeTab === 'analytics' && <Analytics />}
               {activeTab === 'calls' && <CallLogs />}
               {activeTab === 'marketing' && <Marketing />}
+              {activeTab === 'reviews' && <Reviews />}
               {activeTab === 'bella' && <BellaAI />}
               {activeTab === 'settings' && <Settings />}
               {activeTab === 'my_profile' && <MyProfile />}
@@ -331,9 +338,14 @@ function AppContent() {
 function App() {
   const params = new URLSearchParams(window.location.search);
   const feedbackId = params.get('feedback');
+  const reviewTenantId = params.get('salon_review');
 
   if (feedbackId) {
     return <ClientFeedback bookingId={feedbackId} />;
+  }
+
+  if (reviewTenantId) {
+    return <PublicFeedback tenantId={reviewTenantId} />;
   }
 
   return (

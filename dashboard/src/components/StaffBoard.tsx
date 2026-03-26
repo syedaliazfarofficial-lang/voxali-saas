@@ -3,12 +3,13 @@ import {
     BarChart3, TrendingUp, Trophy, ArrowUpRight, Scissors,
     Loader2, Ban, CheckCircle2, Undo2, Plus, X,
     UserMinus, Percent, UserPlus, Key, Lock, Eye, EyeOff,
-    CalendarDays, Trash2, AlertTriangle, Pencil, Clock, Copy
+    CalendarDays, Trash2, AlertTriangle, Pencil, Clock, Copy, Banknote
 } from 'lucide-react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { ConfirmModal } from './ui/ConfirmModal';
+import { PayrollRunsView } from './PayrollRunsView';
 
 interface LeaveEntry { id: string; start_datetime: string; end_datetime: string; reason: string; }
 interface ConflictBooking { booking_id: string; client_name: string; service_name: string; start_time: string; status: string; }
@@ -16,11 +17,12 @@ interface ConflictBooking { booking_id: string; client_name: string; service_nam
 interface StaffMember {
     id: string; full_name: string; role: string; color: string;
     is_active: boolean; bookings_count: number; revenue: number;
-    is_blocked_today: boolean; commission_rate: number;
+    is_blocked_today: boolean; commission_rate: number; base_salary: number;
     email?: string; phone?: string;
 }
 
 export const StaffBoard: React.FC = () => {
+    const [activeTab, setActiveTab] = useState<'directory' | 'payroll'>('directory');
     const [staff, setStaff] = useState<StaffMember[]>([]);
     const { tenantId } = useTenant();
     const [loading, setLoading] = useState(true);
@@ -47,6 +49,7 @@ export const StaffBoard: React.FC = () => {
 
     // Commission form
     const [commRate, setCommRate] = useState('');
+    const [salaryRate, setSalaryRate] = useState('');
 
     // Login form
     const [loginEmail, setLoginEmail] = useState('');
@@ -88,6 +91,14 @@ export const StaffBoard: React.FC = () => {
     const [loadingHours, setLoadingHours] = useState(false);
     const [savingHours, setSavingHours] = useState(false);
 
+    // Ledger Modal
+    const [showLedgerModal, setShowLedgerModal] = useState(false);
+    const [ledgerStaff, setLedgerStaff] = useState<StaffMember | null>(null);
+    const [ledgerAmount, setLedgerAmount] = useState('');
+    const [ledgerType, setLedgerType] = useState('advance');
+    const [ledgerNotes, setLedgerNotes] = useState('');
+    const [ledgerHistory, setLedgerHistory] = useState<any[]>([]);
+
     const fetchStaff = useCallback(async () => {
         if (!tenantId) return;
         setLoading(true);
@@ -96,7 +107,8 @@ export const StaffBoard: React.FC = () => {
         if (data && Array.isArray(data)) {
             setStaff(data.map((s: any) => ({
                 ...s,
-                commission_rate: s.commission_rate ?? 15,
+                commission_rate: s.commission_percent ?? 15,
+                base_salary: s.base_salary ?? 0,
             })));
         } else if (error) {
             console.error('❌ rpc_staff_board error:', error);
@@ -105,6 +117,44 @@ export const StaffBoard: React.FC = () => {
     }, []);
 
     useEffect(() => { fetchStaff(); }, [fetchStaff]);
+
+    const openLedgerModal = async (s: StaffMember) => {
+        setLedgerStaff(s);
+        setLedgerAmount('');
+        setLedgerType('advance');
+        setLedgerNotes('');
+        setShowLedgerModal(true);
+        // Fetch history
+        const { data } = await supabaseAdmin
+            .from('staff_payments')
+            .select('*')
+            .eq('staff_id', s.id)
+            .order('payment_date', { ascending: false })
+            .limit(5);
+        if (data) setLedgerHistory(data);
+    };
+
+    const handleSaveLedger = async () => {
+        if (!ledgerStaff || !ledgerAmount) return;
+        setSaving(true);
+        try {
+            const { error } = await supabaseAdmin.from('staff_payments').insert({
+                tenant_id: tenantId,
+                staff_id: ledgerStaff.id,
+                amount: parseFloat(ledgerAmount),
+                payment_type: ledgerType,
+                notes: ledgerNotes
+            });
+            if (error) throw error;
+            showToast('Payment recorded successfully', 'success');
+            setShowLedgerModal(false);
+            setLedgerAmount(''); setLedgerNotes('');
+            fetchStaff(); // Ensure UI state refreshes
+        } catch (err: any) {
+            showToast(err.message, 'error');
+        }
+        setSaving(false);
+    };
 
     const handleBlock = async (staffId: string, staffName: string) => {
         const { error } = await supabase.rpc('rpc_block_staff_today', { p_tenant_id: tenantId, p_staff_id: staffId });
@@ -451,19 +501,21 @@ export const StaffBoard: React.FC = () => {
     const openCommModal = (s: StaffMember) => {
         setSelectedStaff(s);
         setCommRate(String(s.commission_rate));
+        setSalaryRate(String(s.base_salary));
         setShowCommModal(true);
     };
 
     const handleUpdateComm = async () => {
         if (!selectedStaff) return;
         setSaving(true);
-        const { error } = await supabase.rpc('rpc_update_commission', {
+        const { error } = await supabase.rpc('rpc_update_payroll', {
             p_tenant_id: tenantId,
             p_staff_id: selectedStaff.id,
-            p_rate: parseFloat(commRate) || 15,
+            p_commission: parseFloat(commRate) || 0,
+            p_salary: parseFloat(salaryRate) || 0,
         });
         if (!error) {
-            showToast(`Commission updated to ${commRate}%`);
+            showToast(`Payroll settings updated`);
             setShowCommModal(false);
             fetchStaff();
         }
@@ -602,23 +654,54 @@ export const StaffBoard: React.FC = () => {
                         <p className="text-xs text-white/40 uppercase tracking-widest">Team Performance & Management</p>
                     </div>
                 </div>
+
+                {/* Tabs */}
+                <div className="flex items-center gap-2 p-1 bg-white/[0.02] border border-white/5 rounded-2xl">
+                    <button
+                        onClick={() => setActiveTab('directory')}
+                        className={`px-6 py-2 rounded-xl text-xs font-bold transition-all ${
+                            activeTab === 'directory' ? 'bg-white/10 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'
+                        }`}
+                    >
+                        Directory
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('payroll')}
+                        className={`px-6 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                            activeTab === 'payroll' ? 'bg-luxe-gold/20 text-luxe-gold border border-luxe-gold/30 shadow-[0_0_15px_rgba(238,206,165,0.2)]' : 'text-white/40 hover:text-luxe-gold hover:bg-luxe-gold/5'
+                        }`}
+                    >
+                        <Banknote className="w-3.5 h-3.5" />
+                        Payroll Runs
+                    </button>
+                </div>
+
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setShowInactive(!showInactive)}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showInactive ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-white/40'}`}
-                    >
-                        {showInactive ? 'Hide Inactive' : `Show Inactive (${inactiveStaff.length})`}
-                    </button>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                    >
-                        <Plus className="w-5 h-5" /> ADD STAFF
-                    </button>
+                    {activeTab === 'directory' && (
+                        <>
+                            <button
+                                onClick={() => setShowInactive(!showInactive)}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showInactive ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-white/40'}`}
+                            >
+                                {showInactive ? 'Hide Inactive' : `Show Inactive (${inactiveStaff.length})`}
+                            </button>
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            >
+                                <Plus className="w-5 h-5" /> ADD STAFF
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 
-            {/* Summary Stats */}
+            {/* Content Switch */}
+            {activeTab === 'payroll' ? (
+                <PayrollRunsView />
+            ) : (
+                <>
+                    {/* Summary Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <PerformanceStat label="Active Staff" value={String(activeStaff.length)} trend="+1 this month" icon={Scissors} />
                 <PerformanceStat label="Total Revenue" value={`$${fmt(totalRev)}`} trend="This month" icon={TrendingUp} />
@@ -635,6 +718,7 @@ export const StaffBoard: React.FC = () => {
                                 <th className="text-left px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Stylist</th>
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Bookings</th>
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Revenue</th>
+                                <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Salary</th>
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Commission %</th>
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Earned</th>
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Status</th>
@@ -660,6 +744,11 @@ export const StaffBoard: React.FC = () => {
                                         <td className="px-6 py-5 text-center font-bold text-sm">{s.bookings_count}</td>
                                         <td className="px-6 py-5 text-center font-bold text-sm text-green-400">${s.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                                         <td className="px-6 py-5 text-center">
+                                            <button onClick={() => openCommModal(s)} className="font-bold text-sm text-white hover:underline cursor-pointer">
+                                                ${s.base_salary.toLocaleString()}
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-5 text-center">
                                             <button
                                                 onClick={() => openCommModal(s)}
                                                 className="font-bold text-sm text-luxe-gold hover:underline cursor-pointer"
@@ -677,6 +766,10 @@ export const StaffBoard: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-5 text-center">
                                             <div className="flex items-center justify-center gap-2">
+                                                <button onClick={() => openLedgerModal(s)} title="Ledger / Payments"
+                                                    className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-emerald-400 hover:bg-emerald-400/10 transition-all">
+                                                    <Banknote className="w-4 h-4" />
+                                                </button>
                                                 <button onClick={() => openLeaveModal(s)} title="Manage Leave"
                                                     className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-orange-400 hover:bg-orange-400/10 transition-all">
                                                     <CalendarDays className="w-4 h-4" />
@@ -741,8 +834,10 @@ export const StaffBoard: React.FC = () => {
                     </div>
                 </div>
             )}
+            </>
+            )}
 
-            {/* Add Staff Modal */}
+            {/* ──────────────── MODALS ──────────────── */}
             {showAddModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
                     <div className="bg-luxe-obsidian border border-white/10 rounded-2xl p-8 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -844,31 +939,119 @@ export const StaffBoard: React.FC = () => {
                 </div>
             )}
 
-            {/* Commission Modal */}
+            {/* Payroll Settings Modal */}
             {showCommModal && selectedStaff && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCommModal(false)}>
                     <div className="bg-luxe-obsidian border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-bold flex items-center gap-2">
-                                <Percent className="w-6 h-6 text-luxe-gold" /> Set Commission
+                                <Percent className="w-6 h-6 text-luxe-gold" /> Payroll Settings
                             </h3>
                             <button onClick={() => setShowCommModal(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <p className="text-white/50 text-sm mb-4">Commission rate for <span className="text-white font-bold">{selectedStaff.full_name}</span></p>
-                        <div className="flex items-center gap-3">
-                            <input type="number" value={commRate} onChange={e => setCommRate(e.target.value)} min="0" max="100" step="1"
-                                className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-lg font-bold text-center outline-none focus:border-luxe-gold/50 transition-all" />
-                            <span className="text-2xl font-bold text-white/40">%</span>
+                        <p className="text-white/50 text-sm mb-6">Set base salary and commission for <span className="text-white font-bold">{selectedStaff.full_name}</span></p>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Monthly Base Salary</label>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl font-bold text-white/40">$</span>
+                                    <input type="number" value={salaryRate} onChange={e => setSalaryRate(e.target.value)} min="0" step="100"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-lg font-bold outline-none focus:border-luxe-gold/50 transition-all" />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Service Commission Rate</label>
+                                <div className="flex items-center gap-3">
+                                    <input type="number" value={commRate} onChange={e => setCommRate(e.target.value)} min="0" max="100" step="1"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-lg font-bold outline-none focus:border-luxe-gold/50 transition-all" />
+                                    <span className="text-xl font-bold text-white/40">%</span>
+                                </div>
+                            </div>
                         </div>
-                        <p className="text-[10px] text-white/30 mt-2">
-                            Current revenue: ${selectedStaff.revenue.toLocaleString()} → Earned: ${(selectedStaff.revenue * parseFloat(commRate || '0') / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+
+                        <p className="text-[10px] text-luxe-gold mt-4 font-bold bg-luxe-gold/5 p-3 rounded-lg border border-luxe-gold/10">
+                            Current Take-Home: ${(parseFloat(salaryRate||'0') + (selectedStaff.revenue * parseFloat(commRate || '0') / 100)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </p>
+                        
                         <button onClick={handleUpdateComm} disabled={saving}
                             className="w-full mt-6 bg-gold-gradient text-luxe-obsidian font-bold py-3 rounded-xl shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
                             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-                            UPDATE COMMISSION
+                            SAVE PAYROLL SETTINGS
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Ledger Modal */}
+            {showLedgerModal && ledgerStaff && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowLedgerModal(false)}>
+                    <div className="bg-luxe-obsidian border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <Banknote className="w-6 h-6 text-emerald-400" /> Staff Ledger
+                            </h3>
+                            <button onClick={() => setShowLedgerModal(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <p className="text-white/50 text-sm mb-6">Record a payment for <span className="text-white font-bold">{ledgerStaff.full_name}</span></p>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Amount</label>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl font-bold text-white/40">$</span>
+                                    <input type="number" value={ledgerAmount} onChange={e => setLedgerAmount(e.target.value)} min="0" step="10"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-lg font-bold outline-none focus:border-luxe-gold/50 transition-all" />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Payment Type</label>
+                                <select value={ledgerType} onChange={e => setLedgerType(e.target.value)}
+                                    className="w-full bg-zinc-900 text-white border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all">
+                                    <option className="bg-zinc-900 text-white" value="advance">Salary Advance</option>
+                                    <option className="bg-zinc-900 text-white" value="salary_clearance">Salary Clearance</option>
+                                    <option className="bg-zinc-900 text-white" value="commission_payout">Commission Payout</option>
+                                    <option className="bg-zinc-900 text-white" value="tip_payout">Tip Payout</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Notes</label>
+                                <input type="text" value={ledgerNotes} onChange={e => setLedgerNotes(e.target.value)} placeholder="e.g. Wedding advance"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all" />
+                            </div>
+                        </div>
+
+                        {ledgerHistory.length > 0 && (
+                            <div className="mt-6 border-t border-white/10 pt-4">
+                                <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">Recent Payments</h4>
+                                <div className="space-y-2">
+                                    {ledgerHistory.map(hist => (
+                                        <div key={hist.id} className="flex justify-between items-center text-sm p-2 bg-white/5 rounded-lg border border-white/5">
+                                            <div>
+                                                <p className="font-bold text-white/80">${hist.amount.toFixed(2)}</p>
+                                                {hist.notes && <p className="text-[10px] text-white/50 italic py-0.5">"{hist.notes}"</p>}
+                                                <p className="text-[10px] text-white/40 capitalize">{hist.payment_type.replace('_', ' ')}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[10px] text-white/40">{new Date(hist.payment_date).toLocaleDateString()}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        <button onClick={handleSaveLedger} disabled={saving || !ledgerAmount}
+                            className="w-full mt-6 bg-emerald-500 text-black font-bold py-3 rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                            RECORD PAYMENT
                         </button>
                     </div>
                 </div>

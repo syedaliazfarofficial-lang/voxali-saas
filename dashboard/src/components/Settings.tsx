@@ -223,6 +223,37 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
                 </div>
             </div>
 
+            {/* Voxali Public Review Link */}
+            <div className="glass-panel border border-white/5 p-6 mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                    <Link className="w-5 h-5 text-luxe-gold" />
+                    <div>
+                        <h4 className="font-bold">Voxali Public Review Link</h4>
+                        <p className="text-xs text-white/40 mt-1">Share this link directly on WhatsApp or Instagram to get unrestricted public reviews.</p>
+                    </div>
+                </div>
+                <div className="bg-luxe-obsidian/50 border border-white/10 rounded-xl p-4 flex items-center justify-between gap-4">
+                    <div className="flex-1 overflow-hidden">
+                        <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Shareable Review Link</p>
+                        <p className="text-sm font-mono text-white/80 truncate select-all px-3 py-2 bg-white/5 rounded-lg border border-white/5">
+                            https://voxali.net/app/?salon_review={tenantId}
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            navigator.clipboard.writeText(`https://voxali.net/app/?salon_review=${tenantId}`);
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 2000);
+                            showToast('Review link copied! Share it with your clients.', 'success');
+                        }}
+                        className="bg-gold-gradient text-luxe-obsidian px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        {copied ? 'COPIED' : 'COPY'}
+                    </button>
+                </div>
+            </div>
+
             {/* Save Button */}
             <button
                 onClick={handleSave}

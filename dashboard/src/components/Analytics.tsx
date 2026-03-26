@@ -6,7 +6,17 @@ import {
     DollarSign,
     Calendar,
     Loader2,
-    Download
+    Download,
+    CreditCard,
+    Wallet,
+    Scissors,
+    ShoppingBag,
+    Users,
+    Plus,
+    X,
+    Banknote,
+    Receipt,
+    CheckCircle2
 } from 'lucide-react';
 import {
     XAxis,
@@ -22,12 +32,14 @@ import {
     Pie,
     Cell,
 } from 'recharts';
-import { supabase, supabaseAdmin } from '../lib/supabase';
+import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
+import { generatePnLPDF, generateMasterReportPDF } from '../utils/pdfGenerator';
 
 interface RevDay { day: string; revenue: number; booking_count: number }
 interface ServiceRow { service_name: string; booking_count: number; total_revenue: number }
 interface StatusRow { status: string; count: number }
+interface PaymentRow { method: string; amount: number; count: number }
 
 const STATUS_COLORS: Record<string, string> = {
     confirmed: '#22c55e',
@@ -41,29 +53,74 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export const Analytics: React.FC = () => {
-    const { tenantId } = useTenant();
+    const { tenantId, salonName, logoUrl } = useTenant();
+    const [activeTab, setActiveTab] = useState<'overview' | 'drawer' | 'staff' | 'sales' | 'pnl'>('overview');
+    
+    // Overview Data
     const [revData, setRevData] = useState<RevDay[]>([]);
     const [services, setServices] = useState<ServiceRow[]>([]);
     const [statuses, setStatuses] = useState<StatusRow[]>([]);
+    const [peakHours, setPeakHours] = useState<{hour: string, count: number}[]>([]);
     const [days, setDays] = useState(30);
+    
+    // Drawer Data
+    const [drawerData, setDrawerData] = useState<PaymentRow[]>([]);
+    const [totalExpectedCash, setTotalExpectedCash] = useState(0);
+    const [dailyDrawerLogs, setDailyDrawerLogs] = useState<{date: string, cash: number, card: number, other: number}[]>([]);
+    
+    // Staff Data
+    const [staffData, setStaffData] = useState<{
+        id: string;
+        name: string;
+        color: string;
+        base_salary: number;
+        commission_percent: number;
+        bookings_count: number;
+        service_revenue: number;
+        commission_earned: number;
+        tip_amount: number;
+        total_payout: number;
+    }[]>([]);
+    
+    // Sales Breakdown Data
+    const [salesBreakdown, setSalesBreakdown] = useState<{type: string, value: number}[]>([]);
+
+    // P&L Data
+    const [expenses, setExpenses] = useState<any[]>([]);
+    const [staffPaymentsList, setStaffPaymentsList] = useState<any[]>([]);
+    const [showAddExpense, setShowAddExpense] = useState(false);
+    const [expTitle, setExpTitle] = useState('');
+    const [expCat, setExpCat] = useState('supplies');
+    const [expAmt, setExpAmt] = useState('');
+    const [expNotes, setExpNotes] = useState('');
+    const [addingExp, setAddingExp] = useState(false);
+
     const [loading, setLoading] = useState(true);
 
-    const fetchAll = useCallback(async () => {
+    const fetchData = useCallback(async () => {
         if (!tenantId) return;
         setLoading(true);
         try {
             const startDate = new Date();
             startDate.setDate(startDate.getDate() - days);
-
-            // Fetch all bookings for the date range
+            const startDateStr = startDate.toISOString();
+            
+            // 1. Fetch Bookings (for Overview)
             const { data: bookings } = await supabaseAdmin
                 .from('bookings')
-                .select('id, start_time, total_price, status, service_id, services(name)')
+                .select(`
+                    id, start_time, total_price, status,
+                    service_id, services (name),
+                    stylist_id,
+                    booking_items (name_snapshot, price_snapshot)
+                `)
                 .eq('tenant_id', tenantId)
-                .gte('start_time', startDate.toISOString())
-                .not('status', 'eq', 'cancelled');
+                .gte('start_time', startDateStr);
 
-            // 1) Revenue by day
+            // PROCESS OVERVIEW DATA
+            const activeBookings = (bookings || []).filter(b => b.status !== 'cancelled' && b.status !== 'no_show');
+            
+            // Revenue by day
             const dayMap: Record<string, { revenue: number; booking_count: number }> = {};
             for (let i = 0; i <= days; i++) {
                 const d = new Date();
@@ -71,7 +128,7 @@ export const Analytics: React.FC = () => {
                 const key = d.toISOString().split('T')[0];
                 dayMap[key] = { revenue: 0, booking_count: 0 };
             }
-            (bookings || []).forEach((b: any) => {
+            activeBookings.forEach((b: any) => {
                 const key = new Date(b.start_time).toISOString().split('T')[0];
                 if (dayMap[key]) {
                     dayMap[key].revenue += Number(b.total_price) || 0;
@@ -84,32 +141,240 @@ export const Analytics: React.FC = () => {
                 booking_count: v.booking_count,
             })));
 
-            // 2) Top services
             const svcMap: Record<string, { booking_count: number; total_revenue: number }> = {};
-            (bookings || []).forEach((b: any) => {
-                const name = b.services?.name || 'Unknown';
-                if (!svcMap[name]) svcMap[name] = { booking_count: 0, total_revenue: 0 };
-                svcMap[name].booking_count += 1;
-                svcMap[name].total_revenue += Number(b.total_price) || 0;
+            let serviceRev = 0;
+            let productRev = 0;
+
+            activeBookings.forEach((b: any) => {
+                const bItems = b.booking_items || [];
+                
+                // If there are no items, fallback to the legacy service name approach
+                if (bItems.length === 0) {
+                    const lineTotal = Number(b.total_price) || 0;
+                    const serviceName = b.services?.name || 'Unknown Service';
+                    if (serviceName.includes('Custom Charge') || serviceName.includes('Retail')) {
+                        productRev += lineTotal;
+                    } else {
+                        serviceRev += lineTotal;
+                        if (!svcMap[serviceName]) svcMap[serviceName] = { booking_count: 0, total_revenue: 0 };
+                        svcMap[serviceName].booking_count += 1;
+                        svcMap[serviceName].total_revenue += lineTotal;
+                    }
+                } else {
+                    // Modern approach: sum up from explicit booking_items
+                    bItems.forEach((item: any) => {
+                        const itemName = item.name_snapshot || 'Unknown Item';
+                        const itemPrice = Number(item.price_snapshot) || 0;
+                        
+                        if (itemName.startsWith('[RETAIL]') || itemName.startsWith('[CUSTOM]')) {
+                            productRev += itemPrice;
+                        } else {
+                            serviceRev += itemPrice;
+                            if (!svcMap[itemName]) svcMap[itemName] = { booking_count: 0, total_revenue: 0 };
+                            // We only count the booking once per service type
+                            svcMap[itemName].total_revenue += itemPrice;
+                        }
+                    });
+                    
+                    // Increment booking count for unique services in this booking
+                    const uniqueServices = new Set<string>();
+                    bItems.forEach((item: any) => {
+                        const itemName = item.name_snapshot || 'Unknown Item';
+                        if (!itemName.startsWith('[RETAIL]') && !itemName.startsWith('[CUSTOM]')) {
+                            uniqueServices.add(itemName);
+                        }
+                    });
+                    uniqueServices.forEach(svc => {
+                        if (!svcMap[svc]) svcMap[svc] = { booking_count: 0, total_revenue: 0 };
+                        svcMap[svc].booking_count += 1;
+                    });
+                }
             });
+
             setServices(Object.entries(svcMap)
                 .map(([service_name, v]) => ({ service_name, ...v }))
                 .sort((a, b) => b.total_revenue - a.total_revenue)
                 .slice(0, 10));
 
-            // 3) All statuses (not just filtered by date)
-            const { data: allBookings } = await supabaseAdmin
-                .from('bookings')
-                .select('status')
-                .eq('tenant_id', tenantId);
+            setSalesBreakdown([
+                { type: 'Salon Services', value: serviceRev },
+                { type: 'Retail & Custom Charges', value: productRev }
+            ].filter(d => d.value > 0));
 
+            // Statuses
             const statusMap: Record<string, number> = {};
-            (allBookings || []).forEach((b: any) => {
+            (bookings || []).forEach((b: any) => {
                 statusMap[b.status] = (statusMap[b.status] || 0) + 1;
             });
             setStatuses(Object.entries(statusMap)
                 .map(([status, count]) => ({ status, count }))
                 .sort((a, b) => b.count - a.count));
+
+            // Peak Hours Heatmap (group by hour, 0-23)
+            const hourMap: Record<number, number> = {};
+            activeBookings.forEach((b: any) => {
+                if (b.start_time) {
+                    const hour = new Date(b.start_time).getHours();
+                    hourMap[hour] = (hourMap[hour] || 0) + 1;
+                }
+            });
+            const hourData = [];
+            for (let i = 6; i <= 22; i++) { // Filter to typical salon hours: 6AM to 10PM
+                const ampm = i >= 12 ? 'PM' : 'AM';
+                const displayNum = i > 12 ? i - 12 : (i === 0 ? 12 : i);
+                hourData.push({
+                    hour: `${displayNum} ${ampm}`,
+                    count: hourMap[i] || 0
+                });
+            }
+            setPeakHours(hourData);
+
+            // Staff Performance
+            // 1b. Fetch Staff List via RPC to bypass any PostgREST schema cache delays on new columns
+            const { data: staffList } = await supabaseAdmin.rpc('rpc_staff_board', {
+                p_tenant_id: tenantId
+            });
+            
+            // 1c. Fetch Payments for Tips (entire period)
+            const { data: periodPayments } = await supabaseAdmin
+                .from('payments')
+                .select('booking_id, tip_amount')
+                .eq('tenant_id', tenantId)
+                .gte('created_at', startDateStr)
+                .gt('tip_amount', 0);
+
+            const tipMap: Record<string, number> = {};
+            (periodPayments || []).forEach(p => {
+                if (p.booking_id && p.tip_amount) {
+                    tipMap[p.booking_id] = (tipMap[p.booking_id] || 0) + Number(p.tip_amount);
+                }
+            });
+
+            const staffRevMap: Record<string, any> = {};
+            (staffList || []).forEach(s => {
+                staffRevMap[s.id] = {
+                    id: s.id,
+                    name: s.full_name,
+                    color: s.color || '#D4AF37',
+                    base_salary: Number(s.base_salary) || 0,
+                    commission_percent: Number(s.commission_percent) || 0,
+                    bookings_count: 0,
+                    service_revenue: 0,
+                    tip_amount: 0,
+                };
+            });
+
+            activeBookings.forEach((b: any) => {
+                const sid = b.stylist_id;
+                if (!sid) return;
+                if (!staffRevMap[sid]) {
+                    staffRevMap[sid] = {
+                        id: sid, name: 'Unknown Stylist', color: '#666',
+                        base_salary: 0, commission_percent: 0,
+                        bookings_count: 0, service_revenue: 0, tip_amount: 0
+                    };
+                }
+                staffRevMap[sid].bookings_count += 1;
+                staffRevMap[sid].service_revenue += Number(b.total_price) || 0;
+                
+                if (tipMap[b.id]) {
+                    staffRevMap[sid].tip_amount += tipMap[b.id];
+                }
+            });
+
+            setStaffData(Object.values(staffRevMap)
+                .map((d: any) => {
+                    const commission_earned = d.service_revenue * (d.commission_percent / 100);
+                    const total_payout = d.base_salary + commission_earned + d.tip_amount;
+                    return { ...d, commission_earned, total_payout };
+                })
+                .sort((a, b) => b.total_payout - a.total_payout));
+
+            // 2. Fetch Payments (for Daily Drawer and Master Report breakdown)
+            const { data: allPayments } = await supabaseAdmin
+                .from('payments')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .gte('created_at', startDateStr);
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayPayments = (allPayments || []).filter((p: any) => {
+                if (!p.created_at) return false;
+                return new Date(p.created_at).toISOString().split('T')[0] === todayStr;
+            });
+
+            const pMap: Record<string, {amount: number, count: number}> = {
+                cash: { amount: 0, count: 0 },
+                card: { amount: 0, count: 0 },
+                other: { amount: 0, count: 0 }
+            };
+
+            todayPayments.forEach((p: any) => {
+                const method = p.payment_method?.toLowerCase() || 'other';
+                if (method.includes('cash')) {
+                    pMap.cash.amount += Number(p.amount) || 0;
+                    pMap.cash.count += 1;
+                } else if (method.includes('card')) {
+                    pMap.card.amount += Number(p.amount) || 0;
+                    pMap.card.count += 1;
+                } else {
+                    pMap.other.amount += Number(p.amount) || 0;
+                    pMap.other.count += 1;
+                }
+            });
+
+            setDrawerData([
+                { method: 'Cash', ...pMap.cash },
+                { method: 'Card (Terminal/Online)', ...pMap.card },
+                { method: 'Other', ...pMap.other }
+            ].filter(d => d.amount > 0 || d.method === 'Cash'));
+            
+            setTotalExpectedCash(pMap.cash.amount);
+
+            // Calculate daily breakdown for the Master Report
+            const dailyLogsMap: Record<string, { cash: number, card: number, other: number }> = {};
+            for (let i = 0; i <= days; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - days + i);
+                const key = d.toISOString().split('T')[0];
+                dailyLogsMap[key] = { cash: 0, card: 0, other: 0 };
+            }
+
+            (allPayments || []).forEach((p: any) => {
+                if (!p.created_at) return;
+                const key = new Date(p.created_at).toISOString().split('T')[0];
+                const method = p.payment_method?.toLowerCase() || 'other';
+                const amt = Number(p.amount) || 0;
+                if (dailyLogsMap[key]) {
+                    if (method.includes('cash')) dailyLogsMap[key].cash += amt;
+                    else if (method.includes('card')) dailyLogsMap[key].card += amt;
+                    else dailyLogsMap[key].other += amt;
+                }
+            });
+
+            const logsArray = Object.entries(dailyLogsMap).map(([date, vals]) => ({
+                date,
+                ...vals
+            })).sort((a, b) => a.date.localeCompare(b.date)); // chronological order
+
+            setDailyDrawerLogs(logsArray);
+            
+            setTotalExpectedCash(pMap.cash.amount);
+
+            // 3. Fetch Expenses & Staff Ledger for P&L
+            const { data: expData } = await supabaseAdmin
+                .from('expenses')
+                .select('*')
+                .eq('tenant_id', tenantId)
+                .gte('expense_date', startDateStr.split('T')[0]);
+            setExpenses(expData || []);
+
+            const { data: spData } = await supabaseAdmin
+                .from('staff_payments')
+                .select('*, staff(full_name)')
+                .eq('tenant_id', tenantId)
+                .gte('payment_date', startDateStr);
+            setStaffPaymentsList(spData || []);
 
         } catch (err) {
             console.error('Analytics fetch error:', err);
@@ -118,11 +383,32 @@ export const Analytics: React.FC = () => {
         }
     }, [days, tenantId]);
 
-    useEffect(() => { fetchAll(); }, [fetchAll]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     const totalRevenue = revData.reduce((s, r) => s + r.revenue, 0);
     const totalBookings = revData.reduce((s, r) => s + r.booking_count, 0);
     const avgPerBooking = totalBookings > 0 ? totalRevenue / totalBookings : 0;
+
+    const handleAddExpense = async () => {
+        if (!expTitle || !expAmt) return;
+        setAddingExp(true);
+        try {
+            const { error } = await supabaseAdmin.from('expenses').insert({
+                tenant_id: tenantId,
+                title: expTitle,
+                category: expCat,
+                amount: parseFloat(expAmt),
+                notes: expNotes
+            });
+            if (error) throw error;
+            setShowAddExpense(false);
+            setExpTitle(''); setExpAmt(''); setExpNotes(''); setExpCat('supplies');
+            fetchData();
+        } catch (err: any) {
+            console.error('Error adding expense:', err);
+        }
+        setAddingExp(false);
+    };
 
     const exportCSV = () => {
         const header = 'Date,Revenue,Bookings\n';
@@ -130,7 +416,7 @@ export const Analytics: React.FC = () => {
         const blob = new Blob([header + rows], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `luxe_analytics_${days}d.csv`; a.click();
+        a.href = url; a.download = `voxali_analytics_${days}d.csv`; a.click();
         URL.revokeObjectURL(url);
     };
 
@@ -143,147 +429,586 @@ export const Analytics: React.FC = () => {
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Controls */}
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+            {/* Header & Controls */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-3">
                     <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
                         <BarChart3 className="w-6 h-6 text-luxe-gold" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold">Revenue Analytics</h3>
-                        <p className="text-xs text-white/40 uppercase tracking-widest">Performance Insights</p>
+                        <h3 className="text-xl font-bold">Analytics Center</h3>
+                        <p className="text-xs text-white/40 uppercase tracking-widest">Financials & Performance</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <select
-                        aria-label="Select time range"
-                        value={days}
-                        onChange={(e) => setDays(Number(e.target.value))}
-                        className="bg-white/5 border border-white/10 rounded-xl text-xs px-4 py-2.5 outline-none focus:border-luxe-gold/50"
-                    >
-                        <option value={7}>Last 7 Days</option>
-                        <option value={14}>Last 14 Days</option>
-                        <option value={30}>Last 30 Days</option>
-                        <option value={90}>Last 90 Days</option>
-                    </select>
-                    <button
-                        onClick={exportCSV}
-                        className="flex items-center gap-2 bg-luxe-gold/10 text-luxe-gold px-4 py-2.5 rounded-xl font-bold border border-luxe-gold/20 hover:bg-luxe-gold/20 transition-all text-xs"
-                    >
-                        <Download className="w-4 h-4" />
-                        EXPORT CSV
-                    </button>
-                </div>
+                {true && (
+                    <div className="flex items-center gap-3">
+                        <select
+                            aria-label="Select time range"
+                            value={days}
+                            onChange={(e) => setDays(Number(e.target.value))}
+                            className="bg-white/5 border border-white/10 rounded-xl text-xs px-4 py-2.5 outline-none focus:border-luxe-gold/50 cursor-pointer text-white"
+                        >
+                            <option value={7}>Last 7 Days</option>
+                            <option value={14}>Last 14 Days</option>
+                            <option value={30}>Last 30 Days</option>
+                            <option value={90}>Last 90 Days</option>
+                        </select>
+                        
+                        <button
+                            onClick={exportCSV}
+                            className="flex items-center gap-2 bg-luxe-gold/10 text-luxe-gold px-4 py-2.5 rounded-xl font-bold border border-luxe-gold/20 hover:bg-luxe-gold/20 transition-all text-xs"
+                        >
+                            <Download className="w-4 h-4" />
+                            <span className="hidden sm:inline">EXPORT CSV</span>
+                            <span className="sm:hidden">CSV</span>
+                        </button>
+                        
+                        <button
+                            onClick={async () => {
+                                const totalExp = expenses.reduce((s, e) => s + Number(e.amount), 0);
+                                const totalStaff = staffPaymentsList.reduce((s, p) => s + Number(p.amount), 0);
+                                const netProfit = totalRevenue - totalExp - totalStaff;
+                                
+                                const totalBookings = revData.reduce((s, r) => s + r.booking_count, 0);
+                                const avgPerBooking = totalBookings > 0 ? totalRevenue / totalBookings : 0;
+                                
+                                await generateMasterReportPDF({
+                                    salonName: salonName || 'Voxali Salon',
+                                    logoUrl,
+                                    dateRangeStr: `Last ${days} Days`,
+                                    totalRevenue,
+                                    totalBookings,
+                                    avgPerBooking,
+                                    services,
+                                    drawerData,
+                                    totalExpectedCash,
+                                    dailyDrawerLogs,
+                                    staffData,
+                                    expenses,
+                                    staffPayments: staffPaymentsList,
+                                    netProfit
+                                });
+                            }}
+                            className="flex items-center gap-2 bg-luxe-gold text-black px-4 py-2.5 rounded-xl font-bold hover:bg-luxe-gold/90 transition-all text-xs shadow-[0_0_20px_rgba(212,175,55,0.3)] shadow-luxe-gold"
+                            title="Download Comprehensive PDF Report for all tabs"
+                        >
+                            <Download className="w-4 h-4 border-black" />
+                            <span className="hidden sm:inline">MASTER REPORT</span>
+                            <span className="sm:hidden">PDF</span>
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <SummaryCard label="Total Revenue" value={`$${totalRevenue.toLocaleString()}`} icon={DollarSign} />
-                <SummaryCard label="Total Bookings" value={String(totalBookings)} icon={Calendar} />
-                <SummaryCard label="Avg / Booking" value={`$${avgPerBooking.toFixed(0)}`} icon={TrendingUp} />
+            {/* TAB NAVIGATION */}
+            <div className="flex overflow-x-auto pb-2 border-b border-white/5 gap-2 hide-scrollbar">
+                <button
+                    onClick={() => setActiveTab('overview')}
+                    className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+                        activeTab === 'overview' ? 'bg-white/10 text-luxe-gold border-b-2 border-luxe-gold' : 'text-white/50 hover:bg-white/5 hover:text-white'
+                    }`}
+                >
+                    <TrendingUp className="w-4 h-4" /> Performance Overview
+                </button>
+                <button
+                    onClick={() => setActiveTab('drawer')}
+                    className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+                        activeTab === 'drawer' ? 'bg-white/10 text-luxe-gold border-b-2 border-luxe-gold' : 'text-white/50 hover:bg-white/5 hover:text-white'
+                    }`}
+                >
+                    <Wallet className="w-4 h-4" /> Daily Drawer (Register)
+                </button>
+                <button
+                    onClick={() => setActiveTab('staff')}
+                    className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+                        activeTab === 'staff' ? 'bg-white/10 text-luxe-gold border-b-2 border-luxe-gold' : 'text-white/50 hover:bg-white/5 hover:text-white'
+                    }`}
+                >
+                    <Users className="w-4 h-4" /> Staff Commissions
+                </button>
+                <button
+                    onClick={() => setActiveTab('sales')}
+                    className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+                        activeTab === 'sales' ? 'bg-white/10 text-luxe-gold border-b-2 border-luxe-gold' : 'text-white/50 hover:bg-white/5 hover:text-white'
+                    }`}
+                >
+                    <ShoppingBag className="w-4 h-4" /> Retail vs Services
+                </button>
+                <button
+                    onClick={() => setActiveTab('pnl')}
+                    className={`px-5 py-3 rounded-t-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+                        activeTab === 'pnl' ? 'bg-white/10 text-luxe-gold border-b-2 border-luxe-gold' : 'text-white/50 hover:bg-white/5 hover:text-white'
+                    }`}
+                >
+                    <Receipt className="w-4 h-4" /> Expenses & P&L
+                </button>
             </div>
 
-            {/* Revenue Chart */}
-            <div className="glass-panel p-6">
-                <h4 className="font-bold mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-luxe-gold" />
-                    Revenue Over Time
-                </h4>
-                <div className="h-[300px]">
-                    {revData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={revData}>
-                                <defs>
-                                    <linearGradient id="analyticsGrad" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#D4AF37" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#ffffff40', fontSize: 11 }} interval="preserveStartEnd" />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#ffffff40', fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                                    itemStyle={{ color: '#D4AF37' }}
-                                />
-                                <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#D4AF37" strokeWidth={2} fillOpacity={1} fill="url(#analyticsGrad)" />
-                                <Area type="monotone" dataKey="booking_count" name="Bookings" stroke="#22c55e" strokeWidth={1.5} fillOpacity={0} />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="flex items-center justify-center h-full text-white/30 text-sm">No data for this period</div>
-                    )}
-                </div>
-            </div>
+            {/* TAB CONTENT: OVERVIEW */}
+            {activeTab === 'overview' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <SummaryCard label={`Revenue (${days}D)`} value={`$${totalRevenue.toLocaleString()}`} icon={DollarSign} />
+                        <SummaryCard label={`Bookings (${days}D)`} value={String(totalBookings)} icon={Calendar} />
+                        <SummaryCard label="Avg / Booking" value={`$${avgPerBooking.toFixed(0)}`} icon={TrendingUp} />
+                    </div>
 
-            {/* Bottom Row: Services + Status */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Top Services */}
-                <div className="glass-panel p-6">
-                    <h4 className="font-bold mb-4 flex items-center gap-2">
-                        <BarChart3 className="w-5 h-5 text-luxe-gold" />
-                        Top Services
-                    </h4>
-                    {services.length > 0 ? (
-                        <div className="h-[250px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={services} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
-                                    <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#ffffff40', fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
-                                    <YAxis type="category" dataKey="service_name" axisLine={false} tickLine={false} tick={{ fill: '#ffffff80', fontSize: 12 }} width={110} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                                        formatter={(value: number, name: string) => [name === 'total_revenue' ? `$${value}` : value, name === 'total_revenue' ? 'Revenue' : 'Bookings']}
-                                    />
-                                    <Bar dataKey="total_revenue" name="Revenue" fill="#D4AF37" radius={[0, 6, 6, 0]} barSize={20} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    ) : (
-                        <p className="text-white/30 text-sm text-center py-12">No booking data yet</p>
-                    )}
-                </div>
-
-                {/* Booking Statuses */}
-                <div className="glass-panel p-6">
-                    <h4 className="font-bold mb-4 flex items-center gap-2">
-                        <PieIcon className="w-5 h-5 text-luxe-gold" />
-                        Booking Statuses
-                    </h4>
-                    {statuses.length > 0 ? (
-                        <div className="flex items-center gap-6">
-                            <div className="h-[220px] w-[220px] flex-shrink-0">
+                    <div className="glass-panel p-6">
+                        <h4 className="font-bold mb-4 flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-luxe-gold" />
+                            Revenue Over Time
+                        </h4>
+                        <div className="h-[300px]">
+                            {revData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={statuses} dataKey="count" nameKey="status" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} strokeWidth={0}>
-                                            {statuses.map((s, i) => (
-                                                <Cell key={i} fill={STATUS_COLORS[s.status] ?? '#6b7280'} />
-                                            ))}
-                                        </Pie>
+                                    <AreaChart data={revData}>
+                                        <defs>
+                                            <linearGradient id="analyticsGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="#D4AF37" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#ffffff40', fontSize: 11 }} interval="preserveStartEnd" />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#ffffff40', fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
                                         <Tooltip
                                             contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
+                                            itemStyle={{ color: '#D4AF37' }}
                                         />
-                                    </PieChart>
+                                        <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#D4AF37" strokeWidth={2} fillOpacity={1} fill="url(#analyticsGrad)" />
+                                        <Area type="monotone" dataKey="booking_count" name="Bookings" stroke="#22c55e" strokeWidth={1.5} fillOpacity={0} />
+                                    </AreaChart>
                                 </ResponsiveContainer>
-                            </div>
-                            <div className="flex-1 space-y-2">
-                                {statuses.map((s) => (
-                                    <div key={s.status} className="flex items-center justify-between text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STATUS_COLORS[s.status] ?? '#6b7280' }} />
-                                            <span className="text-white/70 capitalize">{s.status.replace('_', ' ')}</span>
+                            ) : (
+                                <div className="flex items-center justify-center h-full text-white/30 text-sm">No data for this period</div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="glass-panel p-6">
+                            <h4 className="font-bold mb-4 flex items-center gap-2">
+                                <PieIcon className="w-5 h-5 text-luxe-gold" />
+                                Booking Statuses
+                            </h4>
+                            {statuses.length > 0 ? (
+                                <div className="flex items-center gap-6">
+                                    <div className="h-[220px] w-[220px] flex-shrink-0">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie data={statuses} dataKey="count" nameKey="status" cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} strokeWidth={0}>
+                                                    {statuses.map((s, i) => (
+                                                        <Cell key={i} fill={STATUS_COLORS[s.status] ?? '#6b7280'} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="flex-1 space-y-2">
+                                        {statuses.map((s) => (
+                                            <div key={s.status} className="flex items-center justify-between text-sm">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: STATUS_COLORS[s.status] ?? '#6b7280' }} />
+                                                    <span className="text-white/70 capitalize">{s.status.replace('_', ' ')}</span>
+                                                </div>
+                                                <span className="font-bold">{s.count}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-white/30 text-sm text-center py-12">No status data yet</p>
+                            )}
+                        </div>
+                        
+                        <div className="glass-panel p-6">
+                            <h4 className="font-bold mb-4 flex items-center gap-2">
+                                <BarChart3 className="w-5 h-5 text-luxe-gold" />
+                                Top Revenue Services
+                            </h4>
+                            {services.length > 0 ? (
+                                <div className="h-[250px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={services} layout="vertical">
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" horizontal={false} />
+                                            <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#ffffff40', fontSize: 11 }} tickFormatter={(v: number) => `$${v}`} />
+                                            <YAxis type="category" dataKey="service_name" axisLine={false} tickLine={false} tick={{ fill: '#ffffff80', fontSize: 12 }} width={110} />
+                                            <Tooltip
+                                                cursor={{fill: 'transparent'}}
+                                                contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
+                                                formatter={(value: number, name: string) => [name === 'total_revenue' ? `$${value}` : value, name === 'total_revenue' ? 'Revenue' : 'Bookings']}
+                                            />
+                                            <Bar dataKey="total_revenue" name="Revenue" fill="#D4AF37" radius={[0, 6, 6, 0]} barSize={20} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <p className="text-white/30 text-sm text-center py-12">No booking data yet</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* TAB CONTENT: DAILY DRAWER */}
+            {activeTab === 'drawer' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="glass-panel p-8 text-center bg-gradient-to-b from-white/5 to-transparent border-t-luxe-gold/30">
+                        <Wallet className="w-12 h-12 text-luxe-gold mx-auto mb-4" />
+                        <h2 className="text-3xl font-black text-white mb-2">Today's Register Checkout</h2>
+                        <p className="text-white/50 mb-6">Use these values to reconcile the physical cash in your drawer at closing time.</p>
+                        
+                        <div className="bg-black/40 border border-white/10 rounded-2xl p-6 md:p-10 max-w-xl mx-auto shadow-2xl">
+                            <h4 className="text-white/40 font-bold uppercase tracking-widest text-xs mb-2">Expected Cash In Drawer</h4>
+                            <div className="text-6xl font-black text-luxe-gold mb-8">${totalExpectedCash.toFixed(2)}</div>
+                            
+                            <div className="space-y-4">
+                                {drawerData.map((d, idx) => (
+                                    <div key={idx} className="flex justify-between items-center p-4 rounded-xl bg-white/5 border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+                                                {d.method === 'Cash' ? <DollarSign className="w-5 h-5 text-emerald-400" /> : <CreditCard className="w-5 h-5 text-blue-400" />}
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="font-bold text-white">{d.method}</div>
+                                                <div className="text-xs text-white/40">{d.count} Transactions</div>
+                                            </div>
                                         </div>
-                                        <span className="font-bold">{s.count}</span>
+                                        <div className="font-bold text-xl">${d.amount.toFixed(2)}</div>
                                     </div>
                                 ))}
                             </div>
                         </div>
-                    ) : (
-                        <p className="text-white/30 text-sm text-center py-12">No status data yet</p>
-                    )}
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {/* TAB CONTENT: STAFF COMMISSION */}
+            {activeTab === 'staff' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="glass-panel p-6">
+                         <div className="flex items-center gap-3 mb-6">
+                            <Users className="w-6 h-6 text-luxe-gold" />
+                            <div>
+                                <h3 className="text-xl font-bold">Staff Payroll Breakdown ({days} Days)</h3>
+                                <p className="text-white/40 text-sm">Automated payout calculation: Base Salary + Service Commission + Tips.</p>
+                            </div>
+                        </div>
+                        
+                        {staffData.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-white/10 bg-white/5">
+                                            <th className="p-4 text-white/50 font-bold text-xs uppercase tracking-wider">Stylist</th>
+                                            <th className="p-4 text-center text-white/50 font-bold text-xs uppercase tracking-wider">Bookings</th>
+                                            <th className="p-4 text-center text-white/50 font-bold text-xs uppercase tracking-wider">Base Salary</th>
+                                            <th className="p-4 text-center text-white/50 font-bold text-xs uppercase tracking-wider">Service Rev</th>
+                                            <th className="p-4 text-center text-white/50 font-bold text-xs uppercase tracking-wider">Comm %</th>
+                                            <th className="p-4 text-center text-white/50 font-bold text-xs uppercase tracking-wider">Comm Earned</th>
+                                            <th className="p-4 text-center text-white/50 font-bold text-xs uppercase tracking-wider">Tips</th>
+                                            <th className="p-4 text-right text-luxe-gold font-bold text-xs uppercase tracking-wider">Total Payout</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {staffData.map((staff, idx) => (
+                                            <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                                <td className="p-4 font-bold text-white flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shadow-inner" style={{ backgroundColor: `${staff.color}20`, color: staff.color, border: `1px solid ${staff.color}40` }}>
+                                                        {staff.name.charAt(0)}
+                                                    </div>
+                                                    <span className="whitespace-nowrap">{staff.name}</span>
+                                                </td>
+                                                <td className="p-4 text-center font-bold text-white/70">{staff.bookings_count}</td>
+                                                <td className="p-4 text-center text-white/60">${staff.base_salary.toLocaleString()}</td>
+                                                <td className="p-4 text-center text-white/80">${staff.service_revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                                <td className="p-4 text-center text-white/50">{staff.commission_percent}%</td>
+                                                <td className="p-4 text-center text-white/80">${staff.commission_earned.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                                <td className="p-4 text-center font-bold text-emerald-400">${staff.tip_amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                                <td className="p-4 text-right font-black text-luxe-gold text-lg">${staff.total_payout.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-white/40">No staff revenue data found for this period. Be sure appointments are assigned to staff.</div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* TAB CONTENT: SALES BREAKDOWN */}
+            {activeTab === 'sales' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                     
+                     {/* Row 1: Retail vs Services Pivot */}
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                         {/* Left: Intro */}
+                         <div className="glass-panel p-6 flex flex-col justify-center col-span-1">
+                             <h3 className="text-xl font-bold mb-2 text-luxe-gold">Service vs. Retail Pivot</h3>
+                             <p className="text-white/50 text-sm">Compare how much of your revenue comes from salon services versus retail product upselling over the last {days} days.</p>
+                         </div>
+                         {/* Right: The Two Pivot Cards */}
+                         <div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                             {salesBreakdown.map((item, idx) => (
+                                <div key={idx} className="glass-panel px-6 pt-4 pb-8 min-h-[140px] flex flex-col items-center justify-center group hover:border-luxe-gold/50 transition-colors bg-gradient-to-br from-black/40 to-transparent">
+                                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-3 group-hover:bg-luxe-gold/10 transition-colors">
+                                        {item.type.includes('Services') ? <Scissors className="w-5 h-5 text-luxe-gold" /> : <ShoppingBag className="w-5 h-5 text-emerald-400" />}
+                                    </div>
+                                    <div className="text-white/50 text-sm font-medium uppercase tracking-wider mb-1">{item.type}</div>
+                                    <div className="text-3xl font-black text-white">${item.value.toFixed(2)}</div>
+                                </div>
+                             ))}
+                         </div>
+                     </div>
+
+                     {/* Row 2: Charts and Lists */}
+                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                         
+                         {/* Peak Hours Heatmap */}
+                         <div className="glass-panel p-6 lg:col-span-2 flex flex-col shadow-lg">
+                              <h3 className="text-[#D4AF37] font-semibold mb-6 flex items-center text-lg">
+                                  <BarChart3 className="w-5 h-5 mr-3" /> Peak Hours Analysis
+                              </h3>
+                              <div className="flex-1 w-full min-h-[300px]">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                      <BarChart data={peakHours}>
+                                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                          <XAxis dataKey="hour" stroke="rgba(255,255,255,0.2)" fontSize={12} tickMargin={10} minTickGap={10} />
+                                          <YAxis stroke="rgba(255,255,255,0.2)" fontSize={12} allowDecimals={false} />
+                                          <Tooltip 
+                                              cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                                              contentStyle={{ backgroundColor: '#18181B', borderColor: 'rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px' }}
+                                              itemStyle={{ color: 'white' }}
+                                              formatter={(value: number) => [value, 'Bookings']}
+                                          />
+                                          <Bar dataKey="count" fill="#4ECDC4" radius={[6, 6, 0, 0]} barSize={28} />
+                                      </BarChart>
+                                  </ResponsiveContainer>
+                              </div>
+                         </div>
+
+                         {/* Revenue Split Pie Chart & Top Services Stacked */}
+                         <div className="space-y-6 lg:col-span-1 flex flex-col">
+                             <div className="glass-panel p-6 flex flex-col items-center shadow-lg">
+                                  <h3 className="text-[#D4AF37] font-semibold flex items-center w-full mb-4 text-lg">
+                                      <PieIcon className="w-5 h-5 mr-3" /> Revenue Split
+                                  </h3>
+                                  {salesBreakdown.length === 0 ? (
+                                      <p className="text-white/50 text-sm mt-10">No revenue data.</p>
+                                  ) : (
+                                      <div className="w-full h-[260px] flex flex-col">
+                                          <div className="flex-1 min-h-0 w-full">
+                                              <ResponsiveContainer width="100%" height="100%">
+                                                  <PieChart>
+                                                      <Pie
+                                                          data={salesBreakdown}
+                                                          cx="50%"
+                                                          cy="50%"
+                                                          innerRadius={65}
+                                                          outerRadius={90}
+                                                          paddingAngle={5}
+                                                          dataKey="value"
+                                                          nameKey="type"
+                                                          strokeWidth={0}
+                                                      >
+                                                          {salesBreakdown.map((entry, index) => (
+                                                              <Cell key={`cell-${index}`} fill={index === 0 ? '#D4AF37' : '#4ECDC4'} />
+                                                          ))}
+                                                      </Pie>
+                                                      <Tooltip 
+                                                          formatter={(value: number) => [`$${value.toFixed(2)}`, 'Revenue']}
+                                                          contentStyle={{ backgroundColor: '#1A1A1A', borderColor: 'rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px' }}
+                                                          itemStyle={{ color: 'white' }}
+                                                      />
+                                                  </PieChart>
+                                              </ResponsiveContainer>
+                                          </div>
+                                          <div className="flex justify-center flex-wrap gap-x-6 gap-y-2 mt-4 pb-2">
+                                              {salesBreakdown.map((entry, index) => (
+                                                  <div key={index} className="flex items-center text-xs text-white/90 font-medium">
+                                                      <span className="w-3 h-3 rounded-full flex-shrink-0 mr-2" style={{ backgroundColor: index === 0 ? '#D4AF37' : '#4ECDC4' }} />
+                                                      <span className="truncate">{entry.type}</span>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+                                  )}
+                             </div>
+                             
+                             {/* Top Services */}
+                             <div className="glass-panel p-6 flex-1 shadow-lg">
+                                  <h3 className="text-[#D4AF37] font-semibold mb-6 flex items-center text-lg">
+                                      <Scissors className="w-5 h-5 mr-3" /> Top Services
+                                  </h3>
+                                  {services.length === 0 ? (
+                                      <p className="text-white/50 text-sm">No services booked in this period.</p>
+                                  ) : (
+                                      <div className="space-y-4">
+                                          {services.slice(0, 5).map((s, i) => (
+                                              <div key={i} className="flex justify-between items-center group">
+                                                  <div className="flex items-center">
+                                                      <div className="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center text-xs text-white/50 mr-3 group-hover:bg-[#D4AF37]/20 group-hover:text-[#D4AF37] transition-colors">{i + 1}</div>
+                                                      <span className="text-white/90 text-[13px] font-medium leading-tight">{s.service_name}</span>
+                                                  </div>
+                                                  <div className="text-right flex-shrink-0 ml-2">
+                                                      <div className="text-emerald-400 text-sm font-bold">${Number(s.total_revenue).toFixed(2)}</div>
+                                                      <div className="text-white/40 text-[10px] uppercase font-bold tracking-wider">{s.booking_count} bookings</div>
+                                                  </div>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  )}
+                             </div>
+                         </div>
+                         
+                     </div>
+                </div>
+            )}
+
+            {/* TAB CONTENT: P&L */}
+            {activeTab === 'pnl' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <SummaryCard label="Gross Revenue" value={`$${totalRevenue.toLocaleString()}`} icon={DollarSign} />
+                        <SummaryCard label="Total Expenses" value={`$${expenses.reduce((s, e) => s + Number(e.amount), 0).toLocaleString()}`} icon={Receipt} />
+                        <SummaryCard label="Staff Payouts" value={`$${staffPaymentsList.reduce((s, p) => s + Number(p.amount), 0).toLocaleString()}`} icon={Banknote} />
+                        <div className="glass-panel p-6 flex flex-col justify-center border-l-4 border-l-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/80 mb-1">Net Profit</p>
+                            <h3 className="text-3xl font-black text-emerald-400">
+                                ${((totalRevenue) - expenses.reduce((s, e) => s + Number(e.amount), 0) - staffPaymentsList.reduce((s, p) => s + Number(p.amount), 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Expenses Section */}
+                        <div className="glass-panel p-6 border border-white/5 relative">
+                            <div className="flex justify-between items-center mb-6">
+                                <h4 className="font-bold flex items-center gap-2">
+                                    <Receipt className="w-5 h-5 text-luxe-gold" />
+                                    Business Expenses
+                                </h4>
+                                <button onClick={() => setShowAddExpense(true)} title="Add Expense" aria-label="Add Expense" className="p-2 rounded-xl bg-white/5 hover:bg-luxe-gold/20 text-luxe-gold transition-colors">
+                                    <Plus className="w-4 h-4" />
+                                </button>
+                            </div>
+                            
+                            {expenses.length > 0 ? (
+                                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {expenses.map((e, idx) => (
+                                        <div key={idx} className="p-4 rounded-xl border border-white/5 bg-black/20 flex justify-between items-center">
+                                            <div>
+                                                <p className="font-bold text-white/90">{e.title}</p>
+                                                {e.notes && <p className="text-[11px] text-white/50 mt-0.5 italic">"{e.notes}"</p>}
+                                                <div className="flex gap-2 items-center mt-1 text-[10px]">
+                                                    <span className="bg-white/10 px-2 py-0.5 rounded-full text-white/60 capitalize">{e.category}</span>
+                                                    <span className="text-white/40">{new Date(e.expense_date).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className="font-black text-white/90">${Number(e.amount).toFixed(2)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-center py-12 text-white/30 text-sm">No expenses recorded for this period.</p>
+                            )}
+                        </div>
+
+                        {/* Staff Ledger Section */}
+                        <div className="glass-panel p-6 border border-white/5">
+                            <div className="mb-6">
+                                <h4 className="font-bold flex items-center gap-2">
+                                    <Banknote className="w-5 h-5 text-emerald-400" />
+                                    Staff Payments Ledger
+                                </h4>
+                                <p className="text-xs text-white/40 mt-1">Advances, salary clearances, and commission payouts.</p>
+                            </div>
+                            
+                            {staffPaymentsList.length > 0 ? (
+                                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {staffPaymentsList.map((p, idx) => (
+                                        <div key={idx} className="p-4 rounded-xl border border-white/5 bg-black/20 flex justify-between items-center">
+                                            <div>
+                                                <p className="font-bold text-white/90">{p.staff?.full_name}</p>
+                                                {p.notes && <p className="text-[11px] text-white/50 mt-0.5 italic">"{p.notes}"</p>}
+                                                <div className="flex gap-2 items-center mt-1 text-[10px]">
+                                                    <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full capitalize">{p.payment_type.replace('_', ' ')}</span>
+                                                    <span className="text-white/40">{new Date(p.payment_date).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className="font-black text-emerald-400">${Number(p.amount).toFixed(2)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-center py-12 text-white/30 text-sm">No staff payments recorded for this period.</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ADD EXPENSE MODAL */}
+            {showAddExpense && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-luxe-obsidian border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <Receipt className="w-6 h-6 text-luxe-gold" /> Add Expense
+                            </h3>
+                            <button onClick={() => setShowAddExpense(false)} title="Close Modal" aria-label="Close" className="p-2 hover:bg-white/10 rounded-xl transition-all">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Item / Title</label>
+                                <input type="text" value={expTitle} onChange={e => setExpTitle(e.target.value)} placeholder="e.g. Color Tubes Restock"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all" />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Amount</label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 font-bold">$</div>
+                                        <input type="number" value={expAmt} onChange={e => setExpAmt(e.target.value)} min="0" step="0.01"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 pl-8 text-sm outline-none focus:border-luxe-gold/50 transition-all" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Category</label>
+                                    <select value={expCat} onChange={e => setExpCat(e.target.value)}
+                                        className="w-full bg-zinc-900 text-white border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all">
+                                        <option value="supplies">Supplies</option>
+                                        <option value="rent">Rent / Utilities</option>
+                                        <option value="marketing">Marketing</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Notes (Optional)</label>
+                                <input type="text" value={expNotes} onChange={e => setExpNotes(e.target.value)} placeholder="Invoice # or details"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all" />
+                            </div>
+                        </div>
+
+                        <button onClick={handleAddExpense} disabled={addingExp || !expTitle || !expAmt}
+                            className="w-full mt-8 bg-gold-gradient text-luxe-obsidian font-bold py-3 rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                            {addingExp ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                            SAVE EXPENSE
+                        </button>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

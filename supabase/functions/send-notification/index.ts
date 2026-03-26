@@ -26,9 +26,10 @@ const SMS_TEMPLATES: Record<string, (d: any) => string> = {
         `Hi ${d.client_name}, your appointment at ${d.salon_name} has been rescheduled to ${d.date} at ${d.time}. See you then!`,
     booking_completed: (d) =>
         `Thank you ${d.client_name}! We hope you loved your ${d.service} at ${d.salon_name}. ` +
-        (d.google_review_url ? `Rate us: ${d.google_review_url} ⭐` : 'See you next time! ⭐'),
-    booking_checked_in: (d) =>
-        `Welcome ${d.client_name}! You're checked in at ${d.salon_name} for ${d.service} with ${d.stylist}. 💇`,
+        `Rate us: https://voxali.net/app/?feedback=${d.booking_id} ⭐`,
+    // booking_checked_in notification has been disabled as per user request
+    // booking_checked_in: (d) =>
+    //    `Welcome ${d.client_name}! You're checked in at ${d.salon_name} for ${d.service} with ${d.stylist}. 💇`,
     booking_no_show: (d) =>
         `Hi ${d.client_name}, we missed you at ${d.salon_name} today! Would you like to reschedule? Call us anytime.`,
     appointment_reminder: (d) =>
@@ -49,7 +50,7 @@ const EMAIL_SUBJECTS: Record<string, (d: any) => string> = {
     booking_cancelled: (d) => `✗ Booking Cancelled — ${d.salon_name}`,
     booking_rescheduled: (d) => `↻ Booking Rescheduled — ${d.salon_name}`,
     booking_completed: (d) => `⭐ Thank You — ${d.salon_name}`,
-    booking_checked_in: (d) => `Checked In — ${d.salon_name}`,
+    // booking_checked_in: (d) => `Checked In — ${d.salon_name}`,
     booking_no_show: (d) => `We missed you — ${d.salon_name}`,
     appointment_reminder: (d) => `⏰ Reminder: Your appointment tomorrow — ${d.salon_name}`,
     waitlist_slot_available: (d) => `🔔 Slot Available! — ${d.salon_name}`,
@@ -203,11 +204,11 @@ function buildEmailHTML(eventType: string, d: any): string {
             <div style="color:#6EE7B7;font-size:13px;margin-top:8px;">Remaining: <strong>$${d.remaining_balance || '0'}</strong> payable at salon</div>
         </div>` : '';
 
-    // ===== GOOGLE REVIEW BUTTON (for completed bookings) =====
-    const reviewButton = (eventType === 'booking_completed' && d.google_review_url) ? `
+    // ===== INTERNAL REVIEW BUTTON (for completed bookings) =====
+    const reviewButton = (eventType === 'booking_completed' && d.booking_id) ? `
         <div style="text-align:center;margin:28px 0;">
             <div style="color:#A0A0A0;font-size:14px;margin-bottom:16px;">Your feedback means the world to us!</div>
-            <a href="${d.google_review_url}" style="display:inline-block;padding:16px 48px;background:linear-gradient(135deg,#D4AF37,#B8860B);color:#000;text-decoration:none;border-radius:12px;font-weight:700;font-size:18px;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(212,175,55,0.3);">⭐ Rate Us on Google</a>
+            <a href="https://voxali.net/app/?feedback=${d.booking_id}" target="_blank" style="display:inline-block;padding:16px 48px;background:linear-gradient(135deg,#D4AF37,#B8860B);color:#000;text-decoration:none;border-radius:12px;font-weight:700;font-size:18px;letter-spacing:0.5px;box-shadow:0 4px 15px rgba(212,175,55,0.3);">⭐ Rate Your Experience</a>
             <div style="color:#666;font-size:12px;margin-top:10px;">Takes less than a minute</div>
         </div>` : '';
 
@@ -253,6 +254,28 @@ function buildEmailHTML(eventType: string, d: any): string {
         ${thankYouBanner}
         ${depositSuccessBanner}
         <div style="background:#1E1E1E;border-left:3px solid #D4AF37;padding:24px;border-radius:8px;margin:24px 0;">
+${ d.bookings_list && d.bookings_list.length > 0 ? 
+    `           <div style="color:#A0A0A0;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">Appointments</div>
+` + d.bookings_list.map((b: any, idx: number) => `
+            <div style="background:#2A2A2A;padding:12px 16px;border-radius:6px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <strong style="color:#EAEAEA;font-size:15px;">${b.service}</strong>
+                    <span style="color:#F4E285;font-size:14px;font-weight:600;">$${b.price}</span>
+                </div>
+                <div style="color:#A0A0A0;font-size:13px;display:flex;justify-content:space-between;">
+                    <span>👤 ${b.stylist}</span>
+                    <span>🕐 ${b.time}</span>
+                </div>
+            </div>`).join('') + `
+            <div style="display:flex;justify-content:space-between;padding:12px 0 0;margin-top:12px;border-top:1px solid #333;">
+                <span style="color:#A0A0A0;font-weight:600;font-size:14px;">📅 Date</span>
+                <span style="color:#F4E285;font-size:14px;font-weight:600;">${d.date || 'N/A'}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:12px 0 0;">
+                <span style="color:#A0A0A0;font-weight:600;font-size:14px;">💰 Total</span>
+                <span style="color:#D4AF37;font-size:18px;font-weight:700;">$${d.price || '0'}</span>
+            </div>`
+: `
             <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #333;">
                 <span style="color:#A0A0A0;font-weight:600;font-size:14px;">📅 Date & Time</span>
                 <span style="color:#F4E285;font-size:14px;font-weight:600;">${d.date || 'N/A'} at ${d.time || 'N/A'}</span>
@@ -268,7 +291,7 @@ function buildEmailHTML(eventType: string, d: any): string {
             <div style="display:flex;justify-content:space-between;padding:12px 0;">
                 <span style="color:#A0A0A0;font-weight:600;font-size:14px;">💰 Total</span>
                 <span style="color:#D4AF37;font-size:18px;font-weight:700;">$${d.price || '0'}</span>
-            </div>
+            </div>`}
         </div>
         ${paymentSummary}
         ${payNowButton}
@@ -315,7 +338,7 @@ serve(async (_req) => {
         for (const item of pending) {
             const { data: tenant } = await supabase
                 .from('tenants')
-                .select('twilio_phone_number, notification_email_from, salon_name, salon_tagline, salon_email, salon_website, salon_phone_owner, google_review_url, coin_balance')
+                .select('twilio_phone_number, notification_email_from, salon_name, salon_tagline, salon_email, salon_website, salon_phone_owner, google_review_url, coin_balance, notifications_enabled')
                 .eq('id', item.tenant_id)
                 .single();
 
@@ -370,48 +393,54 @@ serve(async (_req) => {
                 salon_website: tenant.salon_website || '',
                 google_review_url: tenant.google_review_url || '',
                 payment_link: paymentLink || (item.booking_details || {}).payment_link || '',
+                booking_id: item.booking_id || (item.booking_details || {}).booking_id || '',
                 deposit_amount: depositAmount,
                 remaining_balance: remainingBalance,
+                bookings_list: (item.booking_details || {}).bookings_list || null,
             };
 
             const errors: string[] = [];
-
             let smsSent = 0;
             let emailsSent = 0;
 
-            // SMS
-            if (TWILIO_SID && TWILIO_TOKEN && tenant.twilio_phone_number && item.client_phone) {
-                const tmpl = SMS_TEMPLATES[item.event_type];
-                if (tmpl) {
-                    // Pre-check Coin Balance (Need at least 2 coins for 1 SMS)
-                    const currentCoins = tenant.coin_balance || 0;
-                    if (currentCoins < 2) {
-                        errors.push(`SMS Skipped: Insufficient Coins (${currentCoins} available, 2 required)`);
-                    } else {
-                        const smsResult = await sendSMS(
-                            item.client_phone, tmpl(details), tenant.twilio_phone_number
-                        );
-                        if (!smsResult.success) {
-                            errors.push(`SMS: ${smsResult.error}`);
+            // Skip sending if notifications are globally disabled by the tenant
+            if (tenant.notifications_enabled !== false) {
+                // SMS
+                if (TWILIO_SID && TWILIO_TOKEN && tenant.twilio_phone_number && item.client_phone) {
+                    const tmpl = SMS_TEMPLATES[item.event_type];
+                    if (tmpl) {
+                        // Pre-check Coin Balance (Need at least 2 coins for 1 SMS)
+                        const currentCoins = tenant.coin_balance || 0;
+                        if (currentCoins < 2) {
+                            errors.push(`SMS Skipped: Insufficient Coins (${currentCoins} available, 2 required)`);
                         } else {
-                            smsSent++;
+                            const smsResult = await sendSMS(
+                                item.client_phone, tmpl(details), tenant.twilio_phone_number
+                            );
+                            if (!smsResult.success) {
+                                errors.push(`SMS: ${smsResult.error}`);
+                            } else {
+                                smsSent++;
+                            }
                         }
                     }
                 }
-            }
 
-            // Email
-            if (RESEND_API_KEY && item.client_email) {
-                const subjectFn = EMAIL_SUBJECTS[item.event_type];
-                if (subjectFn) {
-                    const fromAddr = `${tenant.salon_name || 'Voxali'} <noreply@voxali.net>`;
-                    const emailResult = await sendEmail(
-                        fromAddr, item.client_email,
-                        subjectFn(details), buildEmailHTML(item.event_type, details)
-                    );
-                    if (!emailResult.success) errors.push(`Email: ${emailResult.error}`);
-                    else emailsSent++;
+                // Email
+                if (RESEND_API_KEY && item.client_email) {
+                    const subjectFn = EMAIL_SUBJECTS[item.event_type];
+                    if (subjectFn) {
+                        const fromAddr = `${tenant.salon_name || 'Voxali'} <noreply@voxali.net>`;
+                        const emailResult = await sendEmail(
+                            fromAddr, item.client_email,
+                            subjectFn(details), buildEmailHTML(item.event_type, details)
+                        );
+                        if (!emailResult.success) errors.push(`Email: ${emailResult.error}`);
+                        else emailsSent++;
+                    }
                 }
+            } else {
+                errors.push('Skipped: Notifications are globally disabled by the Salon Owner');
             }
 
             // Usage Tracking Increment

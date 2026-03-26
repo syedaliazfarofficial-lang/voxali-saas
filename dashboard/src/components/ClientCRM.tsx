@@ -8,6 +8,7 @@ import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { ConfirmModal } from './ui/ConfirmModal';
+import { ClientProfileModal } from './ClientProfileModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -37,6 +38,9 @@ export const ClientCRM: React.FC = () => {
     const [editEmail, setEditEmail] = useState('');
     const [editNotes, setEditNotes] = useState('');
     const [editTags, setEditTags] = useState('');
+
+    // Profile Modal
+    const [profileClientId, setProfileClientId] = useState<string | null>(null);
 
     // Dropdown & delete state
     const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -361,7 +365,11 @@ export const ClientCRM: React.FC = () => {
                     const isNew = new Date(client.created_at).getTime() > Date.now() - 7 * 24 * 3600 * 1000;
                     const isVip = client.total_spend > 1000;
                     return (
-                        <div key={client.id} className="glass-panel p-6 group hover:gold-border duration-300 transition-all relative overflow-visible flex flex-col h-full">
+                        <div 
+                            key={client.id} 
+                            onClick={() => setProfileClientId(client.id)}
+                            className="glass-panel p-6 group hover:gold-border duration-300 transition-all relative overflow-visible flex flex-col h-full cursor-pointer"
+                        >
                             <div className="flex justify-between items-start mb-6">
                                 <div className="flex items-center gap-4">
                                     <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-xl font-black text-luxe-gold group-hover:bg-luxe-gold/10 transition-colors">
@@ -427,7 +435,7 @@ export const ClientCRM: React.FC = () => {
                                 {/* 3-dots Dropdown */}
                                 <div className="relative" ref={openMenu === client.id ? menuRef : undefined}>
                                     <button
-                                        onClick={() => setOpenMenu(openMenu === client.id ? null : client.id)}
+                                        onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === client.id ? null : client.id); }}
                                         className="p-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all"
                                     >
                                         <MoreHorizontal className="w-4 h-4" />
@@ -435,13 +443,13 @@ export const ClientCRM: React.FC = () => {
                                     {openMenu === client.id && (
                                         <div className="absolute right-0 bottom-full mb-2 w-48 bg-luxe-obsidian border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
                                             <button
-                                                onClick={() => openEdit(client)}
+                                                onClick={(e) => { e.stopPropagation(); openEdit(client); }}
                                                 className="w-full px-4 py-3 text-left text-sm flex items-center gap-3 hover:bg-white/5 transition-colors"
                                             >
                                                 <Edit3 className="w-4 h-4 text-luxe-gold" /> Edit Client
                                             </button>
                                             <button
-                                                onClick={() => { setDeleteTarget(client); setOpenMenu(null); }}
+                                                onClick={(e) => { e.stopPropagation(); setDeleteTarget(client); setOpenMenu(null); }}
                                                 className="w-full px-4 py-3 text-left text-sm flex items-center gap-3 hover:bg-red-500/10 text-red-400 transition-colors"
                                             >
                                                 <Trash2 className="w-4 h-4" /> Delete Client
@@ -567,6 +575,12 @@ export const ClientCRM: React.FC = () => {
                 loading={deleting}
                 onConfirm={handleDeleteClient}
                 onCancel={() => setDeleteTarget(null)}
+            />
+
+            {/* Profile Modal */}
+            <ClientProfileModal 
+                clientId={profileClientId} 
+                onClose={() => setProfileClientId(null)} 
             />
         </div>
     );

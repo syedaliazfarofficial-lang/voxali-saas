@@ -1,0 +1,12 @@
+﻿[dotenv@17.3.1] injecting env (6) from .env -- tip: ΓÜí∩╕Å secrets for agents: https://dotenvx.com/as2
+Last 10 Queue Entries:
+20/03/2026, 1:40:54 am - booking_checked_in - sent - client: Khan 2 time
+20/03/2026, 1:31:47 am - booking_completed - sent - client: Ali Shah
+20/03/2026, 1:30:29 am - booking_completed - sent - client: sali
+20/03/2026, 1:30:23 am - booking_checked_in - sent - client: sali
+20/03/2026, 1:29:45 am - deposit_received - sent - client: sali
+20/03/2026, 1:29:34 am - booking_created - sent - client: sali
+20/03/2026, 1:25:09 am - booking_completed - sent - client: wasi
+20/03/2026, 1:25:09 am - booking_completed - sent - client: wasi
+20/03/2026, 1:25:00 am - booking_checked_in - sent - client: wasi
+20/03/2026, 1:24:01 am - deposit_received - sent - client: wasi

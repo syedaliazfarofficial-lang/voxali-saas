@@ -1,1008 +1,740 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book an Appointment</title>
-    <meta name="description" content="Book your salon appointment online">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0a0a0a, #1a1a1a);
-            color: #eaeaea;
-            min-height: 100vh;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0a0a0a; color: #eaeaea; min-height: 100vh; }
 
         .header {
-            background: linear-gradient(135deg, #1E1E1E, #2A2A2A);
-            border-bottom: 2px solid #D4AF37;
-            padding: 40px 20px;
+            background: rgba(10,10,10,0.98);
+            border-bottom: 1px solid #1e1e1e;
+            padding: 16px 20px;
             text-align: center;
+            position: sticky; top: 0; z-index: 100;
         }
+        .header-logo { font-size: 13px; color: #D4AF37; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; }
+        .salon-name { font-size: 20px; font-weight: 700; margin-top: 4px; }
+        .salon-tagline { font-size: 12px; color: #888; margin-top: 2px; }
 
-        .header h1 {
-            font-size: 28px;
-            font-weight: 800;
-            color: #D4AF37;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
+        .container { max-width: 520px; margin: 0 auto; padding: 24px 16px 80px; }
 
-        .header p {
-            color: #A0A0A0;
-            font-size: 14px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            margin-top: 8px;
-        }
+        .progress-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 28px; }
+        .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; transition: all 0.3s; }
+        .step-dot.active { background: #D4AF37; box-shadow: 0 0 10px rgba(212,175,55,0.4); }
+        .step-dot.done { background: #22C55E; }
 
-        .loading-page {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 60vh;
-            flex-direction: column;
-            gap: 16px;
-        }
+        .step { display: none; }
+        .step.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
 
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid #333;
-            border-top-color: #D4AF37;
-            border-radius: 50%;
-            animation: spin 0.7s linear infinite;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        .loading-text {
-            color: #A0A0A0;
-            font-size: 14px;
-        }
-
-        .container {
-            max-width: 700px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-
-        .step {
-            display: none;
-            animation: fadeIn 0.4s ease;
-        }
-
-        .step.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 30px;
-        }
-
-        .step-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #333;
-            transition: all 0.3s;
-        }
-
-        .step-dot.active {
-            background: #D4AF37;
-            box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
-        }
-
-        .step-dot.done {
-            background: #22C55E;
-        }
-
-        .step-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            color: #fff;
-        }
+        .step-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; color: #fff; }
 
         .service-card {
-            background: #1E1E1E;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: #1E1E1E; border: 1px solid #333; border-radius: 12px;
+            padding: 16px 20px; margin-bottom: 10px; cursor: pointer;
+            transition: all 0.2s; display: flex; align-items: center;
         }
-
-        .service-card:hover {
-            border-color: #D4AF37;
-            transform: translateY(-1px);
-        }
-
+        .service-card:hover { border-color: #D4AF37; transform: translateY(-1px); }
         .service-card.selected {
-            border-color: #D4AF37;
-            background: rgba(212, 175, 55, 0.06);
-            box-shadow: 0 0 15px rgba(212, 175, 55, 0.1);
+            border-color: #D4AF37; background: rgba(212,175,55,0.06);
+            box-shadow: 0 0 15px rgba(212,175,55,0.1);
         }
-
-        .service-name {
-            font-weight: 600;
-            font-size: 15px;
+        .checkbox-custom {
+            width: 20px; height: 20px; border: 2px solid #555; border-radius: 4px;
+            display: inline-flex; align-items: center; justify-content: center;
+            margin-right: 14px; flex-shrink: 0; transition: all 0.2s;
         }
+        .service-card.selected .checkbox-custom { background: #D4AF37; border-color: #D4AF37; }
+        .service-card.selected .checkbox-custom::after { content: '✓'; color: #000; font-size: 13px; font-weight: 900; }
 
-        .service-meta {
-            color: #A0A0A0;
-            font-size: 12px;
-            margin-top: 4px;
-        }
-
-        .service-price {
-            font-size: 18px;
-            font-weight: 700;
-            color: #D4AF37;
-        }
-
-        .service-deposit {
-            font-size: 11px;
-            color: #22C55E;
-            margin-top: 2px;
-        }
-
+        .service-name { font-weight: 600; font-size: 15px; }
+        .service-meta { color: #A0A0A0; font-size: 12px; margin-top: 4px; }
+        .service-price { font-size: 18px; font-weight: 700; color: #D4AF37; }
+        .service-deposit { font-size: 11px; color: #22C55E; margin-top: 2px; }
         .category-label {
-            font-size: 12px;
-            font-weight: 700;
-            color: #D4AF37;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin: 20px 0 10px;
+            font-size: 12px; font-weight: 700; color: #D4AF37;
+            text-transform: uppercase; letter-spacing: 2px; margin: 20px 0 10px;
         }
 
-        .staff-card {
-            background: #1E1E1E;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .staff-card:hover {
-            border-color: #D4AF37;
-        }
-
-        .staff-card.selected {
-            border-color: #D4AF37;
-            background: rgba(212, 175, 55, 0.06);
-        }
-
-        .staff-avatar {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: rgba(212, 175, 55, 0.12);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            color: #D4AF37;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
-
-        .staff-name {
-            font-weight: 600;
-            font-size: 15px;
-        }
-
-        .staff-spec {
-            color: #A0A0A0;
-            font-size: 12px;
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #A0A0A0;
-            margin-bottom: 6px;
-            display: block;
-        }
-
+        .form-group { margin-bottom: 16px; }
+        .form-label { font-size: 13px; font-weight: 600; color: #A0A0A0; margin-bottom: 6px; display: block; }
         .form-input {
-            width: 100%;
-            background: #1E1E1E;
-            border: 1px solid #333;
-            border-radius: 10px;
-            padding: 14px 16px;
-            color: #eaeaea;
-            font-size: 15px;
-            outline: none;
-            transition: border 0.2s;
-            font-family: 'Inter', sans-serif;
+            width: 100%; background: #1E1E1E; border: 1px solid #333; color: #eaeaea;
+            border-radius: 10px; padding: 12px 16px; font-size: 14px;
+            font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s;
+            -webkit-appearance: none;
         }
+        .form-input:focus { border-color: #D4AF37; }
 
-        .form-input:focus {
-            border-color: #D4AF37;
+        .assignment-card {
+            background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 12px;
+            padding: 16px; margin-bottom: 12px; transition: border-color 0.2s;
         }
+        .assignment-card.conflict { border-color: #EF4444; }
+        .assignment-card.ok { border-color: #22C55E; }
+        .assignment-svc-name { font-weight: 700; color: #D4AF37; font-size: 15px; }
+        .assignment-svc-meta { color: #A0A0A0; font-size: 12px; margin-top: 3px; margin-bottom: 12px; }
+        .assignment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .assignment-hint {
+            font-size: 12px; margin-top: 8px; padding: 8px 12px;
+            border-radius: 8px; display: flex; align-items: center; gap: 6px;
+        }
+        .assignment-hint.warning { background: rgba(239,68,68,0.1); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.2); }
+        .assignment-hint.info { background: rgba(212,175,55,0.08); color: #D4AF37; border: 1px solid rgba(212,175,55,0.2); }
+        .assignment-hint.ok { background: rgba(34,197,94,0.08); color: #4ADE80; border: 1px solid rgba(34,197,94,0.2); }
 
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+        .slot-loading { font-size: 12px; color: #666; padding: 8px 0; }
+
+        .summary-card { background: #141414; border: 1px solid #222; border-radius: 14px; padding: 20px; }
+        .summary-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 0; border-bottom: 1px solid #1e1e1e; font-size: 14px;
         }
+        .summary-row:last-child { border-bottom: none; }
+        .summary-label { color: #888; }
+        .summary-value { font-weight: 600; }
+        .summary-total { color: #D4AF37; font-weight: 700; font-size: 18px; }
 
         .btn {
-            width: 100%;
-            padding: 16px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-family: 'Inter', sans-serif;
+            padding: 14px 24px; border-radius: 10px; font-size: 15px; font-weight: 600;
+            cursor: pointer; border: none; font-family: 'Inter', sans-serif; transition: all 0.2s;
         }
+        .btn-gold { background: linear-gradient(135deg, #D4AF37, #B8960C); color: #000; flex: 1; }
+        .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(212,175,55,0.3); }
+        .btn-gold:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-outline { background: transparent; border: 1px solid #333; color: #888; }
+        .btn-outline:hover { border-color: #666; color: #ccc; }
+        .btn-row { display: flex; gap: 12px; margin-top: 24px; }
 
-        .btn-gold {
-            background: linear-gradient(135deg, #D4AF37, #B8860B);
-            color: #000;
-            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        .loading-state, .error-state { text-align: center; padding: 60px 20px; }
+        .loading-spinner {
+            width: 40px; height: 40px; border: 3px solid #333;
+            border-top-color: #D4AF37; border-radius: 50%;
+            animation: spin 0.8s linear infinite; margin: 0 auto 16px;
         }
-
-        .btn-gold:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .success-card {
+            background: linear-gradient(135deg,#111,#1a1a1a);
+            border: 1px solid #D4AF37; border-radius: 16px; padding: 40px 24px; text-align: center;
+            box-shadow: 0 10px 40px rgba(212,175,55,0.1);
         }
+        .success-icon { font-size: 64px; margin-bottom: 20px; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 
-        .btn-gold:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
+        footer { text-align: center; color: #444; font-size: 12px; padding: 24px 0; }
+        footer span { color: #D4AF37; }
 
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #333;
-            color: #A0A0A0;
-        }
-
-        .btn-outline:hover {
-            border-color: #D4AF37;
-            color: #D4AF37;
-        }
-
-        .btn-row {
-            display: flex;
-            gap: 12px;
-            margin-top: 24px;
-        }
-
-        .btn-row .btn {
-            flex: 1;
-        }
-
-        .summary-card {
-            background: #1E1E1E;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #262626;
-        }
-
-        .summary-row:last-child {
-            border-bottom: none;
-        }
-
-        .summary-label {
-            color: #A0A0A0;
-            font-size: 14px;
-        }
-
-        .summary-value {
-            color: #eaeaea;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .summary-total {
-            color: #D4AF37;
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .success-container {
-            text-align: center;
-            padding: 40px 20px;
-        }
-
-        .success-icon {
-            font-size: 60px;
-            margin-bottom: 16px;
-        }
-
-        .success-title {
-            font-size: 24px;
-            font-weight: 700;
-            color: #22C55E;
-            margin-bottom: 8px;
-        }
-
-        .success-msg {
-            color: #A0A0A0;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .loading-btn {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid transparent;
-            border-top-color: #000;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-        }
-
-        .error-page {
-            text-align: center;
-            padding: 80px 20px;
-        }
-
-        .error-page h2 {
-            color: #EF4444;
-            font-size: 22px;
-            margin-bottom: 8px;
-        }
-
-        .error-page p {
-            color: #666;
-            font-size: 14px;
-        }
-
-        /* Time Slots Grid */
-        .slots-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        .slot-btn {
-            background: #1E1E1E;
-            border: 1px solid #333;
-            color: #eaeaea;
-            padding: 12px 8px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-            text-align: center;
-            transition: all 0.2s;
-        }
-
-        .slot-btn:hover {
-            border-color: #D4AF37;
-            background: #252525;
-        }
-
-        .slot-btn.selected {
-            border-color: #D4AF37;
-            background: linear-gradient(135deg, #2A2A2A, #1a1a1a);
-            box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
-            color: #D4AF37;
-        }
-
-        .slot-btn .slot-staff {
-            font-size: 11px;
-            color: #888;
-            margin-top: 3px;
-        }
-
-        .slot-btn.selected .slot-staff {
-            color: #b89a30;
-        }
-
-        .slots-loading {
-            text-align: center;
-            padding: 30px;
-            color: #888;
-        }
-
-        .slots-loading .mini-spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid #333;
-            border-top-color: #D4AF37;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 10px;
-        }
-
-        .slots-empty {
-            text-align: center;
-            padding: 30px;
-            color: #EF4444;
-            background: rgba(239, 68, 68, 0.08);
-            border-radius: 12px;
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-
-        .slots-closed {
-            text-align: center;
-            padding: 30px;
-            color: #F59E0B;
-            background: rgba(245, 158, 11, 0.08);
-            border-radius: 12px;
-            border: 1px solid rgba(245, 158, 11, 0.2);
-        }
-
-        .footer {
-            text-align: center;
-            padding: 30px;
-            color: #666;
-            font-size: 12px;
-            border-top: 1px solid #1E1E1E;
-            margin-top: 40px;
-        }
-
-        .footer a {
-            color: #D4AF37;
-            text-decoration: none;
-        }
-
-        @media (max-width: 500px) {
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-
-            .header h1 {
-                font-size: 22px;
-            }
-
-            .container {
-                padding: 20px 14px;
-            }
-        }
+        @media (max-width: 480px) { .container { padding: 20px 14px; } }
     </style>
 </head>
-
 <body>
     <div class="header">
-        <h1 id="salon-name">Loading...</h1>
-        <p id="salon-tagline"></p>
+        <div class="header-logo">✦ Voxali</div>
+        <div class="salon-name" id="salon-name">Loading...</div>
+        <div class="salon-tagline" id="salon-tagline"></div>
     </div>
 
-    <!-- Loading State -->
-    <div class="loading-page" id="loading-state">
-        <div class="spinner"></div>
-        <div class="loading-text">Loading booking page...</div>
-    </div>
-
-    <!-- Error State -->
-    <div class="error-page" id="error-state" style="display:none">
-        <h2>❌ Salon Not Found</h2>
-        <p>This booking link is invalid or the salon doesn't exist.</p>
-    </div>
-
-    <!-- Main Booking Flow -->
-    <div class="container" id="booking-flow" style="display:none">
-        <div class="step-indicator">
-            <div class="step-dot active" id="dot-0"></div>
-            <div class="step-dot" id="dot-1"></div>
-            <div class="step-dot" id="dot-2"></div>
-            <div class="step-dot" id="dot-3"></div>
+    <div class="container">
+        <div id="loading-state" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p style="color:#888">Loading salon info...</p>
+        </div>
+        <div id="error-state" class="error-state" style="display:none">
+            <div style="font-size:48px;margin-bottom:16px">😕</div>
+            <h2 style="margin-bottom:8px">Salon Not Found</h2>
+            <p style="color:#888">This booking link may be invalid or expired.</p>
         </div>
 
-        <!-- Step 1: Select Service(s) -->
-        <div class="step active" id="step-0">
-            <div class="step-title">Choose Services</div>
-            <div style="color:#888;font-size:13px;margin-bottom:12px">Select one or more services for your appointment
+        <div id="booking-flow" style="display:none">
+            <div class="progress-dots">
+                <div class="step-dot active" id="dot-0"></div>
+                <div class="step-dot" id="dot-1"></div>
+                <div class="step-dot" id="dot-2"></div>
+                <div class="step-dot" id="dot-3"></div>
             </div>
-            <div id="services-list"></div>
-            <div id="services-selection-bar"
-                style="display:none;margin-top:16px;padding:16px;background:#1E1E1E;border-radius:12px;border:1px solid #D4AF37">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                    <div>
-                        <div style="font-size:14px;color:#D4AF37;font-weight:600" id="sel-count">0 selected</div>
-                        <div style="font-size:12px;color:#888" id="sel-info"></div>
+
+            <!-- Step 1: Services -->
+            <div class="step active" id="step-0">
+                <div class="step-title">Choose Services</div>
+                <div style="color:#888;font-size:13px;margin-bottom:12px">Select one or more services for your appointment</div>
+                <div id="services-list"></div>
+                <div id="services-selection-bar" style="display:none;margin-top:16px;padding:16px;background:#1E1E1E;border-radius:12px;border:1px solid #D4AF37">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <div style="font-size:14px;color:#D4AF37;font-weight:600" id="sel-count">0 selected</div>
+                            <div style="font-size:12px;color:#888" id="sel-info"></div>
+                        </div>
+                        <button class="btn btn-gold" onclick="goStep(1)" style="padding:10px 28px;font-size:14px">Continue →</button>
                     </div>
-                    <button class="btn btn-gold" onclick="goStep(1)" style="padding:10px 28px;font-size:14px">Continue
-                        →</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Per-Service Staff & Time with smart availability -->
+            <div class="step" id="step-1">
+                <div class="step-title">Choose Staff &amp; Time</div>
+                <div class="form-group">
+                    <label class="form-label">SELECT DATE</label>
+                    <input type="date" id="booking-date" class="form-input" onchange="onDateChange()">
+                </div>
+                <div class="form-group" style="margin-top:16px">
+                    <label class="form-label">ASSIGN STYLIST &amp; TIME PER SERVICE</label>
+                    <div id="service-assignments-container">
+                        <div style="color:#666;font-size:14px;padding:16px 0;text-align:center">Select services and a date first</div>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-outline" onclick="goStep(0)">← Back</button>
+                    <button class="btn btn-gold" onclick="goStep(2)">Continue →</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Client Details -->
+            <div class="step" id="step-2">
+                <div class="step-title">Your Details</div>
+                <div class="form-group">
+                    <label class="form-label">FULL NAME *</label>
+                    <input type="text" id="client-name" class="form-input" placeholder="e.g. Sarah Johnson" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">EMAIL *</label>
+                    <input type="email" id="client-email" class="form-input" placeholder="e.g. sarah@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">PHONE (Optional)</label>
+                    <input type="tel" id="client-phone" class="form-input" placeholder="e.g. +1 555-123-4567">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">NOTES (Optional)</label>
+                    <textarea id="client-notes" class="form-input" rows="3" placeholder="Any special requests..."></textarea>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
+                    <button class="btn btn-gold" onclick="goStep(3)">Review Booking →</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Review & Confirm -->
+            <div class="step" id="step-3">
+                <div class="step-title">Review &amp; Confirm</div>
+                <div class="summary-card" id="booking-summary"></div>
+                <div class="btn-row">
+                    <button class="btn btn-outline" onclick="goStep(2)">← Back</button>
+                    <button class="btn btn-gold" id="confirm-btn" onclick="submitBooking()">✓ Confirm Booking</button>
+                </div>
+            </div>
+
+            <!-- Step 5: Success -->
+            <div class="step" id="step-4">
+                <div class="success-card">
+                    <div class="success-icon">✨</div>
+                    <h2 style="color:#D4AF37;margin-bottom:12px;font-size:28px;">Booking Confirmed</h2>
+                    <p id="success-msg" style="color:#A0A0A0;line-height:1.6;font-size:15px;">Your appointment has been successfully booked. You will receive a confirmation email shortly.</p>
                 </div>
             </div>
         </div>
 
-        <!-- Step 2: Select Staff + Date/Time -->
-        <div class="step" id="step-1">
-            <div class="step-title">Choose Staff & Time</div>
-            <div class="form-group">
-                <label class="form-label">PREFERRED STYLIST</label>
-                <div id="staff-list"></div>
-            </div>
-            <div class="form-group" style="margin-top:20px">
-                <label class="form-label">SELECT DATE</label>
-                <input type="date" id="booking-date" class="form-input" onchange="fetchSlots()">
-            </div>
-            <div class="form-group" style="margin-top:16px">
-                <label class="form-label">AVAILABLE TIME SLOTS</label>
-                <div id="slots-container">
-                    <div class="slots-loading">Select a date to see available slots</div>
-                </div>
-                <input type="hidden" id="booking-time" value="">
-            </div>
-            <div class="btn-row">
-                <button class="btn btn-outline" onclick="goStep(0)">← Back</button>
-                <button class="btn btn-gold" onclick="goStep(2)">Continue →</button>
-            </div>
-        </div>
-
-        <!-- Step 3: Client Details -->
-        <div class="step" id="step-2">
-            <div class="step-title">Your Details</div>
-            <div class="form-group">
-                <label class="form-label">FULL NAME *</label>
-                <input type="text" id="client-name" class="form-input" placeholder="e.g. Sarah Johnson" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">EMAIL *</label>
-                <input type="email" id="client-email" class="form-input" placeholder="e.g. sarah@email.com" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">PHONE (Optional)</label>
-                <input type="tel" id="client-phone" class="form-input" placeholder="e.g. +1 555-123-4567">
-            </div>
-            <div class="btn-row">
-                <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
-                <button class="btn btn-gold" onclick="goStep(3)">Review Booking →</button>
-            </div>
-        </div>
-
-        <!-- Step 4: Review & Confirm -->
-        <div class="step" id="step-3">
-            <div class="step-title">Review & Confirm</div>
-            <div class="summary-card" id="booking-summary"></div>
-            <div class="btn-row">
-                <button class="btn btn-outline" onclick="goStep(2)">← Back</button>
-                <button class="btn btn-gold" id="confirm-btn" onclick="submitBooking()">✓ Confirm Booking</button>
-            </div>
-        </div>
-
-        <!-- Success -->
-        <div class="step" id="step-4">
-            <div class="success-container">
-                <div class="success-icon">✅</div>
-                <div class="success-title">Booking Confirmed!</div>
-                <div class="success-msg" id="success-msg">Your appointment has been booked.</div>
-                <div id="pay-btn-wrapper" style="margin-top:24px"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="footer">
-        © 2026 <span id="footer-salon"></span> · Powered by <a href="#">Voxali</a>
+        <footer><p>© 2026 <span id="footer-salon">Salon</span></p></footer>
     </div>
 
     <script>
-        // ===== CONFIG =====
         const SUPABASE_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
         const API_URL = SUPABASE_URL + '/functions/v1/online-booking';
-        let realTenantId = null;
 
-        // Get tenant_id from URL
-        const tempSlug = new URLSearchParams(window.location.search).get('salon');
-        // Extract slug from path like /book/pak-salon
+        // Extract slug from path
         const pathParts = window.location.pathname.split('/').filter(Boolean);
-        let rawSlug = pathParts.length > 1 ? pathParts[pathParts.length - 1] : tempSlug;
-        const SLUG = rawSlug ? decodeURIComponent(rawSlug) : null;
+        const SLUG = pathParts.length > 1
+            ? decodeURIComponent(pathParts[pathParts.length - 1])
+            : new URLSearchParams(window.location.search).get('salon');
 
+        // ────────── State ──────────
         let SERVICES = [];
         let STAFF = [];
+        let realTenantId = null;
         let selectedServiceIds = [];
-        let selectedStaffId = '';
-        let selectedSlot = null;
+        // serviceAssignments[i] = { service_id, staff_id, time, availableSlots[] }
+        let serviceAssignments = [];
 
-        // ===== INIT =====
+        // ────────── Init ──────────
         async function init() {
-            if (!SLUG) {
-                showError();
-                return;
-            }
-
+            if (!SLUG) { showError(); return; }
             try {
-                if (new URLSearchParams(window.location.search).get('success') === 'true') {
-                    document.getElementById('loading-state').style.display = 'none';
-                    document.getElementById('booking-flow').style.display = 'block';
-                    document.getElementById('success-msg').innerHTML = 'Your secure payment was successful. Your appointment is fully confirmed!<br><br>Thank you for your booking.';
-                    goStep(4);
-                    return;
-                }
-                // Fetch all data from Edge Function (uses service role key, bypasses RLS)
+                // Fetch Salon Configuration BEFORE evaluating ?success
                 var res = await fetch(API_URL + '?slug=' + encodeURIComponent(SLUG) + '&format=json');
-                if (!res.ok) {
-                    showError();
-                    return;
-                }
-
+                if (!res.ok) { showError(); return; }
                 var data = await res.json();
-                if (!data.tenant) {
-                    showError();
-                    return;
-                }
+                if (!data.tenant) { showError(); return; }
 
-                SERVICES = data.services || [];
                 realTenantId = data.tenant.id;
+                SERVICES = data.services || [];
                 STAFF = data.staff || [];
 
                 document.getElementById('salon-name').textContent = data.tenant.salon_name || 'Salon';
-                document.getElementById('salon-tagline').textContent = data.tenant.salon_tagline || 'Premium Salon & Spa';
+                document.getElementById('salon-tagline').textContent = data.tenant.salon_tagline || 'Premium Salon';
                 document.getElementById('footer-salon').textContent = data.tenant.salon_name || 'Salon';
                 document.title = 'Book an Appointment — ' + (data.tenant.salon_name || 'Salon');
 
-                renderServices();
-                renderStaff();
+                // If success flag is present, stop here and show success page
+                if (new URLSearchParams(window.location.search).get('success') === 'true') {
+                    document.getElementById('loading-state').style.display = 'none';
+                    document.getElementById('booking-flow').style.display = 'block';
+                    document.getElementById('success-msg').innerHTML = 'Payment successful. Your appointment is fully confirmed!';
+                    goStep(4); return;
+                }
 
-                // Set default date to tomorrow
+                // Render booking view
+                renderServices();
+
                 var tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 document.getElementById('booking-date').value = tomorrow.toISOString().split('T')[0];
                 document.getElementById('booking-date').min = new Date().toISOString().split('T')[0];
 
-                // Auto-fetch slots for default date after services are loaded
-                setTimeout(function () { fetchSlots(); }, 300);
-
-                // Show booking flow
                 document.getElementById('loading-state').style.display = 'none';
                 document.getElementById('booking-flow').style.display = 'block';
-            } catch (e) {
-                console.error('Init error:', e);
-                showError();
-            }
+            } catch (e) { console.error(e); showError(); }
         }
-
         function showError() {
             document.getElementById('loading-state').style.display = 'none';
             document.getElementById('error-state').style.display = 'block';
         }
 
-        // ===== RENDER SERVICES =====
+        // ────────── Render Services ──────────
         function renderServices() {
-            const grouped = {};
-            SERVICES.forEach(s => {
-                const cat = s.category || 'General';
+            var grouped = {};
+            SERVICES.forEach(function(s) {
+                var cat = s.category || 'General';
                 if (!grouped[cat]) grouped[cat] = [];
                 grouped[cat].push(s);
             });
-
-            let html = '';
-            for (const [cat, svcs] of Object.entries(grouped)) {
-                html += '<div class="category-label">' + cat + '</div>';
-                svcs.forEach(s => {
+            var html = '';
+            Object.entries(grouped).forEach(function(entry) {
+                html += '<div class="category-label">' + entry[0] + '</div>';
+                entry[1].forEach(function(s) {
                     html += '<div class="service-card" data-id="' + s.id + '" onclick="toggleService(\'' + s.id + '\')">' +
-                        '<div><div class="service-name">' + s.name + '</div>' +
+                        '<div class="checkbox-custom"></div>' +
+                        '<div style="flex:1"><div class="service-name">' + s.name + '</div>' +
                         '<div class="service-meta">' + (s.duration || 30) + ' min' + (s.description ? ' · ' + s.description : '') + '</div></div>' +
                         '<div style="text-align:right"><div class="service-price">$' + (s.price || 0).toFixed(2) + '</div>' +
                         (s.deposit_amount ? '<div class="service-deposit">$' + s.deposit_amount + ' deposit</div>' : '') +
                         '</div></div>';
                 });
-            }
+            });
             document.getElementById('services-list').innerHTML = html;
         }
 
-        // ===== RENDER STAFF =====
-        function renderStaff() {
-            let html = '<div class="staff-card selected" data-id="" onclick="selectStaff(\'\')"><div class="staff-avatar">?</div><div><div class="staff-name">Any Available</div><div class="staff-spec">First available stylist</div></div></div>';
-            STAFF.forEach(s => {
-                html += '<div class="staff-card" data-id="' + s.id + '" onclick="selectStaff(\'' + s.id + '\')">' +
-                    '<div class="staff-avatar">' + (s.name || 'S')[0] + '</div>' +
-                    '<div><div class="staff-name">' + s.name + '</div><div class="staff-spec">' + (s.specialty || 'Stylist') + '</div></div></div>';
-            });
-            document.getElementById('staff-list').innerHTML = html;
-        }
-
-        // ===== TOGGLE SERVICE (multi-select) =====
         function toggleService(id) {
             var idx = selectedServiceIds.indexOf(id);
-            if (idx > -1) {
-                selectedServiceIds.splice(idx, 1);
-            } else {
-                selectedServiceIds.push(id);
-            }
-            // Update visual selection
-            document.querySelectorAll('.service-card').forEach(function (c) {
-                c.classList.toggle('selected', selectedServiceIds.indexOf(c.dataset.id) > -1);
+            if (idx >= 0) selectedServiceIds.splice(idx, 1);
+            else selectedServiceIds.push(id);
+            document.querySelectorAll('.service-card').forEach(function(c) {
+                c.classList.toggle('selected', selectedServiceIds.indexOf(c.dataset.id) >= 0);
             });
-            // Reset slots
-            selectedSlot = null;
-            document.getElementById('booking-time').value = '';
-            // Update selection bar
             updateSelectionBar();
         }
 
         function updateSelectionBar() {
             var bar = document.getElementById('services-selection-bar');
-            if (selectedServiceIds.length === 0) {
-                bar.style.display = 'none';
-                return;
-            }
+            if (!selectedServiceIds.length) { bar.style.display = 'none'; return; }
             bar.style.display = 'block';
-            var totalDur = 0, totalPrice = 0, totalDeposit = 0;
-            var names = [];
-            selectedServiceIds.forEach(function (id) {
-                var svc = SERVICES.find(function (s) { return s.id === id; });
-                if (svc) {
-                    totalDur += (svc.duration || 30);
-                    totalPrice += (svc.price || 0);
-                    totalDeposit += (svc.deposit_amount || 0);
-                    names.push(svc.name);
-                }
-            });
+            var svcs = selectedServiceIds.map(function(id) { return SERVICES.find(function(s) { return s.id === id; }); }).filter(Boolean);
+            var totalPrice = svcs.reduce(function(a, s) { return a + (s.price || 0); }, 0);
+            var totalDur   = svcs.reduce(function(a, s) { return a + (s.duration || 30); }, 0);
             document.getElementById('sel-count').textContent = selectedServiceIds.length + ' service' + (selectedServiceIds.length > 1 ? 's' : '') + ' selected';
-            document.getElementById('sel-info').textContent = totalDur + ' min · $' + totalPrice.toFixed(2) + (totalDeposit > 0 ? ' · $' + totalDeposit.toFixed(2) + ' deposit' : '');
+            document.getElementById('sel-info').textContent = '$' + totalPrice.toFixed(2) + ' · ' + totalDur + ' min total';
         }
 
-        // ===== SELECT STAFF =====
-        function selectStaff(id) {
-            selectedStaffId = id;
-            document.querySelectorAll('.staff-card').forEach(c => c.classList.remove('selected'));
-            var el = document.querySelector('.staff-card[data-id="' + id + '"]');
-            if (el) el.classList.add('selected');
-            // Re-fetch slots when staff changes
-            selectedSlot = null;
-            document.getElementById('booking-time').value = '';
-            fetchSlots();
+        // ────────── Date Change ──────────
+        function onDateChange() {
+            // Reset assignments and re-render
+            serviceAssignments = [];
+            renderServiceAssignments();
         }
 
-        // ===== FETCH AVAILABLE SLOTS =====
-        async function fetchSlots() {
+        // ────────── Helpers: time math ──────────
+        function timeToMins(t) {
+            if (!t) return 0;
+            var parts = t.split(':');
+            return parseInt(parts[0]) * 60 + parseInt(parts[1] || '0');
+        }
+        function minsToTime(m) {
+            var h = Math.floor(m / 60) % 24;
+            var min = m % 60;
+            return (h < 10 ? '0' : '') + h + ':' + (min < 10 ? '0' : '') + min;
+        }
+        function formatTime12(tt) {
+            var mins = timeToMins(tt);
+            var h = Math.floor(mins / 60) % 24;
+            var m = mins % 60;
+            var ampm = h >= 12 ? 'PM' : 'AM';
+            var h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+            return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ampm;
+        }
+
+        // ────────── Fetch slots for one staff+service ──────────
+        async function fetchSlotsForStaff(serviceId, staffId, date) {
+            try {
+                var url = API_URL + '?slug=' + encodeURIComponent(SLUG)
+                    + '&format=slots&date=' + date
+                    + '&service_id=' + serviceId
+                    + (staffId ? '&staff_id=' + staffId : '');
+                var res = await fetch(url);
+                if (!res.ok) return [];
+                var data = await res.json();
+                // data.slots = [{start_at, time, display_start, staff_id, ...}]
+                return data.slots || [];
+            } catch (e) { return []; }
+        }
+
+        // ────────── Find nearest slot >= minMins ──────────
+        function nearestSlot(slots, minMins) {
+            var eligible = slots.filter(function(s) {
+                var localTime24 = extractLocalTime24(s.display_start || s.time);
+                var m = timeToMins(localTime24);
+                return m >= minMins;
+            });
+            return eligible.length > 0 ? eligible[0] : null;
+        }
+
+        function extractLocalTime24(displayStr) {
+            if (!displayStr) return '09:00';
+            var p = displayStr.trim().split(' ');
+            var t = (p[0] || '9:00').split(':');
+            var h = parseInt(t[0] || '9', 10);
+            var m = t[1] || '00';
+            var ampm = p[1] ? p[1].toUpperCase() : 'AM';
+            if (ampm === 'PM' && h < 12) h += 12;
+            if (ampm === 'AM' && h === 12) h = 0;
+            return (h < 10 ? '0' + h : h) + ':' + m;
+        }
+
+        // ────────── Render Per-Service Assignments ──────────
+        async function renderServiceAssignments() {
+            var container = document.getElementById('service-assignments-container');
             var dateVal = document.getElementById('booking-date').value;
             if (!dateVal || selectedServiceIds.length === 0) {
-                document.getElementById('slots-container').innerHTML = '<div class="slots-loading">Select a service and date first</div>';
+                container.innerHTML = '<div style="color:#666;font-size:14px;padding:16px 0;text-align:center">Select services and a date first</div>';
                 return;
             }
 
-            document.getElementById('slots-container').innerHTML = '<div class="slots-loading"><div class="mini-spinner"></div>Loading available slots...</div>';
+            // Sync assignments array
+            serviceAssignments = selectedServiceIds.map(function(sid, i) {
+                var ex = serviceAssignments.find(function(a) { return a.service_id === sid; });
+                return ex || { service_id: sid, staff_id: '', time: '', availableSlots: [], loading: true };
+            });
 
-            try {
-                var slotsUrl = API_URL + '?slug=' + encodeURIComponent(SLUG) + '&format=slots&date=' + dateVal + '&service_id=' + selectedServiceIds[0];
-                // Send all service IDs for combined duration slot calculation
-                selectedServiceIds.forEach(function (sid, i) { if (i > 0) slotsUrl += '&service_id=' + sid; });
-                if (selectedStaffId) slotsUrl += '&staff_id=' + selectedStaffId;
+            // Render skeleton first
+            renderAssignmentCards(dateVal, true);
 
-                var res = await fetch(slotsUrl);
-                var data = await res.json();
+            // Fetch slots for all services in parallel
+            await Promise.all(selectedServiceIds.map(async function(sid, i) {
+                var asgn = serviceAssignments[i];
+                var slots = await fetchSlotsForStaff(sid, asgn.staff_id || null, dateVal);
+                asgn.availableSlots = slots;
+                asgn.loading = false;
+            }));
 
-                if (data.is_closed) {
-                    document.getElementById('slots-container').innerHTML = '<div class="slots-closed">🚫 ' + (data.message || 'Salon is closed on this day') + '<br><small>Please select another date</small></div>';
-                    return;
-                }
+            // Auto-set smart times: chain each service after previous one ends
+            autoSetSmartTimes(dateVal);
 
-                var slots = data.slots || [];
-                if (!slots.length || slots.length === 0) {
-                    document.getElementById('slots-container').innerHTML = '<div class="slots-empty">😔 No available time slots for this date<br><small>Try a different date or stylist</small></div>';
-                    return;
-                }
+            renderAssignmentCards(dateVal, false);
+        }
 
-                // Deduplicate by time (show unique times, pick first staff)
-                var seen = {};
-                var uniqueSlots = [];
-                slots.forEach(function (s) {
-                    var key = s.time || s.display_start;
-                    if (!seen[key]) {
-                        seen[key] = true;
-                        uniqueSlots.push(s);
+        // Smart non-overlapping time logic
+        function autoSetSmartTimes(dateVal) {
+            serviceAssignments.forEach(function(asgn) {
+                if (asgn.time) return; // already set manually or via fetch
+                
+                var svc = SERVICES.find(function(s) { return s.id === asgn.service_id; });
+                var dur = svc ? (svc.duration || 30) : 30;
+                var slots = asgn.availableSlots;
+                
+                if (slots.length > 0) {
+                    var validSlot = slots.find(function(s) {
+                        var t = (s.start_at || '').split('T')[1] || '';
+                        var st = timeToMins(t.substring(0, 5));
+                        var en = st + dur;
+                        
+                        var overlaps = serviceAssignments.some(function(other) {
+                            if (other === asgn || !other.time) return false;
+                            var oSvc = SERVICES.find(function(x) { return x.id === other.service_id; });
+                            var oDur = oSvc ? (oSvc.duration || 30) : 30;
+                            var oSt = timeToMins(other.time);
+                            var oEn = oSt + oDur;
+                            return Math.max(st, oSt) < Math.min(en, oEn);
+                        });
+                        return !overlaps;
+                    });
+                    
+                    if (validSlot) {
+                        asgn.time = extractLocalTime24(validSlot.display_start || validSlot.time);
                     }
-                });
-
-                var html = '<div class="slots-grid">';
-                uniqueSlots.forEach(function (s, i) {
-                    html += '<div class="slot-btn" data-idx="' + i + '" onclick="selectSlot(' + i + ')">' +
-                        '<div>' + (s.time || s.display_start) + '</div>' +
-                        '<div class="slot-staff">' + (s.staff_name || '') + '</div>' +
-                        '</div>';
-                });
-                html += '</div>';
-                document.getElementById('slots-container').innerHTML = html;
-
-                // Store slots data for selection
-                window._availableSlots = uniqueSlots;
-
-            } catch (e) {
-                document.getElementById('slots-container').innerHTML = '<div class="slots-empty">⚠️ Failed to load slots. Please try again.</div>';
-                console.error('Slots error:', e);
-            }
+                }
+            });
         }
 
-        // ===== SELECT TIME SLOT =====
-        function selectSlot(idx) {
-            var slot = window._availableSlots[idx];
-            if (!slot) return;
-            selectedSlot = slot;
+        // Check if a time is overlapping or unavailable
+        function getSlotStatus(asgn) {
+            var slots = asgn.availableSlots;
+            var currentMins = timeToMins(asgn.time);
 
-            // Extract HH:mm from the display time (e.g., "10:00 AM" → "10:00")
-            var timeStr = slot.time || slot.display_start || '';
-            var match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-            if (match) {
-                var h = parseInt(match[1]);
-                var m = match[2];
-                var ampm = match[3].toUpperCase();
-                if (ampm === 'PM' && h !== 12) h += 12;
-                if (ampm === 'AM' && h === 12) h = 0;
-                document.getElementById('booking-time').value = String(h).padStart(2, '0') + ':' + m;
+            if (!asgn.time) return { ok: true, msg: '' };
+
+            var svc = SERVICES.find(function(s) { return s.id === asgn.service_id; });
+            var dur = svc ? (svc.duration || 30) : 30;
+            var currentEnd = currentMins + dur;
+
+            // Check overlap
+            var overlapMsg = '';
+            for (var j = 0; j < serviceAssignments.length; j++) {
+                var other = serviceAssignments[j];
+                if (other === asgn || !other.time) continue;
+                var oSvc = SERVICES.find(function(s) { return s.id === other.service_id; });
+                var oDur = oSvc ? (oSvc.duration || 30) : 30;
+                var oSt = timeToMins(other.time);
+                var oEn = oSt + oDur;
+                
+                if (Math.max(currentMins, oSt) < Math.min(currentEnd, oEn)) {
+                    overlapMsg = 'Overlaps with ' + (oSvc ? oSvc.name : 'another service');
+                    break;
+                }
             }
 
-            // Also update staff selection if slot has a specific staff
-            if (slot.staff_id && !selectedStaffId) {
-                selectedStaffId = slot.staff_id;
+            if (overlapMsg) {
+                return { ok: false, conflict: true, msg: '⚠️ ' + overlapMsg };
             }
 
-            // Visual feedback
-            document.querySelectorAll('.slot-btn').forEach(function (b) { b.classList.remove('selected'); });
-            var el = document.querySelector('.slot-btn[data-idx="' + idx + '"]');
-            if (el) el.classList.add('selected');
+            if (slots.length > 0) {
+                var isAvail = slots.some(function(s) {
+                    return extractLocalTime24(s.display_start || s.time) === asgn.time;
+                });
+                if (!isAvail) return { ok: false, busy: true, msg: '🔴 Stylist busy. Pick another slot.' };
+            }
+
+            return { ok: true, msg: '✅ Available' };
         }
 
-        // ===== NAVIGATION =====
-        function goStep(n) {
-            if (n === 1 && selectedServiceIds.length === 0) { alert('Please select at least one service'); return; }
+        // Render the actual card HTML
+        function renderAssignmentCards(dateVal, loading) {
+            var container = document.getElementById('service-assignments-container');
+            if (!container) return;
+
+            var html = serviceAssignments.map(function(asgn, i) {
+                var svc = SERVICES.find(function(s) { return s.id === asgn.service_id; });
+                if (!svc) return '';
+                var dur = svc.duration || 30;
+
+                var status = loading ? null : getSlotStatus(asgn);
+                var cardClass = 'assignment-card' + (status && !status.ok ? ' conflict' : (status && status.ok ? ' ok' : ''));
+
+                var staffOpts = '<option value="">Any Available</option>' + STAFF.map(function(s) {
+                    return '<option value="' + s.id + '"' + (asgn.staff_id === s.id ? ' selected' : '') + '>' + s.name + '</option>';
+                }).join('');
+
+                var slotOptions = '';
+                if (loading) {
+                    slotOptions = '<div class="slot-loading">⏳ Checking availability...</div>';
+                } else if (asgn.availableSlots.length === 0) {
+                    slotOptions = '<input type="time" class="form-input" data-idx="' + i + '" data-field="time" value="' + (asgn.time || '') + '" onchange="onAssignmentChange(this)">';
+                } else {
+                    var slotsHtml = '<option value="">Select a time</option>';
+                    asgn.availableSlots.forEach(function(s) {
+                        var slotTime = extractLocalTime24(s.display_start || s.time);
+                        var display = s.display_start || s.time || formatTime12(slotTime);
+                        var isSelected = slotTime === asgn.time;
+                        slotsHtml += '<option value="' + slotTime + '"' + (isSelected ? ' selected' : '') + '>' + display + '</option>';
+                    });
+                    slotOptions = '<select class="form-input" data-idx="' + i + '" data-field="time" onchange="onAssignmentChange(this)" style="background:#111">' + slotsHtml + '</select>';
+                }
+
+                var hintHtml = '';
+                if (!loading && status) {
+                    if (status.conflict || status.busy) hintHtml = '<div class="assignment-hint warning">' + status.msg + '</div>';
+                    else hintHtml = '<div class="assignment-hint ok">' + status.msg + '</div>';
+                }
+
+                return '<div class="' + cardClass + '">' +
+                    '<div class="assignment-svc-name">' + svc.name + '</div>' +
+                    '<div class="assignment-svc-meta">' + dur + ' min &nbsp;·&nbsp; $' + (svc.price || 0).toFixed(2) + '</div>' +
+                    '<div class="assignment-grid">' +
+                    '<div><label class="form-label">STYLIST</label>' +
+                    '<select class="form-input" data-idx="' + i + '" data-field="staff_id" onchange="onAssignmentChange(this)" style="background:#111">' + staffOpts + '</select></div>' +
+                    '<div><label class="form-label">TIME</label>' + slotOptions + '</div>' +
+                    '</div>' + hintHtml + '</div>';
+            }).join('');
+
+            container.innerHTML = html || '<div style="color:#666;text-align:center;padding:16px">No services selected</div>';
+        }
+
+        // When stylist or time changes
+        async function onAssignmentChange(el) {
+            var i = parseInt(el.dataset.idx);
+            var field = el.dataset.field;
+            if (!serviceAssignments[i]) return;
+
+            serviceAssignments[i][field] = el.value;
+
+            // If stylist changed → re-fetch slots for this service
+            if (field === 'staff_id') {
+                serviceAssignments[i].loading = true;
+                serviceAssignments[i].availableSlots = [];
+                serviceAssignments[i].time = ''; // reset time
+
+                var dateVal = document.getElementById('booking-date').value;
+                var svc = SERVICES.find(function(s) { return s.id === serviceAssignments[i].service_id; });
+
+                // Show loading
+                renderAssignmentCards(dateVal, false);
+
+                // Fetch and update
+                var slots = await fetchSlotsForStaff(serviceAssignments[i].service_id, el.value || null, dateVal);
+                serviceAssignments[i].availableSlots = slots;
+                serviceAssignments[i].loading = false;
+
+                // Auto-set smart time based on previous end
+                autoSetSmartTimes(dateVal);
+            }
+
+            // Re-render
+            var dateVal2 = document.getElementById('booking-date').value;
+            renderAssignmentCards(dateVal2, false);
+        }
+
+        // ────────── Step Navigation ──────────
+        async function goStep(n) {
+            if (n === 1) {
+                if (selectedServiceIds.length === 0) { alert('Please select at least one service'); return; }
+                await renderServiceAssignments();
+            }
             if (n === 2) {
                 if (!document.getElementById('booking-date').value) { alert('Please select a date'); return; }
-                if (!document.getElementById('booking-time').value) { alert('Please select a time slot'); return; }
+                if (serviceAssignments.length !== selectedServiceIds.length) { alert('Setup not ready, please wait'); return; }
+                var invalid = serviceAssignments.find(function(a) { return !a.time; });
+                if (invalid) { alert('Please assign a time for all services'); return; }
             }
             if (n === 3) {
-                if (!document.getElementById('client-name').value.trim()) { alert('Please enter your name'); return; }
-                if (!document.getElementById('client-email').value.trim()) { alert('Please enter your email'); return; }
+                var name = document.getElementById('client-name').value.trim();
+                var email = document.getElementById('client-email').value.trim();
+                if (!name || !email) { alert('Please fill in your name and email'); return; }
                 buildSummary();
             }
 
-            document.querySelectorAll('.step').forEach(function (s) { s.classList.remove('active'); });
-            document.getElementById('step-' + n).classList.add('active');
-            document.querySelectorAll('.step-dot').forEach(function (d, i) {
-                d.classList.remove('active', 'done');
-                if (i < n) d.classList.add('done');
-                if (i === n) d.classList.add('active');
-            });
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            // Auto-fetch slots when arriving at step 1
-            if (n === 1) setTimeout(fetchSlots, 100);
+            document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
+            document.querySelectorAll('.step-dot').forEach(function(d) { d.classList.remove('active', 'done'); });
+            var el = document.getElementById('step-' + n);
+            if (el) el.classList.add('active');
+            for (var i = 0; i < n; i++) { var d = document.getElementById('dot-' + i); if (d) d.classList.add('done'); }
+            var ad = document.getElementById('dot-' + n);
+            if (ad) ad.classList.add('active');
+            window.scrollTo(0, 0);
         }
 
-        // ===== BUILD SUMMARY =====
+        // ────────── Summary ──────────
         function buildSummary() {
-            var selectedSvcs = SERVICES.filter(function (s) { return selectedServiceIds.indexOf(s.id) > -1; });
-            var stf = STAFF.find(function (s) { return s.id === selectedStaffId; });
             var date = document.getElementById('booking-date').value;
-            var time = document.getElementById('booking-time').value;
-            var name = document.getElementById('client-name').value;
-
-            var dateObj = new Date(date + 'T' + time);
+            var name = document.getElementById('client-name').value.trim();
+            var dateObj = new Date(date + 'T12:00:00');
             var formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            var formattedTime = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
             var totalDur = 0, totalPrice = 0, totalDeposit = 0;
-            var svcNames = [];
             var svcListHtml = '';
-            selectedSvcs.forEach(function (svc) {
-                totalDur += (svc.duration || 30);
+
+            serviceAssignments.forEach(function(asgn) {
+                var svc = SERVICES.find(function(s) { return s.id === asgn.service_id; });
+                var stf = STAFF.find(function(s) { return s.id === asgn.staff_id; });
+                if (!svc) return;
+                totalDur   += (svc.duration || 30);
                 totalPrice += (svc.price || 0);
                 totalDeposit += (svc.deposit_amount || 0);
-                svcNames.push(svc.name);
-                svcListHtml += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a2a;font-size:13px">' +
-                    '<span style="color:#ccc">✦ ' + svc.name + ' <span style="color:#666">(' + (svc.duration || 30) + 'min)</span></span>' +
-                    '<span style="color:#D4AF37">$' + (svc.price || 0).toFixed(2) + '</span></div>';
+
+                svcListHtml += '<div style="background:#1E1E1E;border-radius:10px;padding:12px 14px;margin-bottom:8px">' +
+                    '<div style="display:flex;justify-content:space-between">' +
+                    '<span style="font-weight:600;color:#D4AF37">' + svc.name + '</span>' +
+                    '<span style="font-weight:600">$' + (svc.price || 0).toFixed(2) + '</span></div>' +
+                    '<div style="display:flex;justify-content:space-between;color:#A0A0A0;font-size:12px;margin-top:6px">' +
+                    '<span>👨‍💼 ' + (stf ? stf.name : 'Any Available') + '</span>' +
+                    '<span>🕐 ' + formatTime12(asgn.time) + '</span></div></div>';
             });
 
             document.getElementById('booking-summary').innerHTML =
                 '<div class="summary-row"><span class="summary-label">👤 Client</span><span class="summary-value">' + name + '</span></div>' +
-                '<div class="summary-row"><span class="summary-label">💇 Services (' + selectedSvcs.length + ')</span></div>' +
-                '<div style="margin:8px 0 12px;padding:10px 14px;background:#141414;border-radius:8px">' + svcListHtml + '</div>' +
-                '<div class="summary-row"><span class="summary-label">👨‍💼 Stylist</span><span class="summary-value">' + (stf ? stf.name : 'Any Available') + '</span></div>' +
                 '<div class="summary-row"><span class="summary-label">📅 Date</span><span class="summary-value">' + formattedDate + '</span></div>' +
-                '<div class="summary-row"><span class="summary-label">🕐 Time</span><span class="summary-value">' + formattedTime + '</span></div>' +
+                '<div style="padding:10px 0">' + svcListHtml + '</div>' +
                 '<div class="summary-row"><span class="summary-label">⏱ Total Duration</span><span class="summary-value">' + totalDur + ' min</span></div>' +
-                '<div class="summary-row"><span class="summary-label">💰 Total</span><span class="summary-total">$' + totalPrice.toFixed(2) + '</span></div>' +
+                '<div class="summary-row"><span class="summary-label">💰 Total Price</span><span class="summary-total">$' + totalPrice.toFixed(2) + '</span></div>' +
                 (totalDeposit > 0 ? '<div class="summary-row"><span class="summary-label" style="color:#22C55E">💳 Deposit Required</span><span class="summary-value" style="color:#22C55E">$' + totalDeposit.toFixed(2) + '</span></div>' : '');
         }
 
-        // ===== SUBMIT BOOKING =====
+        // ────────── Submit ──────────
         async function submitBooking() {
+            var name = document.getElementById('client-name').value.trim();
+            var email = document.getElementById('client-email').value.trim();
+            var phone = document.getElementById('client-phone').value.trim();
+            var notes = document.getElementById('client-notes') ? document.getElementById('client-notes').value.trim() : '';
+            var date = document.getElementById('booking-date').value;
+
+            if (!name || !email) { alert('Please fill in your name and email'); return; }
+
+            // Client-side overlap validation
+            for (var i = 0; i < serviceAssignments.length; i++) {
+                var asgn = serviceAssignments[i];
+                var svc = SERVICES.find(function(s) { return s.id === asgn.service_id; });
+                var dur = svc ? (svc.duration || 30) : 30;
+                var st = timeToMins(asgn.time);
+                var en = st + dur;
+                
+                for (var j = i + 1; j < serviceAssignments.length; j++) {
+                    var other = serviceAssignments[j];
+                    var oSvc = SERVICES.find(function(s) { return s.id === other.service_id; });
+                    var oDur = oSvc ? (oSvc.duration || 30) : 30;
+                    var oSt = timeToMins(other.time);
+                    var oEn = oSt + oDur;
+                    
+                    if (Math.max(st, oSt) < Math.min(en, oEn)) {
+                        alert('❌ Overlapping times: ' + svc.name + ' overlaps with ' + oSvc.name + '. Please resolve time conflicts.');
+                        goStep(1);
+                        return;
+                    }
+                }
+            }
+
             var btn = document.getElementById('confirm-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading-btn"></span> Booking...';
+            btn.disabled = true; btn.textContent = '⏳ Booking...';
 
             try {
                 var res = await fetch(API_URL + '?slug=' + encodeURIComponent(SLUG), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        service_ids: selectedServiceIds,
-                        service_id: selectedServiceIds[0],
-                        staff_id: selectedStaffId || undefined,
-                        date: document.getElementById('booking-date').value,
-                        time: document.getElementById('booking-time').value,
-                        client_name: document.getElementById('client-name').value.trim(),
-                        client_email: document.getElementById('client-email').value.trim(),
-                        client_phone: document.getElementById('client-phone').value.trim() || undefined,
+                        service_assignments: serviceAssignments.map(function(a) {
+                            return { service_id: a.service_id, staff_id: a.staff_id || null, time: a.time };
+                        }),
+                        date: date,
+                        client_name: name, client_email: email,
+                        client_phone: phone || undefined,
+                        notes: notes || undefined,
                     }),
                 });
-
                 var data = await res.json();
-
-                if (data.success) {
-                    if (data.payment_url) {
-                        btn.innerHTML = '<span class="loading-btn"></span> Redirecting to Secure Payment...';
-                        window.location.href = data.payment_url;
-                        return;
-                    }
-
-                    var msg = 'Your appointment for <strong>' + (data.details ? data.details.service : '') + '</strong> on <strong>' + (data.details ? data.details.date : '') + '</strong> at <strong>' + (data.details ? data.details.time : '') + '</strong> has been confirmed.';
-                    msg += '<br><br>A confirmation email has been sent to <strong>' + document.getElementById('client-email').value + '</strong>.';
-
-                    document.getElementById('success-msg').innerHTML = msg;
-                    document.getElementById('pay-btn-wrapper').style.display = 'none';
-
-                    goStep(4);
+                if (res.ok && (data.success || data.id || data.booking_id)) {
+                    if (data.payment_url) { window.location.href = data.payment_url; }
+                    else { goStep(4); }
                 } else {
-                    alert(data.error || 'Failed to create booking. Please try again.');
-                    btn.disabled = false;
-                    btn.innerHTML = '✓ Confirm Booking';
-                    // If time conflict, go back to time selection
-                    if (data.conflict) goStep(1);
+                    alert(data.error || 'Booking failed. Please try again.');
+                    btn.disabled = false; btn.textContent = '✓ Confirm Booking';
                 }
             } catch (e) {
                 alert('Network error. Please try again.');
-                btn.disabled = false;
-                btn.innerHTML = '✓ Confirm Booking';
+                btn.disabled = false; btn.textContent = '✓ Confirm Booking';
             }
         }
 
-        // ===== START =====
         init();
     </script>
 </body>
-
 </html>

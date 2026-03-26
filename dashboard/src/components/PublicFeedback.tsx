@@ -3,54 +3,51 @@ import { Star, MessageSquare, CheckCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Props {
-    bookingId: string;
+    tenantId: string;
 }
 
-export const ClientFeedback: React.FC<Props> = ({ bookingId }) => {
-    
+export const PublicFeedback: React.FC<Props> = ({ tenantId }) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState(false);
     
-    const [booking, setBooking] = useState<any>(null);
+    const [tenant, setTenant] = useState<any>(null);
+    const [clientName, setClientName] = useState('');
     const [rating, setRating] = useState<number>(0);
     const [hoverRating, setHoverRating] = useState<number>(0);
     const [reviewText, setReviewText] = useState('');
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const fetchBooking = async () => {
-            if (!bookingId) {
-                setError('Invalid link.');
+        const fetchTenant = async () => {
+            if (!tenantId) {
+                setError('Invalid link. Salon not found.');
                 setLoading(false);
                 return;
             }
 
             const { data, error } = await supabase
-                .from('bookings')
-                .select(`
-                    id, start_time, rating,
-                    tenant:tenant_id(salon_name, logo_url, google_review_url),
-                    client:client_id(name),
-                    service:service_id(name)
-                `)
-                .eq('id', bookingId)
+                .from('tenants')
+                .select('salon_name, logo_url')
+                .eq('id', tenantId)
                 .single();
 
             if (error || !data) {
-                setError('Appointment not found.');
-            } else if (data.rating) {
-                setError('Feedback has already been submitted for this appointment.');
+                setError('Salon not found.');
             } else {
-                setBooking(data);
+                setTenant(data);
             }
             setLoading(false);
         };
 
-        fetchBooking();
-    }, [bookingId]);
+        fetchTenant();
+    }, [tenantId]);
 
     const submitFeedback = async () => {
+        if (!clientName.trim()) {
+            setError('Please enter your name.');
+            return;
+        }
         if (rating < 1) {
             setError('Please select a rating.');
             return;
@@ -59,13 +56,17 @@ export const ClientFeedback: React.FC<Props> = ({ bookingId }) => {
         setSaving(true);
         setError('');
 
-        const { error: updateError } = await supabase
-            .from('bookings')
-            .update({ rating, review_text: reviewText })
-            .eq('id', bookingId);
+        const { error: insertError } = await supabase
+            .from('salon_reviews')
+            .insert({
+                tenant_id: tenantId,
+                client_name: clientName,
+                rating,
+                review_text: reviewText
+            });
 
-        if (updateError) {
-            setError('Failed to submit feedback. Please try again.');
+        if (insertError) {
+            setError('Failed to submit review. Please try again.');
             setSaving(false);
         } else {
             setSuccess(true);
@@ -81,7 +82,7 @@ export const ClientFeedback: React.FC<Props> = ({ bookingId }) => {
         );
     }
 
-    if (error) {
+    if (error && !tenant) {
         return (
             <div className="min-h-screen bg-luxe-obsidian flex flex-col items-center justify-center p-6 text-center text-white">
                 <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
@@ -101,36 +102,13 @@ export const ClientFeedback: React.FC<Props> = ({ bookingId }) => {
                 </div>
                 <h2 className="text-3xl font-black mb-2 text-luxe-gold">Thank You!</h2>
                 <p className="text-white/60 mb-8 max-w-sm">We appreciate your feedback. It helps us improve our services.</p>
-                
-                {/* Google Review Prompt for Positive Feedback */}
-                {rating >= 4 && booking?.tenant?.google_review_url && (
-                    <div className="mt-4 p-6 glass-panel border border-luxe-gold/20 max-w-sm w-full animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300">
-                        <div className="flex justify-center mb-3">
-                            <Star className="w-8 h-8 text-luxe-gold fill-luxe-gold drop-shadow-[0_0_8px_rgba(212,175,55,0.6)]" />
-                        </div>
-                        <h3 className="text-lg font-bold mb-2">Loved your visit?</h3>
-                        <p className="text-sm text-white/60 mb-6">
-                            It would mean the world to us if you could take 30 seconds to copy your review to Google.
-                        </p>
-                        <a 
-                            href={booking.tenant.google_review_url}
-                            target="_blank" rel="noopener noreferrer"
-                            className="block w-full py-3 px-4 bg-white text-black font-bold rounded-xl hover:bg-gray-100 transition-colors shadow-lg shadow-white/10"
-                        >
-                            Rate us on Google
-                        </a>
-                    </div>
-                )}
             </div>
         );
     }
 
-    const { tenant, client, service, start_time } = booking;
-    const dateStr = new Date(start_time).toLocaleDateString();
-
     return (
         <div className="min-h-screen bg-luxe-obsidian text-white flex flex-col">
-            <div className="flex-1 max-w-lg w-full mx-auto p-6 md:p-8 flex flex-col justify-center">
+            <div className="flex-1 max-w-xl w-full mx-auto p-6 md:p-8 flex flex-col justify-center">
                 
                 {/* Header Profile */}
                 <div className="text-center mb-10">
@@ -144,14 +122,19 @@ export const ClientFeedback: React.FC<Props> = ({ bookingId }) => {
                         </div>
                     )}
                     <h1 className="text-2xl font-black text-luxe-gold tracking-tight">{tenant?.salon_name || 'Salon'}</h1>
-                    <p className="text-sm text-white/50 mt-1">Feedback for {dateStr}</p>
+                    <p className="text-sm text-white/50 mt-1">Leave a Review</p>
                 </div>
 
                 {/* Greeting */}
                 <div className="glass-panel p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-luxe-gold/0 via-luxe-gold to-luxe-gold/0 opacity-50" />
-                    <h2 className="text-xl font-bold mb-2">How was your visit, {client?.name?.split(' ')[0]}?</h2>
-                    <p className="text-sm text-white/50 mb-8">You recently enjoyed our <strong>{service?.name}</strong> service.</p>
+                    <h2 className="text-xl font-bold mb-6">Rate your experience</h2>
+
+                    {error && (
+                        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+                            {error}
+                        </div>
+                    )}
 
                     {/* Star Rating */}
                     <div className="flex flex-col items-center gap-4 mb-8">
@@ -184,23 +167,33 @@ export const ClientFeedback: React.FC<Props> = ({ bookingId }) => {
                         </span>
                     </div>
 
-                    {/* Review Text */}
-                    <div className="text-left">
-                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Tell us more (optional)</label>
-                        <textarea
-                            value={reviewText}
-                            onChange={(e) => setReviewText(e.target.value)}
-                            placeholder="What did you love? How can we improve?"
-                            className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-luxe-gold/50 transition-all resize-none"
-                        />
+                    <div className="space-y-4 text-left mt-6">
+                        <div>
+                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Your Name *</label>
+                            <input
+                                value={clientName}
+                                onChange={(e) => setClientName(e.target.value)}
+                                placeholder="e.g. Ali Khan"
+                                className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-luxe-gold/50 transition-all font-bold"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Tell us more (optional)</label>
+                            <textarea
+                                value={reviewText}
+                                onChange={(e) => setReviewText(e.target.value)}
+                                placeholder="What did you love? How can we improve?"
+                                className="w-full h-32 bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-luxe-gold/50 transition-all resize-none"
+                            />
+                        </div>
                     </div>
 
                     <button
                         onClick={submitFeedback}
                         disabled={saving}
-                        className="w-full bg-gold-gradient text-luxe-obsidian mt-6 py-4 rounded-xl font-black text-sm tracking-wide shadow-xl shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center"
+                        className="w-full bg-gold-gradient text-luxe-obsidian mt-8 py-4 rounded-xl font-black text-sm tracking-wide shadow-xl shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center"
                     >
-                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SUBMIT FEEDBACK'}
+                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'POST REVIEW'}
                     </button>
                 </div>
             </div>

@@ -16,12 +16,15 @@ Deno.serve(async (req) => {
         const tenantId = auth.tenantId || body.tenant_id;
         if (!tenantId) return errorResponse('Missing tenant_id');
         const bookingId = body.booking_id || '';
+        const bookingIds = body.booking_ids || ''; // newly added grouped IDs
         const amount = body.amount || 0;
         const slug = body.slug || '';
 
-        if (!bookingId) {
-            return errorResponse('booking_id is required');
+        if (!bookingId && !bookingIds) {
+            return errorResponse('booking_id or booking_ids is required');
         }
+
+        const primaryBookingId = bookingId || bookingIds.split(',')[0];
 
         const supabase = getSupabase();
         const STRIPE_KEY = Deno.env.get('STRIPE_SECRET_KEY') || '';
@@ -34,7 +37,7 @@ Deno.serve(async (req) => {
         const { data: booking } = await supabase
             .from('bookings')
             .select('id, tenant_id, service_id, deposit_amount, total_price, services(name)')
-            .eq('id', bookingId)
+            .eq('id', primaryBookingId)
             .single();
 
         if (!booking) {
@@ -42,7 +45,8 @@ Deno.serve(async (req) => {
         }
 
         const depositAmount = amount || booking.deposit_amount || 15;
-        const serviceName = (booking as any).services?.name || 'Salon Service';
+        const isMultiple = bookingIds && bookingIds.split(',').length > 1;
+        const serviceName = isMultiple ? `Multiple Services (${bookingIds.split(',').length})` : ((booking as any).services?.name || 'Salon Service');
 
         // Get salon name
         const { data: tenant } = await supabase
@@ -63,10 +67,11 @@ Deno.serve(async (req) => {
                 'line_items[0][price_data][product_data][name]': `Deposit: ${serviceName} at ${tenant?.salon_name || 'Salon'}`,
                 'line_items[0][price_data][unit_amount]': String(Math.round(depositAmount * 100)),
                 'line_items[0][quantity]': '1',
-                'metadata[booking_id]': bookingId,
+                'metadata[booking_id]': primaryBookingId,
+                'metadata[booking_ids]': bookingIds || primaryBookingId,
                 'metadata[tenant_id]': tenantId!,
                 'after_completion[type]': 'redirect',
-                'after_completion[redirect][url]': slug ? `https://voxali.net/book/${slug}?success=true&booking_id=${bookingId}` : `https://voxali.net/?booking_id=${bookingId}`,
+                'after_completion[redirect][url]': slug ? `https://voxali.net/book/${slug}?success=true&booking_id=${primaryBookingId}` : `https://voxali.net/?booking_id=${primaryBookingId}`,
             }),
         });
 
@@ -80,7 +85,7 @@ Deno.serve(async (req) => {
         // Save payment record
         await supabase.from('payments').insert({
             tenant_id: tenantId,
-            booking_id: bookingId,
+            booking_id: primaryBookingId,
             amount: depositAmount,
             payment_link: stripeData.url,
             stripe_payment_link_id: stripeData.id,

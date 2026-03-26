@@ -155,6 +155,11 @@
             background: rgba(212, 175, 55, 0.06);
             box-shadow: 0 0 15px rgba(212, 175, 55, 0.1);
         }
+        .checkbox-custom {
+            width: 20px; height: 20px; border: 2px solid #555; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0; transition: all 0.2s;
+        }
+        .service-card.selected .checkbox-custom { background: #D4AF37; border-color: #D4AF37; }
+        .service-card.selected .checkbox-custom::after { content: '\u2713'; color: #000; font-size: 14px; font-weight: 800; }
 
         .service-name {
             font-weight: 600;
@@ -632,9 +637,20 @@
         const SUPABASE_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
         const API_URL = SUPABASE_URL + '/functions/v1/online-booking';
 
-        // Get tenant_id from URL
+        // Get tenant_id OR slug from URL
+        // Supports:  /book/my-salon-slug   OR   ?tenant_id=uuid
         const params = new URLSearchParams(window.location.search);
         const TENANT_ID = params.get('tenant_id');
+        // Extract slug from path, e.g. /book/pakistan-salon-hq4b → pakistan-salon-hq4b
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const SLUG = pathParts[pathParts.length - 1] || params.get('slug') || '';
+
+        // Build the correct API query string
+        function tenantQuery() {
+            if (TENANT_ID) return '?tenant_id=' + TENANT_ID;
+            if (SLUG) return '?slug=' + SLUG;
+            return '';
+        }
 
         let SERVICES = [];
         let STAFF = [];
@@ -644,14 +660,14 @@
 
         // ===== INIT =====
         async function init() {
-            if (!TENANT_ID) {
+            if (!TENANT_ID && !SLUG) {
                 showError();
                 return;
             }
 
             try {
                 // Fetch all data from Edge Function (uses service role key, bypasses RLS)
-                var res = await fetch(API_URL + '?tenant_id=' + TENANT_ID + '&format=json');
+                var res = await fetch(API_URL + tenantQuery() + '&format=json');
                 if (!res.ok) {
                     showError();
                     return;
@@ -710,8 +726,8 @@
             for (const [cat, svcs] of Object.entries(grouped)) {
                 html += '<div class="category-label">' + cat + '</div>';
                 svcs.forEach(s => {
-                    html += '<div class="service-card" data-id="' + s.id + '" onclick="toggleService(\'' + s.id + '\')">' +
-                        '<div><div class="service-name">' + s.name + '</div>' +
+                    html += '<div class="service-card" data-id="' + s.id + '" onclick="toggleService(\'' + s.id + '\')" style="display:flex;align-items:center;">' +
+                        '<div class="checkbox-custom"></div><div style="flex:1;"><div class="service-name">' + s.name + '</div>' +
                         '<div class="service-meta">' + (s.duration || 30) + ' min' + (s.description ? ' · ' + s.description : '') + '</div></div>' +
                         '<div style="text-align:right"><div class="service-price">$' + (s.price || 0).toFixed(2) + '</div>' +
                         (s.deposit_amount ? '<div class="service-deposit">$' + s.deposit_amount + ' deposit</div>' : '') +
@@ -796,7 +812,7 @@
             document.getElementById('slots-container').innerHTML = '<div class="slots-loading"><div class="mini-spinner"></div>Loading available slots...</div>';
 
             try {
-                var slotsUrl = API_URL + '?tenant_id=' + TENANT_ID + '&format=slots&date=' + dateVal + '&service_id=' + selectedServiceIds[0];
+                var slotsUrl = API_URL + tenantQuery() + '&format=slots&date=' + dateVal + '&service_id=' + selectedServiceIds[0];
                 // Send all service IDs for combined duration slot calculation
                 selectedServiceIds.forEach(function (sid, i) { if (i > 0) slotsUrl += '&service_id=' + sid; });
                 if (selectedStaffId) slotsUrl += '&staff_id=' + selectedStaffId;
@@ -943,7 +959,7 @@
             btn.innerHTML = '<span class="loading-btn"></span> Booking...';
 
             try {
-                var res = await fetch(API_URL + '?tenant_id=' + TENANT_ID, {
+                var res = await fetch(API_URL + tenantQuery(), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

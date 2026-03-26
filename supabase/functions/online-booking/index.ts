@@ -77,232 +77,206 @@ Deno.serve(async (req) => {
     if (req.method === 'POST') {
         try {
             const body = await req.json();
-            const { service_id, service_ids, staff_id, date, time, client_name, client_email, client_phone } = body;
-            // Support both single and multi-service
-            const allServiceIds: string[] = service_ids && service_ids.length > 0 ? service_ids : (service_id ? [service_id] : []);
+            // New format: service_assignments = [{service_id, staff_id, time}]
+            // Legacy format: single service_id + staff_id + time
+            const { service_assignments, date, client_name, client_email, client_phone, service_id, staff_id, time } = body;
 
-            if (allServiceIds.length === 0 || !date || !time || !client_name || !client_email) {
+            if (!date || !client_name || !client_email) {
                 return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-                    status: 400,
-                    headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                    status: 400, headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
                 });
             }
+
+            // Normalize to assignments array
+            const assignments: { service_id: string; staff_id: string | null; time: string }[] =
+                service_assignments && service_assignments.length > 0
+                    ? service_assignments
+                    : [{ service_id, staff_id: staff_id || null, time }];
+
+            if (assignments.length === 0 || !assignments[0].service_id) {
+                return new Response(JSON.stringify({ error: 'No services selected' }), {
+                    status: 400, headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                });
+            }
+
+            // ── Overlap client-time validation ──
+            // Ensure no two services overlap in time for the same client.
+            if (assignments.length > 1) {
+                for (let i = 0; i < assignments.length; i++) {
+                    const svc1 = (services || []).find((s: any) => s.id === assignments[i].service_id);
+                    const dur1 = svc1 ? (svc1.duration || 30) : 30;
+                    const st1 = assignments[i].time || '09:00';
+                    const startMins1 = parseInt(st1.split(':')[0]) * 60 + parseInt(st1.split(':')[1] || '0');
+                    const endMins1 = startMins1 + dur1;
+
+                    for (let j = i + 1; j < assignments.length; j++) {
+                        const svc2 = (services || []).find((s: any) => s.id === assignments[j].service_id);
+                        const dur2 = svc2 ? (svc2.duration || 30) : 30;
+                        const st2 = assignments[j].time || '09:00';
+                        const startMins2 = parseInt(st2.split(':')[0]) * 60 + parseInt(st2.split(':')[1] || '0');
+                        const endMins2 = startMins2 + dur2;
+
+                        if (Math.max(startMins1, startMins2) < Math.min(endMins1, endMins2)) {
+                            return new Response(JSON.stringify({
+                                error: `"${svc2?.name}" overlaps with "${svc1?.name}". Please resolve time conflicts.`,
+                            }), { status: 400, headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+                        }
+                    }
+                }
+            }
+
+            const tz = tenant.timezone || 'America/Chicago';
 
             // Find or create client
             let clientId: string;
-            const { data: existingClient } = await supabase
-                .from('clients')
-                .select('id')
-                .eq('tenant_id', tenantId)
-                .eq('email', client_email)
-                .single();
-
+            const { data: existingClient } = await supabase.from('clients').select('id')
+                .eq('tenant_id', tenantId).eq('email', client_email).maybeSingle();
             if (existingClient) {
                 clientId = existingClient.id;
             } else {
-                const { data: newClient, error: clientErr } = await supabase
-                    .from('clients')
-                    .insert({
-                        tenant_id: tenantId,
-                        name: client_name,
-                        email: client_email,
-                        phone: client_phone || null,
-                    })
-                    .select('id')
-                    .single();
-                if (clientErr || !newClient) {
-                    return new Response(JSON.stringify({ error: 'Failed to create client' }), {
-                        status: 500,
-                        headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-                    });
-                }
+                const { data: newClient, error: clientErr } = await supabase.from('clients')
+                    .insert({ tenant_id: tenantId, name: client_name, email: client_email, phone: client_phone || null })
+                    .select('id').single();
+                if (clientErr || !newClient) return new Response(JSON.stringify({ error: 'Failed to create client' }), {
+                    status: 500, headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                });
                 clientId = newClient.id;
             }
 
-            // Get all selected services
-            const selectedServices = allServiceIds.map((sid: string) =>
-                (services || []).find((s: any) => s.id === sid)
-            ).filter(Boolean);
-            if (selectedServices.length === 0) {
-                return new Response(JSON.stringify({ error: 'No valid services found' }), {
-                    status: 400,
-                    headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            const createdBookingIds: string[] = [];
+            let totalDeposit = 0;
+            let totalPrice = 0;
+            const bookingsList: any[] = [];
+            let formattedDate = '';
+
+            // Create one booking per assignment
+            for (const assignment of assignments) {
+                const svc = (services || []).find((s: any) => s.id === assignment.service_id);
+                if (!svc) continue;
+
+                const assignedStaffId = assignment.staff_id || (staff && staff.length > 0 ? staff[0].id : null);
+                const slotTime = assignment.time || time;
+
+                // Convert salon-local time → UTC based on tenant.timezone
+                const naiveUTC = new Date(`${date}T${slotTime}:00.000Z`);
+                const tzParts = new Intl.DateTimeFormat('en-US', {
+                    timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: false,
+                }).formatToParts(naiveUTC);
+                const sH = parseInt(tzParts.find(p => p.type === 'hour')?.value || '0');
+                const sM = parseInt(tzParts.find(p => p.type === 'minute')?.value || '0');
+                let off = (sH * 60 + sM) - (naiveUTC.getUTCHours() * 60 + naiveUTC.getUTCMinutes());
+                if (off > 720) off -= 1440;
+                if (off < -720) off += 1440;
+                const startUTC = new Date(naiveUTC.getTime() - off * 60 * 1000);
+                const endUTC = new Date(startUTC.getTime() + (svc.duration || 30) * 60000);
+
+                formattedDate = startUTC.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz });
+                const formattedTime = startUTC.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz });
+
+                const { data: result, error: rpcErr } = await supabase.rpc('create_booking_safe', {
+                    p_tenant_id: tenantId,
+                    p_staff_id: assignedStaffId,
+                    p_client_id: clientId,
+                    p_service_id: svc.id,
+                    p_start_at: startUTC.toISOString(),
+                    p_end_at: endUTC.toISOString(),
+                    p_status: (svc.deposit_amount || 0) > 0 ? 'pending_deposit' : 'pending',
+                    p_notes: `Online booking by ${client_name}`,
+                    p_payment_method: 'card',
+                    p_total_price: svc.price || 0,
+                    p_deposit_amount: svc.deposit_amount || 0,
+                    p_booking_items: [{ service_id: svc.id, name_snapshot: svc.name, price_snapshot: svc.price || 0, duration_min_snapshot: svc.duration || 30 }],
                 });
-            }
 
-            // Combined duration, price, deposit
-            const totalDuration = selectedServices.reduce((sum: number, s: any) => sum + (s.duration || 30), 0);
-            const totalPrice = selectedServices.reduce((sum: number, s: any) => sum + (s.price || 0), 0);
-            const totalDeposit = selectedServices.reduce((sum: number, s: any) => sum + (s.deposit_amount || 0), 0);
-            const primaryService = selectedServices[0];
+                if (rpcErr) {
+                    if (createdBookingIds.length > 0) {
+                        try {
+                            await supabase.from('bookings').delete().in('id', createdBookingIds);
+                        } catch(e) {}
+                    }
+                    throw new Error('Booking failed for ' + svc.name + ': ' + rpcErr.message);
+                }
+                
+                const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+                if (!parsed.ok) {
+                    if (createdBookingIds.length > 0) {
+                        try {
+                            await supabase.from('bookings').delete().in('id', createdBookingIds);
+                        } catch(e) {}
+                    }
+                    throw new Error(parsed.error === 'TIME_CONFLICT'
+                        ? `Time conflict for ${svc.name}. Pick another slot.`
+                        : (parsed.message || 'Booking failed'));
+                }
 
-            // Build start_time (convert salon-local time to UTC)
-            const tz = tenant.timezone || 'America/Chicago';
+                createdBookingIds.push(parsed.booking_id);
+                totalDeposit += svc.deposit_amount || 0;
+                totalPrice += svc.price || 0;
 
-            // The user selected time in salon's timezone, convert to UTC
-            const naiveUTC = new Date(`${date}T${time}:00.000Z`);
-            const parts = new Intl.DateTimeFormat('en-US', {
-                timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: false,
-                year: 'numeric', month: '2-digit', day: '2-digit'
-            }).formatToParts(naiveUTC);
-            const getPart = (t: string) => parts.find(p => p.type === t)?.value || '0';
-            const salonH = parseInt(getPart('hour'));
-            const salonM = parseInt(getPart('minute'));
-            const utcH = naiveUTC.getUTCHours();
-            const utcM = naiveUTC.getUTCMinutes();
-            let offsetMin = (salonH * 60 + salonM) - (utcH * 60 + utcM);
-            if (offsetMin > 720) offsetMin -= 1440;
-            if (offsetMin < -720) offsetMin += 1440;
-            const startTimeUTC = new Date(naiveUTC.getTime() - offsetMin * 60 * 1000);
-            const startTime = startTimeUTC.toISOString();
-            const endTimeUTC = new Date(startTimeUTC.getTime() + totalDuration * 60000);
-
-            // Assign staff (use selected or first available)
-            const assignedStaffId = staff_id || (staff && staff.length > 0 ? staff[0].id : null);
-
-            // Build booking items for all services
-            const bookingItems = selectedServices.map((s: any) => ({
-                service_id: s.id,
-                name_snapshot: s.name,
-                price_snapshot: s.price || 0,
-                duration_min_snapshot: s.duration || 30,
-            }));
-
-            // Create booking using create_booking_safe (prevents double bookings)
-            const { data: bookingResult, error: rpcErr } = await supabase.rpc('create_booking_safe', {
-                p_tenant_id: tenantId,
-                p_staff_id: assignedStaffId,
-                p_client_id: clientId,
-                p_service_id: allServiceIds[0],
-                p_start_at: startTime,
-                p_end_at: endTimeUTC.toISOString(),
-                p_status: totalDeposit > 0 ? 'pending_deposit' : 'pending',
-                p_notes: `Online booking by ${client_name} (${selectedServices.map((s: any) => s.name).join(', ')})`,
-                p_payment_method: 'card',
-                p_total_price: totalPrice,
-                p_deposit_amount: totalDeposit,
-                p_booking_items: bookingItems,
-            });
-
-            if (rpcErr) {
-                return new Response(JSON.stringify({ error: 'Failed to create booking: ' + rpcErr.message }), {
-                    status: 500,
-                    headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-                });
-            }
-
-            const result = typeof bookingResult === 'string' ? JSON.parse(bookingResult) : bookingResult;
-
-            if (!result.ok) {
-                // Time conflict detected
-                return new Response(JSON.stringify({
-                    error: result.error === 'TIME_CONFLICT'
-                        ? 'This time slot is no longer available. Please choose another time.'
-                        : (result.message || 'Booking could not be created'),
-                    conflict: result.error === 'TIME_CONFLICT',
-                }), {
-                    status: 409,
-                    headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-                });
-            }
-
-            const booking = { id: result.booking_id };
-
-            // Format date/time in salon timezone for notification
-            const selectedStaff = (staff || []).find((s: any) => s.id === assignedStaffId);
-            const formattedDate = startTimeUTC.toLocaleDateString('en-US', {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz,
-            });
-            const formattedTime = startTimeUTC.toLocaleTimeString('en-US', {
-                hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz,
-            });
-
-            // Delete trigger-created notification (trigger fires on INSERT with raw UTC time)
-            // We'll replace it with our properly formatted one below
-            await supabase
-                .from('notification_queue')
-                .delete()
-                .eq('booking_id', booking.id)
-                .eq('event_type', 'booking_created');
-
-            await supabase.from('notification_queue').insert({
-                tenant_id: tenantId,
-                booking_id: booking.id,
-                event_type: 'booking_created',
-                client_name: client_name,
-                client_email: client_email,
-                client_phone: client_phone || null,
-                status: 'pending',
-                booking_details: {
-                    date: formattedDate,
+                const selectedStaffMember = (staff || []).find((s: any) => s.id === assignedStaffId);
+                bookingsList.push({
+                    service: svc.name,
                     time: formattedTime,
-                    service: selectedServices.map((s: any) => s.name).join(', '),
-                    stylist: selectedStaff?.name || 'Staff',
-                    price: totalPrice.toFixed(2),
-                },
-            });
-
-            // Trigger send-notification
-            try {
-                await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' },
+                    stylist: selectedStaffMember?.name || 'Staff',
+                    price: (svc.price || 0).toFixed(2),
+                    deposit: (svc.deposit_amount || 0).toFixed(2)
                 });
-            } catch { /* best effort */ }
+            }
 
-            // Create payment link if deposit required
+            // Create payment link only once if deposit required (based on ALL bookings)
             let paymentUrl = '';
-            let paymentError = '';
-            if (totalDeposit > 0) {
+            if (totalDeposit > 0 && createdBookingIds.length > 0) {
                 try {
                     const payRes = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-link`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-                            'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026',
-                        },
-                        body: JSON.stringify({
-                            tenant_id: tenantId,
-                            booking_id: booking.id,
-                            amount: totalDeposit,
-                            client_email: client_email,
-                            client_name: client_name,
-                            slug: slug || '',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026' },
+                        body: JSON.stringify({ 
+                            tenant_id: tenantId, 
+                            booking_ids: createdBookingIds.join(','), // Send grouped IDs
+                            amount: totalDeposit, 
+                            client_email, 
+                            client_name, 
+                            slug: slug || '' 
                         }),
                     });
                     const payData = await payRes.json();
-                    if (payRes.ok && payData.success) {
-                        paymentUrl = payData.payment_link || payData.payment_url || payData.url || '';
-                    } else {
-                        paymentError = payData.error || payData.message || `Status: ${payRes.status}`;
-                    }
-                } catch (payErr: any) {
-                    paymentError = payErr.message || 'Payment link fetch failed';
-                }
+                    if (payRes.ok && payData.success) paymentUrl = payData.payment_link || payData.payment_url || payData.url || '';
+                } catch { /* best effort */ }
+            }
+
+            // Insert a SINGLE notification record for the grouped bookings
+            if (createdBookingIds.length > 0) {
+                const firstBookingId = createdBookingIds[0];
+                const multiServiceSummary = bookingsList.map(b => b.service).join(' + ');
+
+                await supabase.from('notification_queue').insert({
+                    tenant_id: tenantId, booking_id: firstBookingId, event_type: 'booking_created',
+                    client_name, client_email, client_phone: client_phone || null, status: 'pending',
+                    booking_details: { 
+                        date: formattedDate, 
+                        service: multiServiceSummary, 
+                        price: totalPrice.toFixed(2),
+                        deposit_amount: totalDeposit.toFixed(2),
+                        bookings_list: bookingsList // <-- This array will be used by the email template
+                    },
+                });
+
+                try {
+                    await fetch(`${SUPABASE_URL}/functions/v1/send-notification`, {
+                        method: 'POST', headers: { 'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`, 'Content-Type': 'application/json' },
+                    });
+                } catch { /* best effort */ }
             }
 
             return new Response(JSON.stringify({
-                success: true,
-                booking_id: booking.id,
-                message: 'Booking created successfully!',
+                success: true, booking_id: createdBookingIds[0],
+                details: { service: bookingsList.map(b => b.service).join(' + '), stylist: 'Multiple', date: formattedDate, price: totalPrice, deposit: totalDeposit },
                 payment_url: paymentUrl,
-                payment_error: paymentError || undefined,
-                details: {
-                    service: selectedServices.map((s: any) => s.name).join(', '),
-                    stylist: selectedStaff?.name || 'Staff',
-                    date: formattedDate,
-                    time: formattedTime,
-                    price: totalPrice,
-                    deposit: totalDeposit,
-                },
-            }), {
-                headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            });
+            }), { headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+
         } catch (e: any) {
             return new Response(JSON.stringify({ error: e.message }), {
-                status: 500,
-                headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                status: 500, headers: { 'content-type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             });
         }
     }
@@ -517,19 +491,23 @@ Deno.serve(async (req) => {
             <div class="step-dot" id="dot-3"></div>
         </div>
 
-        <!-- Step 1: Select Service -->
+        <!-- Step 1: Select Services (Multi-select) -->
         <div class="step active" id="step-0">
-            <div class="step-title">Choose a Service</div>
+            <div class="step-title">Choose Your Services</div>
+            <p style="color:#A0A0A0;font-size:13px;margin-bottom:16px">Select one or more services for your appointment</p>
             <div id="services-list">
                 ${Object.entries(grouped).map(([cat, svcs]) => `
                     <div class="category-label">${cat}</div>
                     ${(svcs as any[]).map((s: any) => `
-                        <div class="service-card" data-id="${s.id}" onclick="selectService('${s.id}')">
-                            <div>
-                                <div class="service-name">${s.name}</div>
-                                <div class="service-meta">${s.duration || 30} min${s.description ? ' · ' + s.description : ''}</div>
+                        <div class="service-card" data-id="${s.id}" onclick="toggleService('${s.id}')">
+                            <div style="display:flex;align-items:center;gap:12px">
+                                <div class="svc-check" id="check-${s.id}" style="width:20px;height:20px;border-radius:6px;border:2px solid #555;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.2s"></div>
+                                <div>
+                                    <div class="service-name">${s.name}</div>
+                                    <div class="service-meta">${s.duration || 30} min${s.description ? ' · ' + s.description : ''}</div>
+                                </div>
                             </div>
-                            <div style="text-align:right">
+                            <div style="text-align:right;flex-shrink:0">
                                 <div class="service-price">$${(s.price || 0).toFixed(2)}</div>
                                 ${s.deposit_amount ? `<div class="service-deposit">$${s.deposit_amount} deposit</div>` : ''}
                             </div>
@@ -537,36 +515,27 @@ Deno.serve(async (req) => {
                     `).join('')}
                 `).join('')}
             </div>
+            <div id="selection-summary" style="display:none;background:#D4AF3715;border:1px solid #D4AF3730;border-radius:12px;padding:14px 18px;margin-top:16px;font-size:14px">
+                <span style="color:#D4AF37;font-weight:700" id="sel-count">0 services</span>
+                <span style="color:#A0A0A0"> selected · Total: </span>
+                <span style="color:#D4AF37;font-weight:700" id="sel-total">$0</span>
+                <span style="color:#A0A0A0"> · </span>
+                <span style="color:#A0A0A0" id="sel-duration">0 min</span>
+            </div>
+            <div class="btn-row" style="margin-top:20px">
+                <button class="btn btn-gold" onclick="goStep(1)">Choose Stylists & Time →</button>
+            </div>
         </div>
 
-        <!-- Step 2: Select Staff + Date/Time -->
+        <!-- Step 2: Per-Service Staff & Time -->
         <div class="step" id="step-1">
-            <div class="step-title">Choose Staff & Time</div>
+            <div class="step-title">Choose Stylist & Time</div>
+            <p style="color:#A0A0A0;font-size:13px;margin-bottom:20px">Pick a stylist and time for each service</p>
             <div class="form-group">
-                <label class="form-label">PREFERRED STYLIST</label>
-                <div id="staff-list">
-                    <div class="staff-card selected" data-id="" onclick="selectStaff('')">
-                        <div class="staff-avatar">?</div>
-                        <div><div class="staff-name">Any Available</div><div class="staff-spec">First available stylist</div></div>
-                    </div>
-                    ${(staff || []).map((s: any) => `
-                        <div class="staff-card" data-id="${s.id}" onclick="selectStaff('${s.id}')">
-                            <div class="staff-avatar">${(s.name || 'S')[0]}</div>
-                            <div><div class="staff-name">${s.name}</div><div class="staff-spec">${s.specialty || 'Stylist'}</div></div>
-                        </div>
-                    `).join('')}
-                </div>
+                <label class="form-label">DATE *</label>
+                <input type="date" id="booking-date" class="form-input" min="${new Date().toISOString().split('T')[0]}" onchange="renderServiceAssignments()">
             </div>
-            <div class="form-row" style="margin-top:20px">
-                <div class="form-group">
-                    <label class="form-label">DATE</label>
-                    <input type="date" id="booking-date" class="form-input" min="${new Date().toISOString().split('T')[0]}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">TIME</label>
-                    <input type="time" id="booking-time" class="form-input" value="10:00">
-                </div>
-            </div>
+            <div id="service-assignments-container" style="margin-top:8px"></div>
             <div class="btn-row">
                 <button class="btn btn-outline" onclick="goStep(0)">← Back</button>
                 <button class="btn btn-gold" onclick="goStep(2)">Continue →</button>
@@ -625,36 +594,81 @@ Deno.serve(async (req) => {
     const TENANT_ID = '${tenantId}';
     const API_URL = '${SUPABASE_URL}/functions/v1/online-booking?tenant_id=${tenantId}';
 
-    let currentStep = 0;
-    let selectedServiceId = null;
-    let selectedStaffId = '';
 
-    function selectService(id) {
-        selectedServiceId = id;
-        document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
-        document.querySelector('.service-card[data-id="'+id+'"]')?.classList.add('selected');
-        setTimeout(() => goStep(1), 200);
+    let currentStep = 0;
+    let selectedServiceIds = []; // [{id, name, price, duration, deposit}]
+
+    function toggleService(id) {
+        const svc = SERVICES.find(s => s.id === id);
+        if (!svc) return;
+        const idx = selectedServiceIds.findIndex(s => s.id === id);
+        if (idx >= 0) {
+            selectedServiceIds.splice(idx, 1);
+            document.querySelector('.service-card[data-id="'+id+'"]')?.classList.remove('selected');
+            const chk = document.getElementById('check-' + id);
+            if (chk) { chk.style.background = ''; chk.style.borderColor = '#555'; chk.innerHTML = ''; }
+        } else {
+            selectedServiceIds.push(svc);
+            document.querySelector('.service-card[data-id="'+id+'"]')?.classList.add('selected');
+            const chk = document.getElementById('check-' + id);
+            if (chk) { chk.style.background = '#D4AF37'; chk.style.borderColor = '#D4AF37'; chk.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="#000" stroke-width="2" fill="none"/></svg>'; }
+        }
+        updateSelectionSummary();
     }
 
-    function selectStaff(id) {
-        selectedStaffId = id;
-        document.querySelectorAll('.staff-card').forEach(c => c.classList.remove('selected'));
-        document.querySelector('.staff-card[data-id="'+id+'"]')?.classList.add('selected');
+    function updateSelectionSummary() {
+        const total = selectedServiceIds.reduce((s, x) => s + (x.price || 0), 0);
+        const dur = selectedServiceIds.reduce((s, x) => s + (x.duration || 30), 0);
+        const summary = document.getElementById('selection-summary');
+        if (selectedServiceIds.length > 0) {
+            summary.style.display = 'block';
+            document.getElementById('sel-count').textContent = selectedServiceIds.length + ' service' + (selectedServiceIds.length > 1 ? 's' : '');
+            document.getElementById('sel-total').textContent = '$' + total.toFixed(2);
+            document.getElementById('sel-duration').textContent = dur + ' min total';
+        } else {
+            summary.style.display = 'none';
+        }
+    }
+
+    // serviceAssignments: [{service_id, staff_id, time}]
+    let serviceAssignments = [];
+
+    function renderServiceAssignments() {
+        const container = document.getElementById('service-assignments-container');
+        if (!container) return;
+        serviceAssignments = selectedServiceIds.map(svc => ({ service_id: svc.id, staff_id: '', time: '10:00' }));
+        container.innerHTML = selectedServiceIds.map(function(svc, i) {
+            const staffOpts = '<option value="">Any Available</option>' + STAFF.map(function(s) { return '<option value="' + s.id + '">' + s.name + '</option>'; }).join('');
+            return '<div style="background:#1E1E1E;border:1px solid #333;border-radius:12px;padding:16px;margin-bottom:12px">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+                '<div><div style="font-weight:700;font-size:15px">' + svc.name + '</div>' +
+                '<div style="color:#A0A0A0;font-size:12px">' + (svc.duration || 30) + ' min &middot; $' + (svc.price || 0).toFixed(2) + '</div></div></div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+                '<div><label style="font-size:12px;font-weight:600;color:#A0A0A0;display:block;margin-bottom:6px">STYLIST</label>' +
+                '<select class="form-input" id="staff-' + i + '" onchange="updateAssignment(' + i + ',\'staff_id\',this.value)" style="background:#0f0f0f">' + staffOpts + '</select></div>' +
+                '<div><label style="font-size:12px;font-weight:600;color:#A0A0A0;display:block;margin-bottom:6px">TIME</label>' +
+                '<input type="time" class="form-input" id="time-' + i + '" value="10:00" onchange="updateAssignment(' + i + ',\'time\',this.value)"></div>' +
+                '</div></div>';
+        }).join('');
+    }
+
+    function updateAssignment(i, field, value) {
+        if (serviceAssignments[i]) serviceAssignments[i][field] = value;
     }
 
     function goStep(n) {
-        // Validation
-        if (n === 1 && !selectedServiceId) { alert('Please select a service'); return; }
+        if (n === 1 && selectedServiceIds.length === 0) { alert('Please select at least one service'); return; }
+        if (n === 1) { renderServiceAssignments(); }
         if (n === 2) {
             if (!document.getElementById('booking-date').value) { alert('Please select a date'); return; }
-            if (!document.getElementById('booking-time').value) { alert('Please select a time'); return; }
+            const anyMissingTime = serviceAssignments.some(a => !a.time);
+            if (anyMissingTime) { alert('Please select a time for all services'); return; }
         }
         if (n === 3) {
             if (!document.getElementById('client-name').value.trim()) { alert('Please enter your name'); return; }
             if (!document.getElementById('client-email').value.trim()) { alert('Please enter your email'); return; }
             buildSummary();
         }
-
         document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
         document.getElementById('step-' + n).classList.add('active');
         document.querySelectorAll('.step-dot').forEach((d, i) => {
@@ -667,59 +681,58 @@ Deno.serve(async (req) => {
     }
 
     function buildSummary() {
-        const svc = SERVICES.find(s => s.id === selectedServiceId);
-        const stf = STAFF.find(s => s.id === selectedStaffId);
         const date = document.getElementById('booking-date').value;
-        const time = document.getElementById('booking-time').value;
         const name = document.getElementById('client-name').value;
-
-        const dateObj = new Date(date + 'T' + time);
+        const totalPrice = selectedServiceIds.reduce((s, x) => s + (x.price || 0), 0);
+        const totalDeposit = selectedServiceIds.reduce((s, x) => s + (x.deposit_amount || 0), 0);
+        const totalDur = selectedServiceIds.reduce((s, x) => s + (x.duration || 30), 0);
+        const dateObj = new Date(date + 'T12:00:00');
         const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        const formattedTime = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
-        document.getElementById('booking-summary').innerHTML = 
+        const svcRows = serviceAssignments.map((a, i) => {
+            const svc = selectedServiceIds[i];
+            const stf = STAFF.find(s => s.id === a.staff_id);
+            const timeObj = new Date(date + 'T' + a.time);
+            const timeStr = timeObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            return '<div class="summary-row"><span class="summary-label">✂ ' + svc.name + '</span>' +
+                   '<span class="summary-value">' + (stf ? stf.name : 'Any') + ' @ ' + timeStr + '</span></div>';
+        }).join('');
+
+        document.getElementById('booking-summary').innerHTML =
             '<div class="summary-row"><span class="summary-label">👤 Client</span><span class="summary-value">' + name + '</span></div>' +
-            '<div class="summary-row"><span class="summary-label">💇 Service</span><span class="summary-value">' + (svc?.name || '') + '</span></div>' +
-            '<div class="summary-row"><span class="summary-label">👨‍💼 Stylist</span><span class="summary-value">' + (stf?.name || 'Any Available') + '</span></div>' +
+            svcRows +
             '<div class="summary-row"><span class="summary-label">📅 Date</span><span class="summary-value">' + formattedDate + '</span></div>' +
-            '<div class="summary-row"><span class="summary-label">🕐 Time</span><span class="summary-value">' + formattedTime + '</span></div>' +
-            '<div class="summary-row"><span class="summary-label">⏱ Duration</span><span class="summary-value">' + (svc?.duration || 30) + ' min</span></div>' +
-            '<div class="summary-row"><span class="summary-label">💰 Total</span><span class="summary-total">$' + (svc?.price || 0).toFixed(2) + '</span></div>' +
-            (svc?.deposit_amount ? '<div class="summary-row"><span class="summary-label" style="color:#22C55E">💳 Deposit Required</span><span class="summary-value" style="color:#22C55E">$' + svc.deposit_amount.toFixed(2) + '</span></div>' : '');
+            '<div class="summary-row"><span class="summary-label">⏱ Total Duration</span><span class="summary-value">' + totalDur + ' min</span></div>' +
+            '<div class="summary-row"><span class="summary-label">💰 Total Price</span><span class="summary-total">$' + totalPrice.toFixed(2) + '</span></div>' +
+            (totalDeposit > 0 ? '<div class="summary-row"><span class="summary-label" style="color:#22C55E">💳 Deposit</span><span class="summary-value" style="color:#22C55E">$' + totalDeposit.toFixed(2) + '</span></div>' : '');
     }
 
     async function submitBooking() {
         const btn = document.getElementById('confirm-btn');
         btn.disabled = true;
         btn.innerHTML = '<span class="loading"></span> Booking...';
-
         try {
+            const date = document.getElementById('booking-date').value;
             const res = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    service_id: selectedServiceId,
-                    staff_id: selectedStaffId || undefined,
-                    date: document.getElementById('booking-date').value,
-                    time: document.getElementById('booking-time').value,
+                    service_assignments: serviceAssignments,
+                    date,
                     client_name: document.getElementById('client-name').value.trim(),
                     client_email: document.getElementById('client-email').value.trim(),
                     client_phone: document.getElementById('client-phone').value.trim() || undefined,
                 }),
             });
-
             const data = await res.json();
-
             if (data.success) {
-                let msg = 'Your appointment for <strong>' + (data.details?.service || '') + '</strong> on <strong>' + (data.details?.date || '') + '</strong> at <strong>' + (data.details?.time || '') + '</strong> has been confirmed.';
-                msg += '<br><br>A confirmation email has been sent to <strong>' + document.getElementById('client-email').value + '</strong>.';
-                
+                const d = data.details || {};
+                let msg = 'Your appointments for <strong>' + (d.service || '') + '</strong> on <strong>' + (d.date || '') + '</strong> have been confirmed.';
+                msg += '<br><br>Confirmation email sent to <strong>' + document.getElementById('client-email').value + '</strong>.';
                 document.getElementById('success-msg').innerHTML = msg;
-
                 if (data.payment_url) {
-                    document.getElementById('pay-btn-wrapper').innerHTML = '<a href="' + data.payment_url + '" class="btn btn-gold" style="display:inline-block;text-decoration:none;padding:16px 40px;max-width:300px;">💳 Pay $' + (data.details?.deposit || 0) + ' Deposit</a><div style="color:#666;font-size:12px;margin-top:8px">Secure payment via Stripe</div>';
+                    document.getElementById('pay-btn-wrapper').innerHTML = '<a href="' + data.payment_url + '" class="btn btn-gold" style="display:inline-block;text-decoration:none;padding:16px 40px;max-width:300px;">💳 Pay $' + (d.deposit || 0) + ' Deposit</a><div style="color:#666;font-size:12px;margin-top:8px">Secure payment via Stripe</div>';
                 }
-
                 goStep(4);
             } else {
                 alert(data.error || 'Failed to create booking. Please try again.');

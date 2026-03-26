@@ -7,6 +7,7 @@ import {
     BarChart3,
     PhoneCall,
     Megaphone,
+    Star,
     Bot,
     Settings,
     Moon,
@@ -14,7 +15,8 @@ import {
     LogOut,
     Building2,
     UserCircle,
-    Lock
+    Lock,
+    Calculator
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -27,12 +29,14 @@ function cn(...inputs: ClassValue[]) {
 
 const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', id: 'dashboard', roles: ['super_admin', 'owner', 'manager'] },
+    { icon: Calculator, label: 'Point of Sale', id: 'pos', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
     { icon: Calendar, label: 'Bookings', id: 'bookings', roles: ['super_admin', 'owner', 'manager', 'staff'] },
     { icon: Users, label: 'Clients', id: 'clients', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
     { icon: UsersRound, label: 'Stylists', id: 'stylists', roles: ['super_admin', 'owner', 'manager'] },
     { icon: BarChart3, label: 'Analytics', id: 'analytics', roles: ['super_admin', 'owner', 'manager'] },
     { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'], minTier: 'pro' },
     { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner'], minTier: 'pro' },
+    { icon: Star, label: 'Reviews', id: 'reviews', roles: ['super_admin', 'owner', 'manager'] },
     { icon: Bot, label: 'Bella AI', id: 'bella', roles: ['super_admin', 'owner', 'manager'] },
     { icon: Settings, label: 'Settings', id: 'settings', roles: ['super_admin', 'owner'] },
     { icon: UserCircle, label: 'My Profile', id: 'my_profile', roles: ['staff', 'manager', 'receptionist'] },
