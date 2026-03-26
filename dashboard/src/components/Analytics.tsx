@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     TrendingUp,
     BarChart3,
@@ -34,7 +34,7 @@ import {
 } from 'recharts';
 import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
-import { generatePnLPDF, generateMasterReportPDF } from '../utils/pdfGenerator';
+import { generateMasterReportPDF } from '../utils/pdfGenerator';
 
 interface RevDay { day: string; revenue: number; booking_count: number }
 interface ServiceRow { service_name: string; booking_count: number; total_revenue: number }
@@ -61,6 +61,7 @@ export const Analytics: React.FC = () => {
     const [services, setServices] = useState<ServiceRow[]>([]);
     const [statuses, setStatuses] = useState<StatusRow[]>([]);
     const [peakHours, setPeakHours] = useState<{hour: string, count: number}[]>([]);
+    const [salesBreakdown, setSalesBreakdown] = useState<{type: string, value: number}[]>([]);
     const [days, setDays] = useState(30);
     
     // Drawer Data
@@ -70,20 +71,11 @@ export const Analytics: React.FC = () => {
     
     // Staff Data
     const [staffData, setStaffData] = useState<{
-        id: string;
-        name: string;
-        color: string;
-        base_salary: number;
-        commission_percent: number;
-        bookings_count: number;
-        service_revenue: number;
-        commission_earned: number;
-        tip_amount: number;
-        total_payout: number;
+        id: string; name: string; color: string;
+        base_salary: number; commission_percent: number;
+        bookings_count: number; service_revenue: number;
+        commission_earned: number; tip_amount: number; total_payout: number;
     }[]>([]);
-    
-    // Sales Breakdown Data
-    const [salesBreakdown, setSalesBreakdown] = useState<{type: string, value: number}[]>([]);
 
     // P&L Data
     const [expenses, setExpenses] = useState<any[]>([]);
@@ -95,295 +87,185 @@ export const Analytics: React.FC = () => {
     const [expNotes, setExpNotes] = useState('');
     const [addingExp, setAddingExp] = useState(false);
 
-    const [loading, setLoading] = useState(true);
+    // Per-tab loading states
+    const [loadingOverview, setLoadingOverview] = useState(true);
+    const setLoadingDrawer = useState(false)[1];
+    const setLoadingStaff = useState(false)[1];
+    const setLoadingPnL = useState(false)[1];
 
-    const fetchData = useCallback(async () => {
+    // Track which sub-tabs have already been fetched (lazy cache per session)
+    const loadedTabs = useRef<Set<string>>(new Set());
+
+    // ─── OVERVIEW + SALES fetch (runs on mount and when days changes) ───
+    const fetchOverviewData = useCallback(async () => {
         if (!tenantId) return;
-        setLoading(true);
+        setLoadingOverview(true);
         try {
             const startDate = new Date();
             startDate.setDate(startDate.getDate() - days);
             const startDateStr = startDate.toISOString();
-            
-            // 1. Fetch Bookings (for Overview)
+
             const { data: bookings } = await supabaseAdmin
                 .from('bookings')
-                .select(`
-                    id, start_time, total_price, status,
-                    service_id, services (name),
-                    stylist_id,
-                    booking_items (name_snapshot, price_snapshot)
-                `)
+                .select(`id, start_time, total_price, status, service_id, services (name), stylist_id, booking_items (name_snapshot, price_snapshot)`)
                 .eq('tenant_id', tenantId)
                 .gte('start_time', startDateStr);
 
-            // PROCESS OVERVIEW DATA
-            const activeBookings = (bookings || []).filter(b => b.status !== 'cancelled' && b.status !== 'no_show');
-            
+            const activeBookings = (bookings || []).filter((b: any) => b.status !== 'cancelled' && b.status !== 'no_show');
+
             // Revenue by day
             const dayMap: Record<string, { revenue: number; booking_count: number }> = {};
             for (let i = 0; i <= days; i++) {
-                const d = new Date();
-                d.setDate(d.getDate() - days + i);
-                const key = d.toISOString().split('T')[0];
-                dayMap[key] = { revenue: 0, booking_count: 0 };
+                const d = new Date(); d.setDate(d.getDate() - days + i);
+                dayMap[d.toISOString().split('T')[0]] = { revenue: 0, booking_count: 0 };
             }
             activeBookings.forEach((b: any) => {
                 const key = new Date(b.start_time).toISOString().split('T')[0];
-                if (dayMap[key]) {
-                    dayMap[key].revenue += Number(b.total_price) || 0;
-                    dayMap[key].booking_count += 1;
-                }
+                if (dayMap[key]) { dayMap[key].revenue += Number(b.total_price) || 0; dayMap[key].booking_count += 1; }
             });
             setRevData(Object.entries(dayMap).map(([day, v]) => ({
                 day: new Date(day + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                revenue: v.revenue,
-                booking_count: v.booking_count,
+                revenue: v.revenue, booking_count: v.booking_count,
             })));
 
+            // Services + Sales Breakdown
             const svcMap: Record<string, { booking_count: number; total_revenue: number }> = {};
-            let serviceRev = 0;
-            let productRev = 0;
-
+            let serviceRev = 0, productRev = 0;
             activeBookings.forEach((b: any) => {
                 const bItems = b.booking_items || [];
-                
-                // If there are no items, fallback to the legacy service name approach
                 if (bItems.length === 0) {
                     const lineTotal = Number(b.total_price) || 0;
-                    const serviceName = b.services?.name || 'Unknown Service';
-                    if (serviceName.includes('Custom Charge') || serviceName.includes('Retail')) {
-                        productRev += lineTotal;
-                    } else {
-                        serviceRev += lineTotal;
-                        if (!svcMap[serviceName]) svcMap[serviceName] = { booking_count: 0, total_revenue: 0 };
-                        svcMap[serviceName].booking_count += 1;
-                        svcMap[serviceName].total_revenue += lineTotal;
-                    }
+                    const sn = b.services?.name || 'Unknown Service';
+                    if (sn.includes('Custom Charge') || sn.includes('Retail')) { productRev += lineTotal; }
+                    else { serviceRev += lineTotal; if (!svcMap[sn]) svcMap[sn] = { booking_count: 0, total_revenue: 0 }; svcMap[sn].booking_count += 1; svcMap[sn].total_revenue += lineTotal; }
                 } else {
-                    // Modern approach: sum up from explicit booking_items
                     bItems.forEach((item: any) => {
-                        const itemName = item.name_snapshot || 'Unknown Item';
-                        const itemPrice = Number(item.price_snapshot) || 0;
-                        
-                        if (itemName.startsWith('[RETAIL]') || itemName.startsWith('[CUSTOM]')) {
-                            productRev += itemPrice;
-                        } else {
-                            serviceRev += itemPrice;
-                            if (!svcMap[itemName]) svcMap[itemName] = { booking_count: 0, total_revenue: 0 };
-                            // We only count the booking once per service type
-                            svcMap[itemName].total_revenue += itemPrice;
-                        }
+                        const iName = item.name_snapshot || 'Unknown Item', iPrice = Number(item.price_snapshot) || 0;
+                        if (iName.startsWith('[RETAIL]') || iName.startsWith('[CUSTOM]')) { productRev += iPrice; }
+                        else { serviceRev += iPrice; if (!svcMap[iName]) svcMap[iName] = { booking_count: 0, total_revenue: 0 }; svcMap[iName].total_revenue += iPrice; }
                     });
-                    
-                    // Increment booking count for unique services in this booking
-                    const uniqueServices = new Set<string>();
-                    bItems.forEach((item: any) => {
-                        const itemName = item.name_snapshot || 'Unknown Item';
-                        if (!itemName.startsWith('[RETAIL]') && !itemName.startsWith('[CUSTOM]')) {
-                            uniqueServices.add(itemName);
-                        }
-                    });
-                    uniqueServices.forEach(svc => {
-                        if (!svcMap[svc]) svcMap[svc] = { booking_count: 0, total_revenue: 0 };
-                        svcMap[svc].booking_count += 1;
-                    });
+                    const uniqueServices = new Set<string>(bItems.filter((i: any) => !i.name_snapshot?.startsWith('[RETAIL]') && !i.name_snapshot?.startsWith('[CUSTOM]')).map((i: any) => i.name_snapshot || 'Unknown'));
+                    uniqueServices.forEach(svc => { if (!svcMap[svc]) svcMap[svc] = { booking_count: 0, total_revenue: 0 }; svcMap[svc].booking_count += 1; });
                 }
             });
-
-            setServices(Object.entries(svcMap)
-                .map(([service_name, v]) => ({ service_name, ...v }))
-                .sort((a, b) => b.total_revenue - a.total_revenue)
-                .slice(0, 10));
-
-            setSalesBreakdown([
-                { type: 'Salon Services', value: serviceRev },
-                { type: 'Retail & Custom Charges', value: productRev }
-            ].filter(d => d.value > 0));
+            setServices(Object.entries(svcMap).map(([service_name, v]) => ({ service_name, ...v })).sort((a, b) => b.total_revenue - a.total_revenue).slice(0, 10));
+            setSalesBreakdown([{ type: 'Salon Services', value: serviceRev }, { type: 'Retail & Custom Charges', value: productRev }].filter(d => d.value > 0));
 
             // Statuses
             const statusMap: Record<string, number> = {};
-            (bookings || []).forEach((b: any) => {
-                statusMap[b.status] = (statusMap[b.status] || 0) + 1;
-            });
-            setStatuses(Object.entries(statusMap)
-                .map(([status, count]) => ({ status, count }))
-                .sort((a, b) => b.count - a.count));
+            (bookings || []).forEach((b: any) => { statusMap[b.status] = (statusMap[b.status] || 0) + 1; });
+            setStatuses(Object.entries(statusMap).map(([status, count]) => ({ status, count })).sort((a, b) => b.count - a.count));
 
-            // Peak Hours Heatmap (group by hour, 0-23)
+            // Peak Hours
             const hourMap: Record<number, number> = {};
-            activeBookings.forEach((b: any) => {
-                if (b.start_time) {
-                    const hour = new Date(b.start_time).getHours();
-                    hourMap[hour] = (hourMap[hour] || 0) + 1;
-                }
-            });
+            activeBookings.forEach((b: any) => { if (b.start_time) { const h = new Date(b.start_time).getHours(); hourMap[h] = (hourMap[h] || 0) + 1; } });
             const hourData = [];
-            for (let i = 6; i <= 22; i++) { // Filter to typical salon hours: 6AM to 10PM
-                const ampm = i >= 12 ? 'PM' : 'AM';
-                const displayNum = i > 12 ? i - 12 : (i === 0 ? 12 : i);
-                hourData.push({
-                    hour: `${displayNum} ${ampm}`,
-                    count: hourMap[i] || 0
-                });
+            for (let i = 6; i <= 22; i++) {
+                const ampm = i >= 12 ? 'PM' : 'AM', displayNum = i > 12 ? i - 12 : (i === 0 ? 12 : i);
+                hourData.push({ hour: `${displayNum} ${ampm}`, count: hourMap[i] || 0 });
             }
             setPeakHours(hourData);
-
-            // Staff Performance
-            // 1b. Fetch Staff List via RPC to bypass any PostgREST schema cache delays on new columns
-            const { data: staffList } = await supabaseAdmin.rpc('rpc_staff_board', {
-                p_tenant_id: tenantId
-            });
-            
-            // 1c. Fetch Payments for Tips (entire period)
-            const { data: periodPayments } = await supabaseAdmin
-                .from('payments')
-                .select('booking_id, tip_amount')
-                .eq('tenant_id', tenantId)
-                .gte('created_at', startDateStr)
-                .gt('tip_amount', 0);
-
-            const tipMap: Record<string, number> = {};
-            (periodPayments || []).forEach(p => {
-                if (p.booking_id && p.tip_amount) {
-                    tipMap[p.booking_id] = (tipMap[p.booking_id] || 0) + Number(p.tip_amount);
-                }
-            });
-
-            const staffRevMap: Record<string, any> = {};
-            (staffList || []).forEach(s => {
-                staffRevMap[s.id] = {
-                    id: s.id,
-                    name: s.full_name,
-                    color: s.color || '#D4AF37',
-                    base_salary: Number(s.base_salary) || 0,
-                    commission_percent: Number(s.commission_percent) || 0,
-                    bookings_count: 0,
-                    service_revenue: 0,
-                    tip_amount: 0,
-                };
-            });
-
-            activeBookings.forEach((b: any) => {
-                const sid = b.stylist_id;
-                if (!sid) return;
-                if (!staffRevMap[sid]) {
-                    staffRevMap[sid] = {
-                        id: sid, name: 'Unknown Stylist', color: '#666',
-                        base_salary: 0, commission_percent: 0,
-                        bookings_count: 0, service_revenue: 0, tip_amount: 0
-                    };
-                }
-                staffRevMap[sid].bookings_count += 1;
-                staffRevMap[sid].service_revenue += Number(b.total_price) || 0;
-                
-                if (tipMap[b.id]) {
-                    staffRevMap[sid].tip_amount += tipMap[b.id];
-                }
-            });
-
-            setStaffData(Object.values(staffRevMap)
-                .map((d: any) => {
-                    const commission_earned = d.service_revenue * (d.commission_percent / 100);
-                    const total_payout = d.base_salary + commission_earned + d.tip_amount;
-                    return { ...d, commission_earned, total_payout };
-                })
-                .sort((a, b) => b.total_payout - a.total_payout));
-
-            // 2. Fetch Payments (for Daily Drawer and Master Report breakdown)
-            const { data: allPayments } = await supabaseAdmin
-                .from('payments')
-                .select('*')
-                .eq('tenant_id', tenantId)
-                .gte('created_at', startDateStr);
-
-            const todayStr = new Date().toISOString().split('T')[0];
-            const todayPayments = (allPayments || []).filter((p: any) => {
-                if (!p.created_at) return false;
-                return new Date(p.created_at).toISOString().split('T')[0] === todayStr;
-            });
-
-            const pMap: Record<string, {amount: number, count: number}> = {
-                cash: { amount: 0, count: 0 },
-                card: { amount: 0, count: 0 },
-                other: { amount: 0, count: 0 }
-            };
-
-            todayPayments.forEach((p: any) => {
-                const method = p.payment_method?.toLowerCase() || 'other';
-                if (method.includes('cash')) {
-                    pMap.cash.amount += Number(p.amount) || 0;
-                    pMap.cash.count += 1;
-                } else if (method.includes('card')) {
-                    pMap.card.amount += Number(p.amount) || 0;
-                    pMap.card.count += 1;
-                } else {
-                    pMap.other.amount += Number(p.amount) || 0;
-                    pMap.other.count += 1;
-                }
-            });
-
-            setDrawerData([
-                { method: 'Cash', ...pMap.cash },
-                { method: 'Card (Terminal/Online)', ...pMap.card },
-                { method: 'Other', ...pMap.other }
-            ].filter(d => d.amount > 0 || d.method === 'Cash'));
-            
-            setTotalExpectedCash(pMap.cash.amount);
-
-            // Calculate daily breakdown for the Master Report
-            const dailyLogsMap: Record<string, { cash: number, card: number, other: number }> = {};
-            for (let i = 0; i <= days; i++) {
-                const d = new Date();
-                d.setDate(d.getDate() - days + i);
-                const key = d.toISOString().split('T')[0];
-                dailyLogsMap[key] = { cash: 0, card: 0, other: 0 };
-            }
-
-            (allPayments || []).forEach((p: any) => {
-                if (!p.created_at) return;
-                const key = new Date(p.created_at).toISOString().split('T')[0];
-                const method = p.payment_method?.toLowerCase() || 'other';
-                const amt = Number(p.amount) || 0;
-                if (dailyLogsMap[key]) {
-                    if (method.includes('cash')) dailyLogsMap[key].cash += amt;
-                    else if (method.includes('card')) dailyLogsMap[key].card += amt;
-                    else dailyLogsMap[key].other += amt;
-                }
-            });
-
-            const logsArray = Object.entries(dailyLogsMap).map(([date, vals]) => ({
-                date,
-                ...vals
-            })).sort((a, b) => a.date.localeCompare(b.date)); // chronological order
-
-            setDailyDrawerLogs(logsArray);
-            
-            setTotalExpectedCash(pMap.cash.amount);
-
-            // 3. Fetch Expenses & Staff Ledger for P&L
-            const { data: expData } = await supabaseAdmin
-                .from('expenses')
-                .select('*')
-                .eq('tenant_id', tenantId)
-                .gte('expense_date', startDateStr.split('T')[0]);
-            setExpenses(expData || []);
-
-            const { data: spData } = await supabaseAdmin
-                .from('staff_payments')
-                .select('*, staff(full_name)')
-                .eq('tenant_id', tenantId)
-                .gte('payment_date', startDateStr);
-            setStaffPaymentsList(spData || []);
-
-        } catch (err) {
-            console.error('Analytics fetch error:', err);
-        } finally {
-            setLoading(false);
-        }
+        } catch (err) { console.error('Analytics overview fetch error:', err); }
+        finally { setLoadingOverview(false); }
     }, [days, tenantId]);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    // ─── STAFF fetch (runs when 'staff' tab first opened) ───
+    const fetchStaffData = useCallback(async () => {
+        if (!tenantId) return;
+        setLoadingStaff(true);
+        try {
+            const startDate = new Date(); startDate.setDate(startDate.getDate() - days);
+            const startDateStr = startDate.toISOString();
+
+            const [{ data: staffList }, { data: periodPayments }, { data: bookings }] = await Promise.all([
+                supabaseAdmin.rpc('rpc_staff_board', { p_tenant_id: tenantId }),
+                supabaseAdmin.from('payments').select('booking_id, tip_amount').eq('tenant_id', tenantId).gte('created_at', startDateStr).gt('tip_amount', 0),
+                supabaseAdmin.from('bookings').select('id, start_time, total_price, status, stylist_id').eq('tenant_id', tenantId).gte('start_time', startDateStr)
+            ]);
+
+            const tipMap: Record<string, number> = {};
+            (periodPayments || []).forEach((p: any) => { if (p.booking_id && p.tip_amount) tipMap[p.booking_id] = (tipMap[p.booking_id] || 0) + Number(p.tip_amount); });
+
+            const activeBookings = (bookings || []).filter((b: any) => b.status !== 'cancelled' && b.status !== 'no_show');
+            const staffRevMap: Record<string, any> = {};
+            (staffList || []).forEach((s: any) => { staffRevMap[s.id] = { id: s.id, name: s.full_name, color: s.color || '#D4AF37', base_salary: Number(s.base_salary) || 0, commission_percent: Number(s.commission_percent) || 0, bookings_count: 0, service_revenue: 0, tip_amount: 0 }; });
+            activeBookings.forEach((b: any) => {
+                const sid = b.stylist_id; if (!sid) return;
+                if (!staffRevMap[sid]) staffRevMap[sid] = { id: sid, name: 'Unknown Stylist', color: '#666', base_salary: 0, commission_percent: 0, bookings_count: 0, service_revenue: 0, tip_amount: 0 };
+                staffRevMap[sid].bookings_count += 1;
+                staffRevMap[sid].service_revenue += Number(b.total_price) || 0;
+                if (tipMap[b.id]) staffRevMap[sid].tip_amount += tipMap[b.id];
+            });
+            setStaffData(Object.values(staffRevMap).map((d: any) => { const ce = d.service_revenue * (d.commission_percent / 100); return { ...d, commission_earned: ce, total_payout: d.base_salary + ce + d.tip_amount }; }).sort((a, b) => b.total_payout - a.total_payout));
+        } catch (err) { console.error('Analytics staff fetch error:', err); }
+        finally { setLoadingStaff(false); }
+    }, [days, tenantId]);
+
+    // ─── DRAWER fetch (runs when 'drawer' tab first opened) ───
+    const fetchDrawerData = useCallback(async () => {
+        if (!tenantId) return;
+        setLoadingDrawer(true);
+        try {
+            const startDate = new Date(); startDate.setDate(startDate.getDate() - days);
+            const { data: allPayments } = await supabaseAdmin.from('payments').select('id, created_at, amount, payment_method').eq('tenant_id', tenantId).gte('created_at', startDate.toISOString());
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayPayments = (allPayments || []).filter((p: any) => p.created_at && new Date(p.created_at).toISOString().split('T')[0] === todayStr);
+
+            const pMap: Record<string, { amount: number; count: number }> = { cash: { amount: 0, count: 0 }, card: { amount: 0, count: 0 }, other: { amount: 0, count: 0 } };
+            todayPayments.forEach((p: any) => {
+                const method = p.payment_method?.toLowerCase() || 'other', amt = Number(p.amount) || 0;
+                if (method.includes('cash')) { pMap.cash.amount += amt; pMap.cash.count += 1; }
+                else if (method.includes('card')) { pMap.card.amount += amt; pMap.card.count += 1; }
+                else { pMap.other.amount += amt; pMap.other.count += 1; }
+            });
+            setDrawerData([{ method: 'Cash', ...pMap.cash }, { method: 'Card (Terminal/Online)', ...pMap.card }, { method: 'Other', ...pMap.other }].filter(d => d.amount > 0 || d.method === 'Cash'));
+            setTotalExpectedCash(pMap.cash.amount);
+
+            const dailyLogsMap: Record<string, { cash: number; card: number; other: number }> = {};
+            for (let i = 0; i <= days; i++) { const d = new Date(); d.setDate(d.getDate() - days + i); dailyLogsMap[d.toISOString().split('T')[0]] = { cash: 0, card: 0, other: 0 }; }
+            (allPayments || []).forEach((p: any) => {
+                if (!p.created_at) return;
+                const key = new Date(p.created_at).toISOString().split('T')[0], method = p.payment_method?.toLowerCase() || 'other', amt = Number(p.amount) || 0;
+                if (dailyLogsMap[key]) { if (method.includes('cash')) dailyLogsMap[key].cash += amt; else if (method.includes('card')) dailyLogsMap[key].card += amt; else dailyLogsMap[key].other += amt; }
+            });
+            setDailyDrawerLogs(Object.entries(dailyLogsMap).map(([date, vals]) => ({ date, ...vals })).sort((a, b) => a.date.localeCompare(b.date)));
+        } catch (err) { console.error('Analytics drawer fetch error:', err); }
+        finally { setLoadingDrawer(false); }
+    }, [days, tenantId]);
+
+    // ─── P&L fetch (runs when 'pnl' tab first opened) ───
+    const fetchPnLData = useCallback(async () => {
+        if (!tenantId) return;
+        setLoadingPnL(true);
+        try {
+            const startDate = new Date(); startDate.setDate(startDate.getDate() - days);
+            const startDateStr = startDate.toISOString();
+            const [{ data: expData }, { data: spData }] = await Promise.all([
+                supabaseAdmin.from('expenses').select('*').eq('tenant_id', tenantId).gte('expense_date', startDateStr.split('T')[0]),
+                supabaseAdmin.from('staff_payments').select('*, staff(full_name)').eq('tenant_id', tenantId).gte('payment_date', startDateStr)
+            ]);
+            setExpenses(expData || []);
+            setStaffPaymentsList(spData || []);
+        } catch (err) { console.error('Analytics P&L fetch error:', err); }
+        finally { setLoadingPnL(false); }
+    }, [days, tenantId]);
+
+    // Overview always loads on mount and when days changes
+    useEffect(() => { loadedTabs.current.clear(); fetchOverviewData(); }, [fetchOverviewData]);
+
+    // Lazy tab loaders: only fetch when a new tab is opened for the first time in this session
+    useEffect(() => {
+        if (activeTab === 'staff' && !loadedTabs.current.has('staff')) { loadedTabs.current.add('staff'); fetchStaffData(); }
+        if (activeTab === 'drawer' && !loadedTabs.current.has('drawer')) { loadedTabs.current.add('drawer'); fetchDrawerData(); }
+        if (activeTab === 'pnl' && !loadedTabs.current.has('pnl')) { loadedTabs.current.add('pnl'); fetchPnLData(); }
+    }, [activeTab, fetchStaffData, fetchDrawerData, fetchPnLData]);
+
+    // When days changes, clear cache so all tabs reload with new range
+    useEffect(() => { loadedTabs.current.clear(); }, [days]);
+
+
+
 
     const totalRevenue = revData.reduce((s, r) => s + r.revenue, 0);
     const totalBookings = revData.reduce((s, r) => s + r.booking_count, 0);
@@ -403,8 +285,10 @@ export const Analytics: React.FC = () => {
             if (error) throw error;
             setShowAddExpense(false);
             setExpTitle(''); setExpAmt(''); setExpNotes(''); setExpCat('supplies');
-            fetchData();
-        } catch (err: any) {
+            // Refresh P&L data after adding an expense
+            loadedTabs.current.delete('pnl');
+            fetchPnLData();
+        } catch (err: unknown) {
             console.error('Error adding expense:', err);
         }
         setAddingExp(false);
@@ -420,7 +304,7 @@ export const Analytics: React.FC = () => {
         URL.revokeObjectURL(url);
     };
 
-    if (loading) {
+    if (loadingOverview) {
         return (
             <div className="flex items-center justify-center h-64">
                 <Loader2 className="w-8 h-8 text-luxe-gold animate-spin" />
@@ -441,8 +325,7 @@ export const Analytics: React.FC = () => {
                         <p className="text-xs text-white/40 uppercase tracking-widest">Financials & Performance</p>
                     </div>
                 </div>
-                {true && (
-                    <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                         <select
                             aria-label="Select time range"
                             value={days}
@@ -497,8 +380,7 @@ export const Analytics: React.FC = () => {
                             <span className="hidden sm:inline">MASTER REPORT</span>
                             <span className="sm:hidden">PDF</span>
                         </button>
-                    </div>
-                )}
+                </div>
             </div>
 
             {/* TAB NAVIGATION */}
