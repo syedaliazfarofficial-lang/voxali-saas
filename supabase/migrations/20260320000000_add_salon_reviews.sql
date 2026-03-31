@@ -1,4 +1,4 @@
--- Add standalone public salon reviews table
+-- Add standalone public salon reviews table (idempotent)
 CREATE TABLE IF NOT EXISTS salon_reviews (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     tenant_id UUID REFERENCES public.tenants(id) ON DELETE CASCADE,
@@ -8,15 +8,15 @@ CREATE TABLE IF NOT EXISTS salon_reviews (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- RLS
 ALTER TABLE salon_reviews ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can create salon reviews" 
-ON salon_reviews 
-FOR INSERT 
-WITH CHECK (true);
+DO $$ BEGIN
+  CREATE POLICY "Anyone can create salon reviews" ON salon_reviews FOR INSERT WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Tenants can view their salon reviews" 
-ON salon_reviews 
-FOR SELECT 
-USING (tenant_id = (SELECT tenant_id FROM user_roles WHERE user_id = auth.uid() LIMIT 1));
+DO $$ BEGIN
+  CREATE POLICY "Tenants can view their salon reviews" ON salon_reviews FOR SELECT
+  USING (tenant_id = (SELECT tenant_id FROM user_roles WHERE user_id = auth.uid() LIMIT 1));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

@@ -9,6 +9,7 @@ import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { ConfirmModal } from './ui/ConfirmModal';
+import { PageSkeleton } from './ui/Skeleton';
 
 interface Campaign {
     id: string;
@@ -214,13 +215,7 @@ export const Marketing: React.FC = () => {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 text-luxe-gold animate-spin" />
-            </div>
-        );
-    }
+    if (loading) return <PageSkeleton />;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

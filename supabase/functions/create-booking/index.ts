@@ -246,10 +246,11 @@ Deno.serve(async (req) => {
             client_email: clientEmail,
             client_name: client.name,
             booking_details: {
-                service: service.name,
+                source: 'edge_function',
+                time: startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz }),
                 stylist: (Array.isArray(staffData) ? staffData[0]?.full_name : staffData?.full_name) || 'Any Available',
+                service: service.name,
                 date: startDate.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz }),
-                time: startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }),
                 price: service.price,
                 status: booking.status,
                 payment_link: paymentLink,

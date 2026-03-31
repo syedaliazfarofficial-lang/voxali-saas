@@ -248,7 +248,7 @@ function AppContent() {
     calls: 'Call Logs',
     marketing: 'Marketing',
     reviews: 'Review Management',
-    bella: 'Bella AI',
+    bella: 'AI Assistant',
     settings: 'Settings',
     my_profile: 'My Profile',
   }

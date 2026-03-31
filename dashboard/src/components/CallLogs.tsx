@@ -7,6 +7,7 @@ import {
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
+import { Skeleton } from './ui/Skeleton';
 
 interface CallLog {
     id: string; caller_phone: string; call_duration: number;
@@ -90,9 +91,7 @@ export const CallLogs: React.FC = () => {
         setDateTo('');
     };
 
-    if (loading) {
-        return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-luxe-gold animate-spin" /></div>;
-    }
+
 
     return (
         <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 overflow-hidden">
@@ -155,10 +154,23 @@ export const CallLogs: React.FC = () => {
                         <span className="text-[10px] bg-luxe-gold/20 text-luxe-gold px-2 py-0.5 rounded-full font-bold">{filtered.length} CALLS</span>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        {filtered.length === 0 && (
+                        {loading ? (
+                            [1,2,3,4,5].map(i => (
+                                <div key={i} className="p-5 border-b border-white/5">
+                                    <div className="flex justify-between mb-2">
+                                        <Skeleton variant="text" width="55%" />
+                                        <Skeleton variant="text" width={40} height={10} />
+                                    </div>
+                                    <Skeleton variant="text" width="80%" height={10} />
+                                    <div className="flex gap-2 mt-3">
+                                        <Skeleton variant="rect" width={50} height={16} />
+                                        <Skeleton variant="rect" width={50} height={16} />
+                                    </div>
+                                </div>
+                            ))
+                        ) : filtered.length === 0 ? (
                             <div className="p-8 text-center text-white/30 text-sm">No call logs found</div>
-                        )}
-                        {filtered.map(log => {
+                        ) : filtered.map(log => {
                             const status = getStatus(log);
                             return (
                                 <button

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Save, Plus, X, Search, MoreHorizontal, Link, Check, Smartphone, CheckCircle2, Copy, Zap, MessageSquare, Megaphone, ToggleLeft, ToggleRight, Phone, CalendarIcon, Clock, Edit3, Upload, Building2, Trash2,
     Loader2, Scissors, ChevronDown, ChevronUp, Globe, Lock, Eye, EyeOff, KeyRound,
-    Mail, CreditCard, ExternalLink, Shield, AlertTriangle, Bot,
+    Mail, CreditCard, ExternalLink, Shield, AlertTriangle,
     CreditCard as BillingIcon, ShieldCheck
 } from 'lucide-react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
+import { Skeleton } from './ui/Skeleton';
 
 const TIMEZONES = [
     { value: 'America/New_York', label: 'Eastern Time (New York)' },
@@ -406,7 +407,7 @@ const WalletTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
         }
     };
 
-    if (loading) return <div className="p-8 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-luxe-gold" /></div>;
+
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -423,10 +424,22 @@ const WalletTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                 </div>
             </div>
 
-            {/* Top Cards Row */}
+        {/* Top Cards Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Current Plan */}
-                <div className="glass-panel border border-white/5 p-6 relative overflow-hidden">
+                {loading ? (
+                    [1,2].map(i => (
+                        <div key={i} className="glass-panel border border-white/5 p-6">
+                            <Skeleton variant="text" width="40%" height={12} className="mb-3" />
+                            <Skeleton variant="text" width="60%" height={36} className="mb-4" />
+                            <Skeleton variant="rect" height={40} className="mb-6" />
+                            <Skeleton variant="rect" height={80} />
+                        </div>
+                    ))
+                ) : (
+                    <>
+                        {/* Current Plan */}
+                        <div className="glass-panel border border-white/5 p-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/5 blur-[50px] rounded-full pointer-events-none" />
                     <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Current Plan</p>
                     <div className="flex items-center gap-3 mb-4 relative z-10">
@@ -508,6 +521,8 @@ const WalletTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                         </p>
                     )}
                 </div>
+                    </>
+                )}
             </div>
 
             {/* Transaction History */}
@@ -619,7 +634,7 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
         setSaving(false);
     };
 
-    if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-luxe-gold animate-spin" /></div>;
+
 
     const isConnected = stripeStatus?.connected && stripeStatus?.onboarding_complete;
 
@@ -793,88 +808,6 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
         </div>
     );
 };
-
-// ===== AI KNOWLEDGE BASE TAB COMPONENT =====
-const AiKnowledgeTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
-    const [knowledgeText, setKnowledgeText] = useState('');
-    const [docName, setDocName] = useState('');
-    const [saving, setSaving] = useState(false);
-
-    const handleUpload = async () => {
-        if (!knowledgeText.trim() || !docName.trim()) {
-            showToast('Please provide both document name and content', 'error');
-            return;
-        }
-        setSaving(true);
-        try {
-            const { data, error } = await supabase.functions.invoke('manage-knowledge-base', {
-                body: { knowledge_text: knowledgeText, document_name: docName }
-            });
-
-            if (error) {
-                showToast(error.message || 'Failed to update AI Agent', 'error');
-            } else if (data && data.error) {
-                showToast(data.error, 'error');
-            } else {
-                showToast('AI Agent successfully learned the new knowledge!', 'success');
-                setKnowledgeText('');
-                setDocName('');
-            }
-        } catch (err: any) {
-            showToast('Server error: ' + err.message, 'error');
-        }
-        setSaving(false);
-    };
-
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
-                    <Bot className="w-6 h-6 text-luxe-gold" />
-                </div>
-                <div>
-                    <h3 className="text-xl font-bold">AI Agent Knowledge</h3>
-                    <p className="text-xs text-white/40 uppercase tracking-widest">Teach your AI receptionist new information</p>
-                </div>
-            </div>
-
-            <div className="glass-panel border border-white/5 p-6 space-y-4">
-                <div className="bg-luxe-gold/10 border border-luxe-gold/20 rounded-xl p-4 flex gap-3 mb-4">
-                    <AlertTriangle className="w-5 h-5 text-luxe-gold flex-shrink-0" />
-                    <div>
-                        <h4 className="text-sm font-bold text-white mb-1">How this works</h4>
-                        <p className="text-xs text-white/70">
-                            Paste text (e.g., pricing rules, specific policies, cancellation terms) into the box below.
-                            This text will be directly added to your AI agent's memory so it can answer client questions accurately.
-                        </p>
-                    </div>
-                </div>
-
-                <div>
-                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Reference Name *</label>
-                    <input value={docName} onChange={e => setDocName(e.target.value)} placeholder="e.g. Cancellation Policy"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all" />
-                </div>
-
-                <div>
-                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Knowledge Text *</label>
-                    <textarea
-                        value={knowledgeText} onChange={e => setKnowledgeText(e.target.value)}
-                        placeholder="Paste your text here..." rows={6}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all resize-y"
-                    />
-                </div>
-
-                <button onClick={handleUpload} disabled={saving || !knowledgeText.trim() || !docName.trim()}
-                    className="w-full mt-4 bg-gold-gradient text-luxe-obsidian font-bold py-3 rounded-xl shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Bot className="w-5 h-5" />}
-                    {saving ? 'TEACHING AI...' : 'TEACH AI NEW KNOWLEDGE'}
-                </button>
-            </div>
-        </div>
-    );
-};
-
 export const Settings: React.FC = () => {
     const { salonName, salonTagline, logoUrl, ownerName, timezone, updateBranding, refetch, tenantId } = useTenant();
 
@@ -1255,7 +1188,6 @@ export const Settings: React.FC = () => {
                     { id: 'availability', label: 'Availability', icon: Clock },
                     { id: 'security', label: 'Security', icon: Lock },
                     { id: 'integrations', label: 'Integrations', icon: Zap },
-                    { id: 'ai_knowledge', label: 'AI Knowledge', icon: Bot },
                     { id: 'billing', label: 'Wallet & Billing', icon: BillingIcon },
                     { id: 'payments', label: 'Payments', icon: CreditCard },
                 ].map(tab => {
@@ -1820,15 +1752,14 @@ export const Settings: React.FC = () => {
                 />
             )}
 
+
+
+
             {/* ============ PAYMENTS TAB ============ */}
             {activeSettingsTab === 'payments' && tenantId && (
                 <PaymentsTab tenantId={tenantId} />
             )}
 
-            {/* ============ AI KNOWLEDGE BASE TAB ============ */}
-            {activeSettingsTab === 'ai_knowledge' && tenantId && (
-                <AiKnowledgeTab tenantId={tenantId} />
-            )}
 
             {/* ============ WALLET & BILLING TAB ============ */}
             {activeSettingsTab === 'billing' && tenantId && (

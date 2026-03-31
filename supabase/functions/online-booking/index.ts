@@ -249,12 +249,18 @@ Deno.serve(async (req) => {
                 const firstBookingId = createdBookingIds[0];
                 const multiServiceSummary = bookingsList.map(b => b.service).join(' + ');
 
+                const firstItem = bookingsList[0] || {};
+                console.log(`[OnlineBooking] Inserting notification for tenantId: ${tenantId}, firstBookingId: ${firstBookingId}`);
+
                 await supabase.from('notification_queue').insert({
                     tenant_id: tenantId, booking_id: firstBookingId, event_type: 'booking_created',
                     client_name, client_email, client_phone: client_phone || null, status: 'pending',
                     booking_details: { 
+                        source: 'edge_function',
                         date: formattedDate, 
-                        service: multiServiceSummary, 
+                        time: firstItem.time || '',
+                        stylist: firstItem.stylist || '',
+                        service: firstItem.service || multiServiceSummary, 
                         price: totalPrice.toFixed(2),
                         deposit_amount: totalDeposit.toFixed(2),
                         bookings_list: bookingsList // <-- This array will be used by the email template

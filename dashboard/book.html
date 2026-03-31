@@ -514,6 +514,83 @@
             }
         }
     </style>
+    <style>
+        /* ===== BELLA AI CHAT BUBBLE ===== */
+        #bella-bubble {
+            position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+            display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+        }
+        #bella-btn {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: linear-gradient(135deg, #D4AF37, #B8860B);
+            border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 8px 32px rgba(212,175,55,0.45); transition: transform 0.2s; position: relative;
+            font-size: 26px;
+        }
+        #bella-btn:hover { transform: scale(1.1); }
+        #bella-pulse {
+            position: absolute; top: -3px; right: -3px; width: 14px; height: 14px;
+            background: #22C55E; border-radius: 50%; border: 2px solid #0a0a0a;
+            animation: bPulse 2s infinite;
+        }
+        @keyframes bPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.5} }
+        #bella-tip {
+            background: #1E1E1E; border: 1px solid #D4AF37; color: #D4AF37;
+            font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px;
+            white-space: nowrap; font-family: 'Inter', sans-serif;
+        }
+        #bella-panel {
+            position: fixed; bottom: 100px; right: 24px; width: 350px; height: 480px;
+            max-height: 78vh; background: #141417;
+            border: 1px solid rgba(212,175,55,0.25); border-radius: 20px;
+            display: none; flex-direction: column; overflow: hidden; z-index: 9998;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+        }
+        #bella-panel.open { display: flex; animation: bPanelIn 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+        @keyframes bPanelIn { from{opacity:0;transform:scale(0.9) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
+        #b-head {
+            background: linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.03));
+            border-bottom: 1px solid rgba(212,175,55,0.15);
+            padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+        }
+        #b-head .info { display:flex; align-items:center; gap:10px; }
+        #b-head .av {
+            width:36px;height:36px;border-radius:50%;background:rgba(212,175,55,0.2);
+            border:1px solid rgba(212,175,55,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;
+        }
+        #b-head h4 { font-size:14px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif; }
+        #b-head h4 .online { width:7px;height:7px;background:#22C55E;border-radius:50%;animation:bPulse 2s infinite; }
+        #b-head p { font-size:11px;color:rgba(255,255,255,0.4);font-family:'Inter',sans-serif; }
+        #b-close { background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:20px;padding:4px 8px;border-radius:8px;transition:all 0.2s; }
+        #b-close:hover { background:rgba(255,255,255,0.08);color:#fff; }
+        #b-msgs {
+            flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;
+        }
+        #b-msgs::-webkit-scrollbar{width:3px} #b-msgs::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.2);border-radius:2px}
+        .bm { max-width:85%;display:flex;gap:8px; }
+        .bm.u { margin-left:auto; flex-direction:row-reverse; }
+        .bb { padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;font-family:'Inter',sans-serif;white-space:pre-wrap; }
+        .bm.b .bb { background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.2);border-bottom-left-radius:3px;color:rgba(255,255,255,0.9); }
+        .bm.u .bb { background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.1);border-bottom-right-radius:3px;color:#fff; }
+        .bt span { width:7px;height:7px;background:rgba(212,175,55,0.6);border-radius:50%;animation:bDot 1.2s infinite;display:inline-block;margin:0 2px; }
+        .bt span:nth-child(2){animation-delay:.2s} .bt span:nth-child(3){animation-delay:.4s}
+        @keyframes bDot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
+        #b-inp-row { padding:10px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:8px;background:rgba(255,255,255,0.02); }
+        #b-inp {
+            flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+            border-radius:12px;padding:10px 13px;color:#fff;font-size:13px;font-family:'Inter',sans-serif;
+            outline:none;resize:none;height:42px;transition:border 0.2s;
+        }
+        #b-inp:focus { border-color:rgba(212,175,55,0.5); }
+        #b-inp::placeholder { color:rgba(255,255,255,0.25); }
+        #b-send {
+            width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#D4AF37,#B8860B);
+            border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s;
+            font-size:18px;flex-shrink:0;
+        }
+        #b-send:hover{transform:scale(1.06)} #b-send:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+        @media(max-width:420px){#bella-panel{width:calc(100vw - 16px);right:8px;bottom:90px}#bella-bubble{right:16px;bottom:16px}}
+    </style>
 </head>
 
 <body>
@@ -1003,6 +1080,130 @@
 
         // ===== START =====
         init();
+    </script>
+
+    <!-- ===== BELLA AI FLOATING CHAT BUBBLE ===== -->
+    <div id="bella-bubble">
+        <div id="bella-tip">💬 Ask Bella AI</div>
+        <button id="bella-btn" onclick="toggleBella()" title="Chat with Bella AI">
+            <div id="bella-pulse"></div>
+            🤖
+        </button>
+    </div>
+
+    <div id="bella-panel">
+        <div id="b-head">
+            <div class="info">
+                <div class="av">🤖</div>
+                <div>
+                    <h4>Bella AI <span class="online"></span></h4>
+                    <p>Your salon assistant</p>
+                </div>
+            </div>
+            <button id="b-close" onclick="toggleBella()">✕</button>
+        </div>
+        <div id="b-msgs"></div>
+        <div id="b-inp-row">
+            <textarea id="b-inp" placeholder="Ask about services, prices, availability..." rows="1"
+                onkeydown="bKey(event)"></textarea>
+            <button id="b-send" onclick="bSend()" title="Send">➤</button>
+        </div>
+    </div>
+
+    <script>
+        var B_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
+        var B_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqenhnbmltYmNvcXN5bHJnbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NzI2MDksImV4cCI6MjA1NzA0ODYwOX0.ILJCKCUb-INblkzjfQp0YMPXaOFPEhmoVU6f-UnFnb0';
+        var bAsstId = null, bMsgs = [], bBusy = false, bIsOpen = false;
+
+        async function initBella() {
+            try {
+                var p = new URLSearchParams(window.location.search);
+                var tid = p.get('tenant_id');
+                var parts = window.location.pathname.split('/').filter(Boolean);
+                var slg = parts[parts.length-1] || p.get('slug') || '';
+                var q = B_URL + '/rest/v1/tenants?select=vapi_assistant_id,ai_agent_config(first_message)';
+                if (tid) q += '&id=eq.' + tid;
+                else if (slg && slg !== 'book') q += '&slug=eq.' + slg;
+                else { bAddMsg('b', 'Hi! 👋 I am Bella. Ask me about services, prices, or anything about this salon!'); return; }
+                var res = await fetch(q, { headers: { 'apikey': B_KEY, 'Authorization': 'Bearer ' + B_KEY } });
+                var d = await res.json();
+                if (d && d[0]) {
+                    bAsstId = d[0].vapi_assistant_id || null;
+                    var fm = (d[0].ai_agent_config && d[0].ai_agent_config[0] && d[0].ai_agent_config[0].first_message)
+                        || 'Hi! 👋 I am Bella, your AI salon assistant. Ask me about services, prices, availability, or anything about this salon!';
+                    bAddMsg('b', fm);
+                } else {
+                    bAddMsg('b', 'Hi! 👋 I am Bella. Ask me about services, prices, or anything about this salon!');
+                }
+            } catch(e) { bAddMsg('b', 'Hi! 👋 I am Bella, here to help you book your appointment!'); }
+        }
+
+        function toggleBella() {
+            bIsOpen = !bIsOpen;
+            document.getElementById('bella-panel').classList.toggle('open', bIsOpen);
+            document.getElementById('bella-tip').style.display = 'none';
+            if (bIsOpen) setTimeout(function(){ document.getElementById('b-inp').focus(); }, 100);
+        }
+
+        function bAddMsg(role, text) {
+            bMsgs.push({ role: role === 'u' ? 'user' : 'assistant', content: text });
+            bRender();
+        }
+
+        function bRender() {
+            var c = document.getElementById('b-msgs');
+            c.innerHTML = bMsgs.map(function(m) {
+                var cls = m.role === 'user' ? 'u' : 'b';
+                return '<div class="bm ' + cls + '"><div class="bb">' + bEsc(m.content) + '</div></div>';
+            }).join('');
+            c.scrollTop = c.scrollHeight;
+        }
+
+        function bEsc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        function bShowTyping() {
+            var c = document.getElementById('b-msgs');
+            var d = document.createElement('div');
+            d.id = 'b-typ'; d.className = 'bm b';
+            d.innerHTML = '<div class="bb bt"><span></span><span></span><span></span></div>';
+            c.appendChild(d); c.scrollTop = c.scrollHeight;
+        }
+
+        function bHideTyping() { var e = document.getElementById('b-typ'); if (e) e.remove(); }
+
+        async function bSend() {
+            var inp = document.getElementById('b-inp');
+            var txt = inp.value.trim();
+            if (!txt || bBusy) return;
+            inp.value = ''; bBusy = true;
+            document.getElementById('b-send').disabled = true;
+            bAddMsg('u', txt);
+
+            if (!bAsstId) {
+                bAddMsg('b', 'The AI assistant is not fully set up yet. Please call the salon directly.');
+                bBusy = false; document.getElementById('b-send').disabled = false; return;
+            }
+
+            bShowTyping();
+            try {
+                var r = await fetch(B_URL + '/functions/v1/vapi-text-chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type':'application/json','Authorization':'Bearer '+B_KEY,'apikey':B_KEY },
+                    body: JSON.stringify({ assistantId: bAsstId, messages: bMsgs })
+                });
+                var data = await r.json();
+                var reply = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content)
+                    || (data && data.message) || 'Sorry, I could not process that. Please try again.';
+                bHideTyping(); bAddMsg('b', reply);
+            } catch(e) { bHideTyping(); bAddMsg('b', '🚨 Connection error. Please try again.'); }
+
+            bBusy = false; document.getElementById('b-send').disabled = false;
+            document.getElementById('b-inp').focus();
+        }
+
+        function bKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); bSend(); } }
+
+        initBella();
     </script>
 </body>
 

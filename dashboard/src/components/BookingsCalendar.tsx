@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from './ui/ToastNotification';
+import { CalendarSkeleton } from './ui/Skeleton';
 
 interface Staff { id: string; full_name: string; role: string; color: string; }
 interface Service { id: string; name: string; duration: number; price: number; }
@@ -156,7 +157,7 @@ export const BookingsCalendar: React.FC = () => {
         let pendingQ = supabase
             .from('bookings').select(`
                 id, stylist_id, client_id, status, start_time, end_time, total_price, is_gap_booking,
-                deposit_amount, deposit_paid_amount, payment_status,
+                deposit_amount, deposit_paid_amount, payment_status, notes,
                 clients(name), services(name)
             `)
             .eq('tenant_id', tenantId)
@@ -179,7 +180,13 @@ export const BookingsCalendar: React.FC = () => {
                     id: b.id,
                     stylist_id: b.stylist_id,
                     client_id: b.client_id,
-                    client_name: b.clients?.name || 'Walk-in',
+                    client_name: (() => {
+                        if (b.notes) {
+                            const m = b.notes.match(/^(?:Online booking|Walk-in) by (.+)$/i);
+                            if (m) return m[1];
+                        }
+                        return b.clients?.name || 'Walk-in';
+                    })(),
                     service_name: b.services?.name || 'Service',
                     start_hour: toSalonHour(b.start_time, tz),
                     duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
@@ -200,7 +207,7 @@ export const BookingsCalendar: React.FC = () => {
         const { data: bookData } = await supabase
             .from('bookings').select(`
                 id, stylist_id, client_id, status, start_time, end_time, total_price, is_gap_booking,
-                deposit_amount, deposit_paid_amount, payment_status,
+                deposit_amount, deposit_paid_amount, payment_status, notes,
                 clients(name), services(name)
             `)
             .eq('tenant_id', tenantId)
@@ -213,7 +220,7 @@ export const BookingsCalendar: React.FC = () => {
             const { data: filteredData } = await supabase
                 .from('bookings').select(`
                     id, stylist_id, client_id, status, start_time, end_time, total_price, is_gap_booking,
-                    deposit_amount, deposit_paid_amount, payment_status,
+                    deposit_amount, deposit_paid_amount, payment_status, notes,
                     clients(name), services(name)
                 `)
                 .eq('tenant_id', tenantId)
@@ -230,7 +237,13 @@ export const BookingsCalendar: React.FC = () => {
                         id: b.id,
                         stylist_id: b.stylist_id,
                         client_id: b.client_id,
-                        client_name: b.clients?.name || 'Walk-in',
+                        client_name: (() => {
+                            if (b.notes) {
+                                const m = b.notes.match(/^(?:Online booking|Walk-in) by (.+)$/i);
+                                if (m) return m[1];
+                            }
+                            return b.clients?.name || 'Walk-in';
+                        })(),
                         service_name: b.services?.name || 'Service',
                         start_hour: toSalonHour(b.start_time, tz),
                         duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
@@ -262,7 +275,13 @@ export const BookingsCalendar: React.FC = () => {
                     id: b.id,
                     stylist_id: b.stylist_id,
                     client_id: b.client_id,
-                    client_name: b.clients?.name || 'Walk-in',
+                    client_name: (() => {
+                        if (b.notes) {
+                            const m = b.notes.match(/^(?:Online booking|Walk-in) by (.+)$/i);
+                            if (m) return m[1];
+                        }
+                        return b.clients?.name || 'Walk-in';
+                    })(),
                     service_name: b.services?.name || 'Service',
                     start_hour: toSalonHour(b.start_time, tz),
                     duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
@@ -699,9 +718,7 @@ export const BookingsCalendar: React.FC = () => {
         : staff.slice(0, 5);
     // Fix: use staff_id instead of stylist_id for filtering
 
-    if (loading) {
-        return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-luxe-gold animate-spin" /></div>;
-    }
+    if (loading) return <CalendarSkeleton />;
 
     return (
         <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 overflow-hidden">

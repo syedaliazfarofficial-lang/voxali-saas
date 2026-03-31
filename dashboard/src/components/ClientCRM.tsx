@@ -11,6 +11,7 @@ import { ConfirmModal } from './ui/ConfirmModal';
 import { ClientProfileModal } from './ClientProfileModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Skeleton } from './ui/Skeleton';
 
 interface Client {
     id: string; name: string; phone: string; email: string | null;
@@ -295,9 +296,7 @@ export const ClientCRM: React.FC = () => {
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
 
-    if (loading) {
-        return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-luxe-gold animate-spin" /></div>;
-    }
+
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -354,14 +353,43 @@ export const ClientCRM: React.FC = () => {
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <SummaryItem label="Total Clients" value={String(totalClients)} trend={`+${newThisMonth} this month`} />
-                <SummaryItem label="Avg. Lifetime Value" value={`$${avgSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} trend="Per client" />
-                <SummaryItem label="New This Month" value={String(newThisMonth)} trend="Active growth" />
+                {loading ? (
+                    [1,2,3].map(i => (
+                        <div key={i} className="glass-panel p-6">
+                            <Skeleton variant="text" width="60%" height={12} className="mb-3" />
+                            <Skeleton variant="text" width="40%" height={28} />
+                        </div>
+                    ))
+                ) : (
+                    <>
+                        <SummaryItem label="Total Clients" value={String(totalClients)} trend={`+${newThisMonth} this month`} />
+                        <SummaryItem label="Avg. Lifetime Value" value={`$${avgSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} trend="Per client" />
+                        <SummaryItem label="New This Month" value={String(newThisMonth)} trend="Active growth" />
+                    </>
+                )}
             </div>
 
             {/* Client Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filtered.map(client => {
+                {loading ? (
+                    [1,2,3,4,5,6].map(i => (
+                        <div key={i} className="glass-panel p-6">
+                            <div className="flex items-center gap-4 mb-6">
+                                <Skeleton variant="rect" width={56} height={56} className="rounded-2xl" />
+                                <div className="space-y-2 flex-1">
+                                    <Skeleton variant="text" width="60%" />
+                                    <Skeleton variant="text" width="80%" height={10} />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 mb-4">
+                                <Skeleton variant="rect" height={52} />
+                                <Skeleton variant="rect" height={52} />
+                                <Skeleton variant="rect" height={52} />
+                            </div>
+                            <Skeleton variant="text" width="50%" height={10} />
+                        </div>
+                    ))
+                ) : filtered.map(client => {
                     const isNew = new Date(client.created_at).getTime() > Date.now() - 7 * 24 * 3600 * 1000;
                     const isVip = client.total_spend > 1000;
                     return (

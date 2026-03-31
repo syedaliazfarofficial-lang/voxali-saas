@@ -8,6 +8,7 @@ import {
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
+import { StaffSkeleton } from './ui/Skeleton';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { PayrollRunsView } from './PayrollRunsView';
 
@@ -637,9 +638,7 @@ export const StaffBoard: React.FC = () => {
     const totalRev = activeStaff.reduce((s, m) => s + m.revenue, 0);
     const totalBookings = activeStaff.reduce((s, m) => s + m.bookings_count, 0);
 
-    if (loading) {
-        return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 text-luxe-gold animate-spin" /></div>;
-    }
+    if (loading) return <StaffSkeleton />;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">

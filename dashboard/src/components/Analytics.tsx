@@ -35,6 +35,7 @@ import {
 import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { generateMasterReportPDF } from '../utils/pdfGenerator';
+import { Skeleton } from './ui/Skeleton';
 
 interface RevDay { day: string; revenue: number; booking_count: number }
 interface ServiceRow { service_name: string; booking_count: number; total_revenue: number }
@@ -304,13 +305,7 @@ export const Analytics: React.FC = () => {
         URL.revokeObjectURL(url);
     };
 
-    if (loadingOverview) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 text-luxe-gold animate-spin" />
-            </div>
-        );
-    }
+
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
@@ -431,9 +426,20 @@ export const Analytics: React.FC = () => {
             {activeTab === 'overview' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <SummaryCard label={`Revenue (${days}D)`} value={`$${totalRevenue.toLocaleString()}`} icon={DollarSign} />
-                        <SummaryCard label={`Bookings (${days}D)`} value={String(totalBookings)} icon={Calendar} />
-                        <SummaryCard label="Avg / Booking" value={`$${avgPerBooking.toFixed(0)}`} icon={TrendingUp} />
+                        {loadingOverview ? (
+                            [1,2,3].map(i => (
+                                <div key={i} className="glass-panel p-6">
+                                    <Skeleton variant="text" width="60%" height={12} className="mb-3" />
+                                    <Skeleton variant="text" width="45%" height={36} />
+                                </div>
+                            ))
+                        ) : (
+                            <>
+                                <SummaryCard label={`Revenue (${days}D)`} value={`$${totalRevenue.toLocaleString()}`} icon={DollarSign} />
+                                <SummaryCard label={`Bookings (${days}D)`} value={String(totalBookings)} icon={Calendar} />
+                                <SummaryCard label="Avg / Booking" value={`$${avgPerBooking.toFixed(0)}`} icon={TrendingUp} />
+                            </>
+                        )}
                     </div>
 
                     <div className="glass-panel p-6">
@@ -442,7 +448,9 @@ export const Analytics: React.FC = () => {
                             Revenue Over Time
                         </h4>
                         <div className="h-[300px]">
-                            {revData.length > 0 ? (
+                            {loadingOverview ? (
+                                <Skeleton variant="rect" height={300} />
+                            ) : revData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <AreaChart data={revData}>
                                         <defs>

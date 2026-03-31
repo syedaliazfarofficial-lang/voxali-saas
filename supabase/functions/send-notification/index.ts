@@ -336,15 +336,29 @@ serve(async (_req) => {
         let failCount = 0;
 
         for (const item of pending) {
-            const { data: tenant } = await supabase
+            // Ignore duplicate booking_created from the database trigger
+            if (item.event_type === 'booking_created' && item.booking_details?.source !== 'edge_function') {
+                await supabase.from('notification_queue')
+                    .update({ status: 'failed', error_message: 'Ignored DB Trigger duplicated event to prevent double emails', processed_at: new Date().toISOString() })
+                    .eq('id', item.id);
+                failCount++;
+                continue;
+            }
+
+            const { data: tenant, error: tErr } = await supabase
                 .from('tenants')
                 .select('twilio_phone_number, notification_email_from, salon_name, salon_tagline, salon_email, salon_website, salon_phone_owner, google_review_url, coin_balance, notifications_enabled')
                 .eq('id', item.tenant_id)
                 .single();
 
             if (!tenant) {
+                console.error(`[SendNotification] Tenant not found for ID: ${item.tenant_id}. Error: ${tErr?.message}`);
                 await supabase.from('notification_queue')
-                    .update({ status: 'failed', error_message: 'Tenant not found', processed_at: new Date().toISOString() })
+                    .update({ 
+                        status: 'failed', 
+                        error_message: `Tenant not found for ID: ${item.tenant_id} (Error: ${tErr?.message || 'Empty result'})`, 
+                        processed_at: new Date().toISOString() 
+                    })
                     .eq('id', item.id);
                 failCount++;
                 continue;

@@ -7,6 +7,7 @@ import {
     CheckCircle2
 } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
+import { Skeleton } from './ui/Skeleton';
 
 interface ReviewItem {
     id: string;
@@ -131,13 +132,7 @@ export const Reviews: React.FC = () => {
         );
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 text-luxe-gold animate-spin" />
-            </div>
-        );
-    }
+
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -156,57 +151,65 @@ export const Reviews: React.FC = () => {
 
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/10 rounded-full blur-3xl group-hover:bg-luxe-gold/20 transition-all"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <div>
-                            <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">Avg Rating</p>
-                            <h4 className="text-3xl font-black text-white">{stats.average}</h4>
+                {loading ? (
+                    [1,2,3,4].map(i => (
+                        <div key={i} className="glass-panel p-5 border border-white/5">
+                            <Skeleton variant="text" width="60%" height={12} className="mb-3" />
+                            <Skeleton variant="text" width="40%" height={36} />
                         </div>
-                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                            <Star className="w-5 h-5 text-luxe-gold fill-luxe-gold" />
+                    ))
+                ) : (
+                    <>
+                        <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/10 rounded-full blur-3xl group-hover:bg-luxe-gold/20 transition-all"></div>
+                            <div className="flex justify-between items-start relative z-10">
+                                <div>
+                                    <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">Avg Rating</p>
+                                    <h4 className="text-3xl font-black text-white">{stats.average}</h4>
+                                </div>
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                    <Star className="w-5 h-5 text-luxe-gold fill-luxe-gold" />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <div>
-                            <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">Total Reviews</p>
-                            <h4 className="text-3xl font-black text-white">{stats.total}</h4>
+                        <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
+                            <div className="flex justify-between items-start relative z-10">
+                                <div>
+                                    <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">Total Reviews</p>
+                                    <h4 className="text-3xl font-black text-white">{stats.total}</h4>
+                                </div>
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                    <MessageSquare className="w-5 h-5 text-emerald-400" />
+                                </div>
+                            </div>
                         </div>
-                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                            <MessageSquare className="w-5 h-5 text-emerald-400" />
+                        <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
+                            <div className="flex justify-between items-start relative z-10">
+                                <div>
+                                    <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">5-Star Rating</p>
+                                    <h4 className="text-3xl font-black text-white">{stats.fiveStarPct}%</h4>
+                                </div>
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                    <ThumbsUp className="w-5 h-5 text-blue-400" />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <div>
-                            <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">5-Star Rating</p>
-                            <h4 className="text-3xl font-black text-white">{stats.fiveStarPct}%</h4>
+                        <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl group-hover:bg-red-500/20 transition-all"></div>
+                            <div className="flex justify-between items-start relative z-10">
+                                <div>
+                                    <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">Needs Attention</p>
+                                    <h4 className="text-3xl font-black text-red-400">{stats.needsAttention}</h4>
+                                </div>
+                                <div className="p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                                    <AlertCircle className="w-5 h-5 text-red-400" />
+                                </div>
+                            </div>
                         </div>
-                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                            <ThumbsUp className="w-5 h-5 text-blue-400" />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl group-hover:bg-red-500/20 transition-all"></div>
-                    <div className="flex justify-between items-start relative z-10">
-                        <div>
-                            <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-1">Needs Attention</p>
-                            <h4 className="text-3xl font-black text-red-400">{stats.needsAttention}</h4>
-                        </div>
-                        <div className="p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-                            <AlertCircle className="w-5 h-5 text-red-400" />
-                        </div>
-                    </div>
-                </div>
+                    </>
+                )}
             </div>
 
             {/* Filter & List */}
@@ -241,7 +244,21 @@ export const Reviews: React.FC = () => {
 
                 {/* Reviews List */}
                 <div className="divide-y divide-white/5">
-                    {filteredReviews.length === 0 ? (
+                    {loading ? (
+                        [1,2,3,4].map(i => (
+                            <div key={i} className="p-5 flex gap-4">
+                                <Skeleton variant="rect" width={48} height={48} className="rounded-2xl flex-shrink-0" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="flex justify-between">
+                                        <Skeleton variant="text" width="30%" />
+                                        <Skeleton variant="text" width={80} height={12} />
+                                    </div>
+                                    <Skeleton variant="text" width="60%" height={10} />
+                                    <Skeleton variant="rect" height={56} className="mt-2" />
+                                </div>
+                            </div>
+                        ))
+                    ) : filteredReviews.length === 0 ? (
                         <div className="p-12 text-center flex flex-col items-center">
                             <MessageSquare className="w-12 h-12 text-white/5 mb-4" />
                             <p className="font-bold text-white/40">No reviews found.</p>

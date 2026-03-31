@@ -6,19 +6,29 @@ interface VapiChatBoxProps {
     assistantId: string;
     isOpen: boolean;
     onClose: () => void;
+    firstMessage?: string;
 }
 
-export const VapiChatBox: React.FC<VapiChatBoxProps> = ({ assistantId, isOpen, onClose }) => {
+export const VapiChatBox: React.FC<VapiChatBoxProps> = ({ assistantId, isOpen, onClose, firstMessage }) => {
     const [messages, setMessages] = useState<{ role: string; content: string }[]>([
-        { role: 'assistant', content: 'Hi there! I am Aria, your AI receptionist. How can I help you today?' }
+        { role: 'assistant', content: firstMessage || 'Hi there! I am Aria, your AI receptionist. How can I help you today?' }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
+
+    useEffect(() => {
+        if (!loading && isOpen) {
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 50);
+        }
+    }, [loading, isOpen]);
 
     useEffect(() => {
         if (isOpen) {
@@ -58,7 +68,18 @@ export const VapiChatBox: React.FC<VapiChatBoxProps> = ({ assistantId, isOpen, o
             }
 
             const data = await res.json();
-            const aiResponse = data?.choices?.[0]?.message?.content || "Sorry, I couldn't process that.";
+            const rawContent = data?.choices?.[0]?.message?.content || data?.message;
+            let aiResponse = "Sorry, I couldn't process that.";
+            
+            if (typeof rawContent === 'string') {
+                aiResponse = rawContent;
+            } else if (Array.isArray(rawContent) && rawContent.length > 0) {
+                // If Vapi returns an array of messages
+                aiResponse = rawContent[0].content || JSON.stringify(rawContent);
+            } else if (rawContent && typeof rawContent === 'object') {
+                // Usually Vapi returns an object inside 'message' when an error happens
+                aiResponse = rawContent.message || rawContent.error || JSON.stringify(rawContent);
+            }
 
             setMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
 
@@ -146,6 +167,7 @@ export const VapiChatBox: React.FC<VapiChatBoxProps> = ({ assistantId, isOpen, o
             <div className="p-4 bg-white/5 border-t border-white/10">
                 <div className="relative flex items-center">
                     <textarea
+                        ref={inputRef}
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
@@ -153,6 +175,7 @@ export const VapiChatBox: React.FC<VapiChatBoxProps> = ({ assistantId, isOpen, o
                         className="w-full bg-[#1A1A1A] border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-luxe-gold/50 resize-none h-[46px] overflow-hidden"
                         rows={1}
                         disabled={loading}
+                        autoFocus
                     />
                     <button
                         onClick={handleSend}

@@ -29,6 +29,7 @@ import {
 import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
+import { DashboardSkeleton } from './ui/Skeleton';
 
 interface DashboardStats {
     bookings_today: number;
@@ -165,13 +166,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
 
     const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`;
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 text-luxe-gold animate-spin" />
-            </div>
-        );
-    }
+    if (loading) return <DashboardSkeleton />;
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">

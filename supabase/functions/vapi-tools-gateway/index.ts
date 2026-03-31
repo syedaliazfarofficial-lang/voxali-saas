@@ -37,7 +37,10 @@ serve(async (req) => {
         for (const item of body.message.toolWithToolCallList) {
             const toolCallId = item.toolCall.id;
             const functionName = item.toolCall.function.name;
-            const args = item.toolCall.function.arguments || {};
+            let args = item.toolCall.function.arguments || {};
+            if (typeof args === 'string') {
+                try { args = JSON.parse(args); } catch (e) { console.error('Failed to parse args string', e); }
+            }
 
             console.log(`Forwarding tool call ${toolCallId} to ${functionName}`, args);
 
@@ -63,7 +66,7 @@ serve(async (req) => {
                 // Add the result wrapped perfectly for Vapi
                 results.push({
                     toolCallId: toolCallId,
-                    result: proxyData
+                    result: JSON.stringify(proxyData)
                 });
 
                 console.log(`Received data from ${endpointName} successfully:`, proxyData);
@@ -77,7 +80,7 @@ serve(async (req) => {
             }
         }
 
-        // Return the perfectly formatted array back to Vapi
+        // Return the perfectly formatted object back to Vapi
         return new Response(JSON.stringify({ results }), {
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },

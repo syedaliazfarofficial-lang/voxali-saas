@@ -37,7 +37,7 @@ const navItems = [
     { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'], minTier: 'pro' },
     { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner'], minTier: 'pro' },
     { icon: Star, label: 'Reviews', id: 'reviews', roles: ['super_admin', 'owner', 'manager'] },
-    { icon: Bot, label: 'Bella AI', id: 'bella', roles: ['super_admin', 'owner', 'manager'] },
+    { icon: Bot, label: 'AI Assistant', id: 'bella', roles: ['super_admin', 'owner', 'manager'] },
     { icon: Settings, label: 'Settings', id: 'settings', roles: ['super_admin', 'owner'] },
     { icon: UserCircle, label: 'My Profile', id: 'my_profile', roles: ['staff', 'manager', 'receptionist'] },
 ];
