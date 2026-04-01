@@ -243,7 +243,7 @@ function AppContent() {
     dashboard: 'Dashboard',
     pos: 'Point of Sale',
     bookings: 'Bookings',
-    packages: 'Packages & Memberships',
+    packages: 'Packages',
     clients: 'Clients',
     stylists: 'Stylists',
     analytics: 'Analytics',

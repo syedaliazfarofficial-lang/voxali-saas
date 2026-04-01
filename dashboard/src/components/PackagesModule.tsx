@@ -124,7 +124,7 @@ export const PackagesModule: React.FC = () => {
                         <Package className="w-8 h-8 text-luxe-gold" />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-black text-white tracking-tight">Packages & Memberships</h2>
+                        <h2 className="text-3xl font-black text-white tracking-tight">Packages</h2>
                         <p className="text-sm text-white/40 uppercase tracking-widest mt-1">Sell bundles & track client redemptions</p>
                     </div>
                 </div>
