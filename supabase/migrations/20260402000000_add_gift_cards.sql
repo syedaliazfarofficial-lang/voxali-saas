@@ -1,5 +1,5 @@
 -- Migration: Day 2 - Add Gift Cards
-CREATE TABLE gift_cards (
+CREATE TABLE IF NOT EXISTS gift_cards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     code VARCHAR(32) NOT NULL,
@@ -18,10 +18,21 @@ CREATE TABLE gift_cards (
 ALTER TABLE gift_cards ENABLE ROW LEVEL SECURITY;
 
 -- Policies for gift_cards
+DROP POLICY IF EXISTS "Tenants can manage their own gift cards" ON gift_cards;
 CREATE POLICY "Tenants can manage their own gift cards" ON gift_cards
-    FOR ALL USING (tenant_id = auth.uid() OR auth.jwt() ->> 'role' = 'service_role');
+    FOR ALL USING (tenant_id = get_my_tenant_id());
+
+-- Add trigger function if missing
+CREATE OR REPLACE FUNCTION trigger_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Trigger to update updated_at
+DROP TRIGGER IF EXISTS set_gift_cards_updated_at ON gift_cards;
 CREATE TRIGGER set_gift_cards_updated_at
     BEFORE UPDATE ON gift_cards
     FOR EACH ROW

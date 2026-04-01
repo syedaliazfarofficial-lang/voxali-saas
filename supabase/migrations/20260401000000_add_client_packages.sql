@@ -31,13 +31,13 @@ ALTER TABLE client_active_packages ENABLE ROW LEVEL SECURITY;
 -- Policies for client_package_templates
 DO $$ BEGIN
   CREATE POLICY "Tenants can manage their package templates" ON client_package_templates FOR ALL
-  USING (tenant_id = (SELECT tenant_id FROM user_roles WHERE user_id = auth.uid() LIMIT 1));
+  USING (tenant_id = get_my_tenant_id());
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 -- Policies for client_active_packages
 DO $$ BEGIN
   CREATE POLICY "Tenants can manage their active packages" ON client_active_packages FOR ALL
-  USING (tenant_id = (SELECT tenant_id FROM user_roles WHERE user_id = auth.uid() LIMIT 1));
+  USING (tenant_id = get_my_tenant_id());
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
