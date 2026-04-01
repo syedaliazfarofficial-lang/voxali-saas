@@ -262,7 +262,7 @@ serve(async (req) => {
         const transcriberLanguage = detectedLanguage === "ur" ? "hi" : detectedLanguage;
 
         // First message — warm greeting
-        const firstMessage = `Thank you so much for calling ${salonName}! This is ${aiName}, your personal beauty concierge. How may I assist you today? Just so you know, this call may be recorded for quality assurance.`;
+        const firstMessage = `Welcome to ${salonName}. This is ${aiName}. How may I assist you today?`;
 
         // System prompt
         const systemPrompt = buildSystemPrompt(salonName, tenantId, aiName);

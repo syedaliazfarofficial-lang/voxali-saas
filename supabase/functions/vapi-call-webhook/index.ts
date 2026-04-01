@@ -30,14 +30,16 @@ Deno.serve(async (req) => {
                 // Find tenant by vapi_assistant_id
                 let tenantTz = 'UTC';
                 let tenantName = 'the salon';
+                let tenantId = '';
                 if (agentIdStart) {
                     const { data: tenant } = await supabase
                         .from('tenants')
-                        .select('timezone, salon_name')
+                        .select('id, timezone, salon_name')
                         .eq('vapi_assistant_id', agentIdStart)
                         .maybeSingle();
                     if (tenant?.timezone) tenantTz = tenant.timezone;
                     if (tenant?.salon_name) tenantName = tenant.salon_name;
+                    if (tenant?.id) tenantId = tenant.id;
                 }
 
                 // Get current date/time in the tenant's local timezone
@@ -82,9 +84,31 @@ Deno.serve(async (req) => {
                     `- If exact slot unavailable, pick nearest available.`,
                 ].join('\n');
 
+                // --- Check for Returning Client ---
+                let clientName = '';
+                const callerPhone = message.call?.customer?.number || message.call?.from || '';
+                
+                if (callerPhone && tenantId) {
+                    const { data: clientObj } = await supabase
+                        .from('clients')
+                        .select('name')
+                        .eq('tenant_id', tenantId)
+                        .eq('phone_number', callerPhone)
+                        .maybeSingle();
+                        
+                    if (clientObj?.name) {
+                        clientName = clientObj.name;
+                    }
+                }
+
+                // --- Generate Dynamic Greeting ---
+                const finalGreeting = clientName 
+                    ? `${greeting}, ${clientName}! Welcome back to ${tenantName}. This is Aria, your personal beauty concierge. How may I assist you today?`
+                    : `${greeting}, thank you for calling ${tenantName}! This is Aria, your personal beauty concierge. How may I assist you today?`;
+
                 return jsonResponse({
                     assistantOverrides: {
-                        firstMessage: `${greeting}, thank you for calling ${tenantName}! Just so you know, today is ${localDate}. This is Aria, your personal beauty concierge. How may I assist you today?`,
+                        firstMessage: finalGreeting,
                         model: {
                             messages: [
                                 {
@@ -95,6 +119,7 @@ Deno.serve(async (req) => {
                         }
                     }
                 });
+
 
             }
 

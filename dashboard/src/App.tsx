@@ -15,6 +15,7 @@ import { LoginPage } from './components/LoginPage'
 import { ClientFeedback } from './components/ClientFeedback'
 import { PublicFeedback } from './components/PublicFeedback'
 import { POSSystem } from './components/POSSystem'
+import { PackagesModule } from './components/PackagesModule'
 import { TenantProvider, useTenant } from './context/TenantContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider, showToast } from './components/ui/ToastNotification'
@@ -130,11 +131,11 @@ function AppContent() {
 
   // ─── RBAC: Allowed tabs per role ───
   const ALLOWED_TABS: Record<string, string[]> = {
-    super_admin: ['dashboard', 'pos', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'reviews', 'bella', 'settings'],
-    owner: ['dashboard', 'pos', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'reviews', 'bella', 'settings'],
-    manager: ['dashboard', 'pos', 'bookings', 'clients', 'stylists', 'analytics', 'calls', 'reviews', 'bella', 'my_profile'],
+    super_admin: ['dashboard', 'pos', 'bookings', 'packages', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'reviews', 'bella', 'settings'],
+    owner: ['dashboard', 'pos', 'bookings', 'packages', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'reviews', 'bella', 'settings'],
+    manager: ['dashboard', 'pos', 'bookings', 'packages', 'clients', 'stylists', 'analytics', 'calls', 'reviews', 'bella', 'my_profile'],
     staff: ['bookings', 'my_profile'],
-    receptionist: ['pos', 'bookings', 'clients', 'calls', 'my_profile'],
+    receptionist: ['pos', 'bookings', 'packages', 'clients', 'calls', 'my_profile'],
   }
 
   const DEFAULT_TAB: Record<string, string> = {
@@ -242,6 +243,7 @@ function AppContent() {
     dashboard: 'Dashboard',
     pos: 'Point of Sale',
     bookings: 'Bookings',
+    packages: 'Packages & Memberships',
     clients: 'Clients',
     stylists: 'Stylists',
     analytics: 'Analytics',
@@ -318,6 +320,7 @@ function AppContent() {
               {activeTab === 'dashboard' && <DashboardHome setActiveTab={safeSetActiveTab} />}
               {activeTab === 'pos' && <POSSystem />}
               {activeTab === 'bookings' && <BookingsCalendar />}
+              {activeTab === 'packages' && <PackagesModule />}
               {activeTab === 'clients' && <ClientCRM />}
               {activeTab === 'stylists' && <StaffBoard />}
               {activeTab === 'analytics' && <Analytics />}

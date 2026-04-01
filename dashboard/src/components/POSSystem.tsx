@@ -38,6 +38,7 @@ interface ServiceInfo {
 
 interface BookingInfo {
   id: string
+  client_id?: string
   client_name: string
   service_names: string
   total_price: number
@@ -74,11 +75,20 @@ export function POSSystem() {
   
   // Checkout Context
   const [linkedBookingId, setLinkedBookingId] = useState<string | null>(null)
+  const [linkedClientId, setLinkedClientId] = useState<string | null>(null)
   const [depositAlreadyPaid, setDepositAlreadyPaid] = useState<number>(0)
+  const [availablePackages, setAvailablePackages] = useState<any[]>([])
+  
+  // Gift Card Application
+  const [showGiftCardInput, setShowGiftCardInput] = useState(false)
+  const [giftCardCode, setGiftCardCode] = useState('')
+  const [appliedGiftCard, setAppliedGiftCard] = useState<any>(null)
+  const [checkingGiftCard, setCheckingGiftCard] = useState(false)
 
   // Payment Modal
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'split'>('card')
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'split' | 'package'>('card')
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
   const [cardEntryMethod, setCardEntryMethod] = useState<'terminal' | 'manual'>('terminal')
   const [terminalStatus, setTerminalStatus] = useState<'idle' | 'connecting' | 'waiting' | 'success'>('idle')
   const [cashAmount, setCashAmount] = useState<number>(0)
@@ -89,6 +99,19 @@ export function POSSystem() {
     if (!tenantId) return
     fetchData()
   }, [tenantId, activeTab])
+
+  // Fetch client packages when client selected
+  useEffect(() => {
+    if (linkedClientId && tenantId) {
+      supabase.from('client_active_packages')
+        .select(`id, remaining_uses, template:client_package_templates(name)`)
+        .eq('client_id', linkedClientId)
+        .gt('remaining_uses', 0)
+        .then(({ data }) => setAvailablePackages(data || []))
+    } else {
+      setAvailablePackages([])
+    }
+  }, [linkedClientId, tenantId])
 
   const fetchData = async () => {
     setLoading(true)
@@ -118,7 +141,7 @@ export function POSSystem() {
         const { data } = await supabase
           .from('bookings')
           .select(`
-            id, status, total_price, deposit_amount, payment_status, start_time,
+            id, status, total_price, deposit_amount, payment_status, start_time, client_id,
             clients (name),
             booking_items (name_snapshot),
             staff (full_name)
@@ -132,6 +155,7 @@ export function POSSystem() {
         if (data) {
           const formatted = data.map((b: any) => ({
             id: b.id,
+            client_id: b.client_id,
             client_name: b.clients?.name || 'Walk-in',
             service_names: b.booking_items ? b.booking_items.map((i: any) => i.name_snapshot).join(', ') : 'Service',
             total_price: b.total_price || 0,
@@ -202,6 +226,7 @@ export function POSSystem() {
 
   const loadBookingIntoCart = (booking: BookingInfo) => {
     setLinkedBookingId(booking.id)
+    setLinkedClientId(booking.client_id || null)
     setDepositAlreadyPaid(booking.deposit_paid)
     setCart([{
       id: booking.id,
@@ -218,17 +243,36 @@ export function POSSystem() {
     if (window.confirm("Clear current transaction?")) {
       setCart([])
       setLinkedBookingId(null)
+      setLinkedClientId(null)
       setDepositAlreadyPaid(0)
       setCustomTip(0)
+      setPaymentMethod('card')
+      setSelectedPackageId(null)
+      setAppliedGiftCard(null)
+      setGiftCardCode('')
+      setShowGiftCardInput(false)
     }
   }
 
   // Financial Math
-  const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
-  const tipAmount = customTip || 0
-  const grandTotal = subtotal + tipAmount - depositAlreadyPaid
-  // Ensure we don't charge negative if deposit somehow exceeds total
-  const finalCharge = Math.max(0, grandTotal)
+  const calculateTotal = () => {
+    const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
+    return total
+  }
+
+  const subtotal = calculateTotal()
+  const tax = subtotal * 0.08 // 8% placeholder tax
+  
+  // Recalculate based on total before GC
+  const preGFTotal = subtotal + tax + customTip - depositAlreadyPaid;
+  
+  // Check if Gift Card overrides total
+  let giftCardDiscount = 0;
+  if(appliedGiftCard) {
+      giftCardDiscount = Math.min(preGFTotal, appliedGiftCard.current_balance);
+  }
+
+  const finalCharge = Math.max(0, preGFTotal - giftCardDiscount)
 
   // Payment Submission
   const processCheckout = async () => {
@@ -247,7 +291,11 @@ export function POSSystem() {
       return
     }
 
-    // Direct checkout for cash, manual card, or split
+    if (paymentMethod === 'package' && !selectedPackageId) {
+       return showToast('Please select a package to redeem.', 'error')
+    }
+
+    // Direct checkout for cash, manual card, split, or package
     await finalizeTransaction()
   }
 
@@ -326,22 +374,73 @@ export function POSSystem() {
       }
 
       // 2. Insert Payment Record(s) Make sure money is tracked
+      const paymentPromises = [];
+
+      // If gift card was applied, log that payment
+      if (appliedGiftCard && giftCardDiscount > 0) {
+        paymentPromises.push(
+          supabase.from('payments').insert({
+            tenant_id: tenantId,
+            booking_id: bookingId,
+            amount: giftCardDiscount, // amount covered by GC
+            tip_amount: 0,
+            payment_method: 'gift_card',
+            status: 'completed'
+          })
+        );
+        
+        // Deduct from GC
+        const newBalance = appliedGiftCard.current_balance - giftCardDiscount;
+        await supabase.from('gift_cards').update({
+           current_balance: newBalance,
+           status: newBalance <= 0 ? 'depleted' : 'active'
+        }).eq('id', appliedGiftCard.id);
+      }
+
       if (paymentMethod === 'split') {
         const cardAmount = finalCharge - cashAmount
-        await supabase.from('payments').insert([
-          { tenant_id: tenantId, booking_id: bookingId, amount: cashAmount, tip_amount: tipAmount, payment_method: 'cash', status: 'completed' },
-          { tenant_id: tenantId, booking_id: bookingId, amount: cardAmount, tip_amount: 0, payment_method: 'card', status: 'completed' }
-        ])
-      } else {
-        await supabase.from('payments').insert({
-          tenant_id: tenantId,
-          booking_id: bookingId,
-          amount: finalCharge,
-          tip_amount: tipAmount,
-          payment_method: paymentMethod,
-          status: 'completed'
-        })
+        paymentPromises.push(
+          supabase.from('payments').insert([
+            { tenant_id: tenantId, booking_id: bookingId, amount: cashAmount, tip_amount: tipAmount, payment_method: 'cash', status: 'completed' },
+            { tenant_id: tenantId, booking_id: bookingId, amount: cardAmount, tip_amount: 0, payment_method: 'card', status: 'completed' }
+          ])
+        );
+      } else if (paymentMethod === 'package') {
+        paymentPromises.push(
+          supabase.from('payments').insert({
+            tenant_id: tenantId,
+            booking_id: bookingId,
+            amount: 0,
+            tip_amount: tipAmount,
+            payment_method: 'package',
+            status: 'completed'
+          })
+        );
+
+        // Deduct 1 credit from package
+        if (selectedPackageId) {
+           const pkg = availablePackages.find(p => p.id === selectedPackageId)
+           if (pkg) {
+             await supabase.from('client_active_packages')
+                .update({ remaining_uses: Math.max(0, pkg.remaining_uses - 1) })
+                .eq('id', selectedPackageId)
+           }
+        }
+      } else if (finalCharge > 0) {
+        // Only log other payment if there's a charge left after GC
+        paymentPromises.push(
+          supabase.from('payments').insert({
+            tenant_id: tenantId,
+            booking_id: bookingId,
+            amount: finalCharge,
+            tip_amount: tipAmount,
+            payment_method: paymentMethod,
+            status: 'completed'
+          })
+        );
       }
+
+      await Promise.all(paymentPromises);
 
       // 3. Deduct retail inventory
       const retailItems = cart.filter(c => c.type === 'product')
@@ -380,9 +479,15 @@ export function POSSystem() {
 
       setCart([])
       setLinkedBookingId(null)
+      setLinkedClientId(null)
       setDepositAlreadyPaid(0)
       setCustomTip(0)
       setShowPaymentModal(false)
+      setPaymentMethod('card')
+      setSelectedPackageId(null)
+      setAppliedGiftCard(null)
+      setGiftCardCode('')
+      setShowGiftCardInput(false)
       setTerminalStatus('idle')
       fetchData() // Refresh lists
 
@@ -391,6 +496,31 @@ export function POSSystem() {
       showToast('Checkout failed: ' + err.message, 'error')
     }
     setIsProcessing(false)
+  }
+
+  const handleApplyGiftCard = async () => {
+    if (!giftCardCode || !tenantId) return;
+    setCheckingGiftCard(true);
+    const { data, error } = await supabase
+      .from('gift_cards')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('code', giftCardCode)
+      .single();
+    
+    setCheckingGiftCard(false);
+
+    if (error || !data) {
+      return showToast('Invalid or expired Gift Card code.', 'error');
+    }
+
+    if (data.status !== 'active' || data.current_balance <= 0) {
+      return showToast(`Gift Card is ${data.status} (Balance: $${data.current_balance})`, 'error');
+    }
+
+    setAppliedGiftCard(data);
+    setShowGiftCardInput(false);
+    showToast(`Gift Card applied! Balance: $${data.current_balance}`, 'success');
   }
 
   const handleAddProduct = async (e: React.FormEvent) => {
@@ -524,28 +654,83 @@ export function POSSystem() {
             </div>
 
             {/* Subtotals */}
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-white/60">
+            <div className="pt-4 border-t border-white/5 space-y-3">
+              <div className="flex justify-between text-sm text-white/50">
                 <span>Subtotal</span>
                 <span>${subtotal.toFixed(2)}</span>
               </div>
-              {tipAmount > 0 && (
-                <div className="flex justify-between text-white/60">
+              <div className="flex justify-between text-sm text-white/50">
+                <span>Tax (8%)</span>
+                <span>${tax.toFixed(2)}</span>
+              </div>
+
+              {depositAlreadyPaid > 0 && (
+                <div className="flex justify-between text-sm text-blue-400">
+                  <span>Deposit Applied</span>
+                  <span>-${depositAlreadyPaid.toFixed(2)}</span>
+                </div>
+              )}
+
+              {appliedGiftCard && (
+                <div className="flex flex-col gap-1 p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                  <div className="flex justify-between text-sm text-purple-400 font-bold">
+                    <span className="flex items-center gap-1"><Gift className="w-3 h-3" /> Gift Card ({appliedGiftCard.code.slice(-4)})</span>
+                    <span>-${giftCardDiscount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-end text-[10px] text-purple-400/50">
+                     Balance remaining after checkout: ${(appliedGiftCard.current_balance - giftCardDiscount).toFixed(2)}
+                  </div>
+                </div>
+              )}
+
+              {customTip > 0 && (
+                <div className="flex justify-between text-sm text-white/60">
                   <span>Tip</span>
-                  <span>${tipAmount.toFixed(2)}</span>
+                  <span>${customTip.toFixed(2)}</span>
                 </div>
               )}
             </div>
 
             {/* Grand Total */}
-            <div className="flex justify-between items-end mt-4 pt-4 border-t border-white/10">
-              <span className="text-white/60 text-sm">Total Due</span>
-              <span className="text-3xl font-black text-white">${finalCharge.toFixed(2)}</span>
+            <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-xl">
+              <span className="font-bold text-white">Total</span>
+              <span className="font-black text-luxe-gold">${finalCharge.toFixed(2)}</span>
             </div>
+
+            {/* Redeem Gift Card inline */}
+            {!appliedGiftCard && cart.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-dashed border-white/10">
+                 {!showGiftCardInput ? (
+                    <button onClick={() => setShowGiftCardInput(true)} className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 font-bold">
+                      <Gift className="w-3 h-3" /> Apply Gift Card
+                    </button>
+                 ) : (
+                    <div className="flex items-center gap-2 animate-fade-in">
+                       <input 
+                         value={giftCardCode} 
+                         onChange={e => setGiftCardCode(e.target.value.toUpperCase())}
+                         placeholder="XXXX-XXXX-XXXX" 
+                         className="flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-purple-400 font-mono"
+                       />
+                       <button 
+                         onClick={handleApplyGiftCard}
+                         disabled={checkingGiftCard || !giftCardCode}
+                         className="bg-purple-500 text-white px-3 py-2 rounded text-xs font-bold hover:bg-purple-400 disabled:opacity-50"
+                       >
+                         {checkingGiftCard ? '...' : 'Apply'}
+                       </button>
+                       <button onClick={() => { setShowGiftCardInput(false); setGiftCardCode(''); }} className="text-white/40 hover:text-white p-1"><X className="w-4 h-4"/></button>
+                    </div>
+                 )}
+              </div>
+            )}
 
             {/* Checkout Button */}
             <button
-              onClick={() => setShowPaymentModal(true)}
+              onClick={() => {
+                // If they have packages, set payment default to 'package' possibly
+                setShowPaymentModal(true)
+              }}
               className="w-full mt-6 py-4 rounded-xl bg-gold-gradient text-luxe-obsidian font-black text-lg uppercase tracking-wider hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-luxe-gold/20"
             >
               Checkout — ${finalCharge.toFixed(2)}
@@ -833,6 +1018,48 @@ export function POSSystem() {
                 </div>
                 {paymentMethod === 'split' && <CheckCircle className="w-5 h-5 text-blue-400 ml-auto" />}
               </button>
+
+              {/* Package Redemption */}
+              {availablePackages.length > 0 && (
+                <div className="pt-2">
+                  <button 
+                    onClick={() => setPaymentMethod('package')}
+                    className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${paymentMethod === 'package' ? 'border-purple-400 bg-purple-400/10' : 'border-white/10 bg-white/5 hover:border-purple-400/30 hover:bg-purple-400/5'}`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${paymentMethod === 'package' ? 'bg-purple-400 text-black' : 'bg-white/10 text-white'}`}>
+                      <ShoppingBag className="w-5 h-5" />
+                    </div>
+                    <div className="text-left flex-1">
+                      <h4 className="font-bold text-white">Redeem Package Credit</h4>
+                      <p className={`text-sm ${paymentMethod === 'package' ? 'text-purple-300' : 'text-purple-400 font-bold'}`}>
+                        {availablePackages.length} active package(s) available
+                      </p>
+                    </div>
+                    {paymentMethod === 'package' && <CheckCircle className="w-5 h-5 text-purple-400 ml-auto" />}
+                  </button>
+                  
+                  {paymentMethod === 'package' && (
+                    <div className="p-4 bg-black/40 border border-white/10 rounded-xl mt-2 mx-2 space-y-2">
+                      <p className="text-xs text-white/50 uppercase tracking-wider font-bold mb-2">Select Package to Redeem</p>
+                      {availablePackages.map(pkg => (
+                        <label key={pkg.id} className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-purple-400/10 hover:border-purple-400/30 transition-all">
+                          <input 
+                            type="radio" 
+                            name="packageSelection" 
+                            checked={selectedPackageId === pkg.id}
+                            onChange={() => setSelectedPackageId(pkg.id)}
+                            className="w-4 h-4 accent-purple-500"
+                          />
+                          <div className="flex-1">
+                            <span className="font-bold text-white">{pkg.template?.name}</span>
+                            <span className="block text-xs text-white/50">{pkg.remaining_uses} credits remaining</span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {paymentMethod === 'split' && (

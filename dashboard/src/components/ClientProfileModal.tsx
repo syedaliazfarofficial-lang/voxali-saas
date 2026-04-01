@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
-import { X, MessageSquare, Loader2, Send } from 'lucide-react';
+import { X, MessageSquare, Loader2, Send, Package, Plus } from 'lucide-react';
 import { showToast } from './ui/ToastNotification';
 
 interface ClientProfileModalProps {
@@ -32,11 +32,17 @@ interface ClientData {
 export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({ clientId, onClose }) => {
     const { tenantId } = useTenant();
     const [client, setClient] = useState<ClientData | null>(null);
-    const [activeTab, setActiveTab] = useState<'overview' | 'comms'>('comms');
+    const [activeTab, setActiveTab] = useState<'overview' | 'comms' | 'packages'>('comms');
     const [messages, setMessages] = useState<ThreadMessage[]>([]);
+    const [activePackages, setActivePackages] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
+
+    // Package assignment state
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [isAssigning, setIsAssigning] = useState(false);
+    const [selectedTemplate, setSelectedTemplate] = useState<string>('');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -55,6 +61,24 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({ clientId
             .eq('client_id', clientId)
             .order('created_at', { ascending: false });
         if (msgData) setMessages(msgData);
+
+        // Fetch packages
+        const { data: pkgData } = await supabase
+            .from('client_active_packages')
+            .select(`
+                *,
+                template:client_package_templates(name, total_uses)
+            `)
+            .eq('client_id', clientId);
+        if (pkgData) setActivePackages(pkgData);
+
+        // Fetch templates for assignment
+        const { data: tmplData } = await supabase
+            .from('client_package_templates')
+            .select('id, name, total_uses')
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true);
+        if (tmplData) setTemplates(tmplData);
 
         setLoading(false);
     }, [clientId]);
@@ -83,6 +107,32 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({ clientId
             setNewMessage('');
             fetchData();
             // TODO: In production, trigger Edge Function here for Bulk SMS / Twilio API
+        } else {
+            showToast(error.message, 'error');
+        }
+        setSending(false);
+    };
+
+    const handleAssignPackage = async () => {
+        if (!selectedTemplate || !client || !tenantId) return;
+        setSending(true);
+
+        const tmpl = templates.find(t => t.id === selectedTemplate);
+        if (!tmpl) return;
+
+        const { error } = await supabase.from('client_active_packages').insert({
+            tenant_id: tenantId,
+            client_id: client.id,
+            template_id: tmpl.id,
+            remaining_uses: tmpl.total_uses,
+            status: 'active'
+        });
+
+        if (!error) {
+            showToast('Package assigned to client!', 'success');
+            setIsAssigning(false);
+            setSelectedTemplate('');
+            fetchData();
         } else {
             showToast(error.message, 'error');
         }
@@ -123,6 +173,13 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({ clientId
                     >
                         <MessageSquare className="w-4 h-4" />
                         Communication Hub
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('packages')} 
+                        className={`px-4 py-4 text-sm font-bold border-b-2 transition-all flex items-center gap-2 \${activeTab === 'packages' ? 'border-luxe-gold text-luxe-gold' : 'border-transparent text-white/50 hover:text-white'}`}
+                    >
+                        <Package className="w-4 h-4" />
+                        Packages
                     </button>
                 </div>
 
@@ -213,6 +270,75 @@ export const ClientProfileModal: React.FC<ClientProfileModalProps> = ({ clientId
                                         </button>
                                     </div>
                                     <p className="text-[10px] text-white/30 text-center">Messages will be sent as SMS to {client?.phone}</p>
+                                </div>
+                            )}
+
+                            {activeTab === 'packages' && (
+                                <div className="space-y-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <h3 className="font-bold text-lg text-white">Active Packages</h3>
+                                            <p className="text-xs text-white/40">Manage client's pre-paid bundles.</p>
+                                        </div>
+                                        <button 
+                                            title="Assign New Package"
+                                            onClick={() => setIsAssigning(!isAssigning)}
+                                            className="px-4 py-2 bg-gold-gradient text-luxe-obsidian rounded-xl text-xs font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg"
+                                        >
+                                            <Plus className="w-4 h-4" /> {isAssigning ? 'Cancel' : 'Assign Package'}
+                                        </button>
+                                    </div>
+
+                                    {isAssigning && (
+                                        <div className="p-4 bg-white/5 border border-luxe-gold/30 rounded-xl flex items-end gap-3 animate-fade-in mb-6">
+                                            <div className="flex-1">
+                                                <label className="text-xs font-bold text-luxe-gold uppercase tracking-wider mb-2 block">Select Package Template</label>
+                                                <select
+                                                    value={selectedTemplate}
+                                                    onChange={(e) => setSelectedTemplate(e.target.value)}
+                                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-luxe-gold"
+                                                >
+                                                    <option value="">-- Choose a Package --</option>
+                                                    {templates.map(t => (
+                                                        <option key={t.id} value={t.id}>{t.name} ({t.total_uses} uses)</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <button 
+                                                onClick={handleAssignPackage}
+                                                disabled={!selectedTemplate || sending}
+                                                className="px-6 py-3 bg-luxe-gold text-black font-bold rounded-xl disabled:opacity-50 hover:bg-yellow-400 transition-colors h-[46px] flex items-center"
+                                            >
+                                                {sending ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Confirm'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {activePackages.length === 0 ? (
+                                            <div className="col-span-full text-center text-white/40 py-12 border border-dashed border-white/10 rounded-xl bg-white/5">
+                                                <Package className="w-8 h-8 opacity-20 mx-auto mb-2" />
+                                                <p>No active packages.</p>
+                                                <p className="text-xs mt-1">Assign a package from the Point of Sale.</p>
+                                            </div>
+                                        ) : (
+                                            activePackages.map(p => (
+                                                <div key={p.id} className="p-5 bg-white/5 border border-white/10 hover:border-luxe-gold/30 transition-colors rounded-xl flex items-center justify-between">
+                                                    <div>
+                                                        <h4 className="font-bold text-luxe-gold mb-1 text-lg">{p.template?.name || 'Bundle'}</h4>
+                                                        <p className="text-xs text-white/40 font-mono tracking-wider">Purchased: {new Date(p.created_at).toLocaleDateString()}</p>
+                                                        <span className={`mt-2 inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded \${p.remaining_uses > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-500'}`}>
+                                                            {p.remaining_uses > 0 ? 'ACTIVE' : 'EXHAUSTED'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-center bg-luxe-obsidian p-3 rounded-xl border border-white/5 min-w-[70px]">
+                                                        <p className="text-3xl font-black text-white">{p.remaining_uses}</p>
+                                                        <p className="text-[9px] uppercase tracking-widest text-white/40 mt-1">Left</p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </>

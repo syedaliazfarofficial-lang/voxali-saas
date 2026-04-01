@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       .insert({
         name: salonName,
         slug: slug,
-        subscription_plan: plan,
+        plan_tier: plan,
         stripe_customer_id: customerId,
         stripe_subscription_id: subscriptionId,
         plan_ai_minutes_limit: limits.ai_minutes,
