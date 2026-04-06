@@ -26,6 +26,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { PageSkeleton } from './ui/Skeleton';
+import { FeatureLock } from './ui/FeatureLock';
 
 interface AgentConfig {
     id: string;
@@ -378,6 +379,11 @@ export const BellaAI: React.FC = () => {
     const displayName = editAiName || 'Aria';
 
     return (
+        <FeatureLock 
+            requiredTier="starter" 
+            featureName={`${editAiName || 'Aria'} AI Receptionist`} 
+            description="Automate your front desk 24/7 with a human-like voice AI. Capture missed calls, answer FAQs, and book appointments automatically while you focus on your clients."
+        >
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
             {/* Header */}
@@ -707,5 +713,6 @@ export const BellaAI: React.FC = () => {
             </div>
 
         </div>
+        </FeatureLock>
     );
 };

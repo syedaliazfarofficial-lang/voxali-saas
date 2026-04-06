@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Save, Plus, X, Search, MoreHorizontal, Link, Check, Smartphone, CheckCircle2, Copy, Zap, MessageSquare, Megaphone, ToggleLeft, ToggleRight, Phone, CalendarIcon, Clock, Edit3, Upload, Building2, Trash2,
     Loader2, Scissors, ChevronDown, ChevronUp, Globe, Lock, Eye, EyeOff, KeyRound,
-    Mail, CreditCard, ExternalLink, Shield, AlertTriangle,
+    Mail, CreditCard, ExternalLink, Shield, AlertTriangle, Coins,
     CreditCard as BillingIcon, ShieldCheck
 } from 'lucide-react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
@@ -269,12 +269,45 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
 };
 
 // ===== WALLET & BILLING TAB COMPONENT =====
-const WalletTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
+const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
     const { planTier } = useTenant();
     const [coinBalance, setCoinBalance] = useState<number>(0);
     const [usage, setUsage] = useState({ ai_minutes_used: 0, sms_used: 0 });
     const [transactions, setTransactions] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [upgradingTo, setUpgradingTo] = useState<string | null>(null);
+
+    const handleUpgrade = async (plan: string) => {
+        setUpgradingTo(plan);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Not authenticated');
+
+            const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
+            let functionUrl = 'https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/create-checkout-session';
+            if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
+                functionUrl = envUrl.replace(':54321', ':54321/functions/v1/create-checkout-session');
+            } else if (envUrl.includes('supabase.co')) {
+                functionUrl = envUrl.replace('.supabase.co', '.supabase.co/functions/v1/create-checkout-session');
+            }
+
+            const res = await fetch(functionUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan: plan, email: session.user.email, flow: 'upgrade' })
+            });
+
+            const data = await res.json();
+            if (data.checkout_url) {
+                window.location.href = data.checkout_url;
+            } else {
+                throw new Error(data.error || 'Failed to create checkout session');
+            }
+        } catch (err: any) {
+            showToast(err.message, 'error');
+            setUpgradingTo(null);
+        }
+    };
 
     const limits = {
         starter: { ai: 100, sms: 400 },
@@ -357,60 +390,76 @@ const WalletTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                 throw new Error('No checkout URL returned from Strip gateway');
             }
         } catch (err: any) {
-            console.error('Top-up error:', err);
-            showToast(err.message || 'Payment gateway error', 'error');
-            setCharging(false);
-        }
-    };
-
-    const handleManageBilling = async () => {
-        if (!tenantId) return;
-        setCharging(true);
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error('Not authenticated');
-
-            const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
-            let functionUrl = 'https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/stripe-customer-portal';
-
-            if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
-                functionUrl = envUrl.replace(':54321', ':54321/functions/v1/stripe-customer-portal');
-            } else if (envUrl.includes('supabase.co')) {
-                functionUrl = envUrl.replace('.supabase.co', '.supabase.co/functions/v1/stripe-customer-portal');
-            }
-
-            const res = await fetch(functionUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026'
-                },
-                body: JSON.stringify({ tenant_id: tenantId })
-            });
-
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || err.message || 'Failed to open billing portal');
-            }
-
-            const { url } = await res.json();
-            if (url) {
-                window.location.href = url;
-            } else {
-                throw new Error('No portal URL returned');
-            }
-        } catch (err: any) {
             console.error('Portal error:', err);
             showToast(err.message || 'Billing portal error', 'error');
             setCharging(false);
         }
     };
 
-
+    const plans = [
+        {
+            id: 'basic',
+            name: 'SaaS Basic',
+            price: '$49',
+            subtitle: 'For salons that just need software',
+            features: [
+                'Unlimited staff members',
+                'Online booking page',
+                'Payment & Deposits',
+                'Basic CRM & Calendar',
+                { text: 'No AI Receptionist', strike: true },
+                { text: 'No SMS Reminders', strike: true }
+            ]
+        },
+        {
+            id: 'starter',
+            name: 'AI Starter',
+            price: '$99',
+            subtitle: 'Perfect for small shops',
+            badge: 'SMART START',
+            features: [
+                'Unlimited staff members',
+                { text: 'Aria AI Receptionist', highlight: true },
+                'Local Phone Number included',
+                { text: '2,000 AI Coins', highlight: true, subtext: '(~100 AI Mins or 400 SMS)' },
+                'Automated SMS Reminders'
+            ]
+        },
+        {
+            id: 'growth',
+            name: 'AI Growth',
+            price: '$199',
+            subtitle: 'For growing salons & spas',
+            badge: 'MOST POPULAR',
+            highlighted: true,
+            features: [
+                'Unlimited staff members',
+                { text: 'Aria AI Receptionist', highlight: true },
+                { text: '5,000 AI Coins', highlight: true, subtext: '(~250 AI Mins or 1000 SMS)' },
+                'Loyalty Program & Advanced CRM',
+                'SMS & Email Campaigns',
+                'Revenue Analytics'
+            ]
+        },
+        {
+            id: 'elite',
+            name: 'AI Elite',
+            price: '$349',
+            subtitle: 'For large salons & chains',
+            badge: 'ENTERPRISE',
+            features: [
+                'Unlimited staff members',
+                { text: 'Aria AI Receptionist', highlight: true },
+                { text: '10,000 AI Coins', highlight: true, subtext: '(~500 AI Mins or 2000 SMS)' },
+                'Custom Branding',
+                'Advanced Security & Roles',
+                'Dedicated Account Manager'
+            ]
+        }
+    ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-12 animate-in fade-in duration-500 pb-20">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -418,135 +467,168 @@ const WalletTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                         <BillingIcon className="w-6 h-6 text-luxe-gold" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold">Wallet & Billing</h3>
-                        <p className="text-xs text-white/40 uppercase tracking-widest">Manage your plan and prepaid coins</p>
+                        <h3 className="text-2xl font-black uppercase tracking-widest text-[#D4AF37]">Subscription & Billing</h3>
+                        <p className="text-xs text-white/40 uppercase tracking-widest">Manage your plan and prepaid AI coins</p>
                     </div>
                 </div>
             </div>
 
-        {/* Top Cards Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Current Plan */}
-                {loading ? (
-                    [1,2].map(i => (
-                        <div key={i} className="glass-panel border border-white/5 p-6">
-                            <Skeleton variant="text" width="40%" height={12} className="mb-3" />
-                            <Skeleton variant="text" width="60%" height={36} className="mb-4" />
-                            <Skeleton variant="rect" height={40} className="mb-6" />
-                            <Skeleton variant="rect" height={80} />
+            {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="glass-panel border border-white/5 p-6 h-[500px]">
+                            <Skeleton variant="text" width="60%" height={36} className="mb-8" />
+                            <Skeleton variant="rect" height={300} />
                         </div>
-                    ))
-                ) : (
-                    <>
-                        {/* Current Plan */}
-                        <div className="glass-panel border border-white/5 p-6 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/5 blur-[50px] rounded-full pointer-events-none" />
-                    <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Current Plan</p>
-                    <div className="flex items-center gap-3 mb-4 relative z-10">
-                        <h2 className="text-3xl font-black text-white uppercase tracking-wide">
-                            {planTier === 'elite' ? 'AI Elite' : planTier === 'growth' ? 'AI Growth' : planTier === 'starter' ? 'AI Starter' : 'SaaS Basic'}
-                        </h2>
-                        <div className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-[10px] font-bold flex items-center gap-1">
-                            <ShieldCheck className="w-3 h-3" /> ACTIVE
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={handleManageBilling}
-                        disabled={charging}
-                        className="text-sm font-bold text-luxe-obsidian bg-luxe-gold hover:bg-yellow-400 px-6 py-2.5 rounded-xl transition-all flex items-center gap-2 relative z-10 shadow-[0_0_15px_rgba(212,175,55,0.3)] disabled:opacity-50"
-                    >
-                        {charging ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                        {charging ? 'LOADING...' : 'Upgrade or Manage Plan ↗'}
-                    </button>
-
-                    <div className="mt-6 pt-4 border-t border-white/10 relative z-10">
-                        <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-3">Plan Base Limits</p>
-
-                        <div className="space-y-4">
-                            <div>
-                                <div className="flex justify-between text-xs mb-1">
-                                    <span className="text-white/60">AI Receptionist Minutes</span>
-                                    <span className="font-mono">{usage.ai_minutes_used} / {limits.ai}</span>
-                                </div>
-                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex">
-                                    <div className={`h-full rounded-full transition-all \${usage.ai_minutes_used >= limits.ai ? 'bg-red-500' : 'bg-luxe-gold'}`} style={{ width: `${Math.min((usage.ai_minutes_used / limits.ai) * 100, 100)}%` }} />
-                                </div>
-                            </div>
-
-                            <div>
-                                <div className="flex justify-between text-xs mb-1">
-                                    <span className="text-white/60">SMS / Text Reminders</span>
-                                    <span className="font-mono">{usage.sms_used} / {limits.sms}</span>
-                                </div>
-                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex">
-                                    <div className={`h-full rounded-full transition-all \${usage.sms_used >= limits.sms ? 'bg-red-500' : 'bg-luxe-gold'}`} style={{ width: `${Math.min((usage.sms_used / limits.sms) * 100, 100)}%` }} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    ))}
                 </div>
-
-                {/* Coin Wallet */}
-                <div className="glass-panel border border-luxe-gold/30 p-6 relative overflow-hidden shadow-[0_0_30px_rgba(212,175,55,0.05)]">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/10 blur-[50px] rounded-full pointer-events-none" />
-                    <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Prepaid Wallet</p>
-                    <div className="flex items-baseline gap-2 mb-4 relative z-10">
-                        <h2 className="text-4xl font-black text-luxe-gold">{coinBalance.toLocaleString()}</h2>
-                        <span className="text-sm font-bold text-white/40 uppercase tracking-widest">COINS</span>
-                    </div>
-
-                    <p className="text-[11px] text-white/60 mb-5 relative z-10 leading-relaxed border border-luxe-gold/20 bg-luxe-gold/5 p-3 rounded-lg">
-                        Coins are consumed when you exceed your plan's base limits. <br />
-                        <span className="text-luxe-gold font-bold">1 AI Minute = 10 Coins</span> • <span className="text-luxe-gold font-bold">1 SMS = 2 Coins</span>
-                    </p>
-
-                    <div className="grid grid-cols-2 gap-3 relative z-10 mt-2">
-                        <button onClick={() => handleTopUp(1000)} disabled={charging} className="bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-1 rounded-xl transition-all text-xs disabled:opacity-50 flex flex-col items-center justify-center h-[54px]">
-                            <span>+1000 Coins ($10)</span>
-                            <span className="text-[9px] text-white/40 font-normal mt-0.5">~100 AI Mins or 500 SMS</span>
-                        </button>
-                        <button onClick={() => handleTopUp(5000)} disabled={charging} className="bg-gold-gradient text-luxe-obsidian font-bold py-2 px-1 rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all flex flex-col items-center justify-center text-xs disabled:opacity-50 h-[54px]">
-                            <div className="flex items-center gap-1">
-                                {charging ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                                <span>+5000 Coins ($50)</span>
-                            </div>
-                            <span className={`text-[9px] font-normal mt-0.5 \${charging ? 'text-transparent' : 'text-luxe-obsidian/70'}`}>~500 AI Mins or 2500 SMS</span>
-                        </button>
-                    </div>
-
-                    {coinBalance <= 0 && (
-                        <p className="text-xs text-red-400 mt-4 flex items-center gap-1 bg-red-500/10 p-2 rounded-lg border border-red-500/20 relative z-10">
-                            <AlertTriangle className="w-4 h-4" /> AI Calls & SMS are currently paused.
-                        </p>
-                    )}
-                </div>
-                    </>
-                )}
-            </div>
-
-            {/* Transaction History */}
-            <div className="glass-panel border border-white/5 p-6">
-                <h4 className="font-bold mb-4 flex items-center gap-2"><Clock className="w-5 h-5 text-luxe-gold" /> Recent Usage History</h4>
-
-                {transactions.length === 0 ? (
-                    <div className="text-center py-8 text-white/40">No transactions yet.</div>
-                ) : (
-                    <div className="space-y-3">
-                        {transactions.map(tx => (
-                            <div key={tx.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-xl">
-                                <div>
-                                    <p className="text-sm font-bold text-white">{tx.description || tx.transaction_type}</p>
-                                    <p className="text-xs text-white/40">{new Date(tx.created_at).toLocaleString()}</p>
+            ) : (
+                <>
+                    {/* ===== WALLET SECTION ===== */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                        {/* Coin Balance Card */}
+                        <div className="glass-panel p-6 border border-white/10 rounded-2xl bg-gradient-to-br from-[#1A1A1A] to-[#121212]">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-2 bg-[#D4AF37]/10 rounded-lg">
+                                        <Coins className="w-5 h-5 text-[#D4AF37]" />
+                                    </div>
+                                    <span className="text-white/50 text-sm font-bold uppercase tracking-wider">AI Coin Balance</span>
                                 </div>
-                                <div className={`font-mono font-bold \${tx.amount > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    {tx.amount > 0 ? '+' : ''}{tx.amount}
+                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-green-500/10 text-green-400 rounded">Available</span>
+                            </div>
+                            <div className="text-4xl font-black text-white mb-6">
+                                {coinBalance.toLocaleString()} <span className="text-sm text-white/30 font-medium">Coins</span>
+                            </div>
+                            
+                            <div className="space-y-3 pt-4 border-t border-white/5">
+                                <p className="text-xs text-white/40 mb-3 font-bold uppercase tracking-wider">Top Up Balance</p>
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleTopUp(1000)} disabled={charging} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white/80">
+                                        {charging ? '...' : '+1K ($10)'}
+                                    </button>
+                                    <button onClick={() => handleTopUp(5000)} disabled={charging} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white/80">
+                                        {charging ? '...' : '+5K ($40)'}
+                                    </button>
+                                </div>
+                                <button onClick={() => handleTopUp(10000)} disabled={charging} className="w-full bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 py-3 rounded-xl text-xs font-bold transition-all text-[#D4AF37]">
+                                    {charging ? 'REDIRECTING...' : '+10,000 COINS ($75)'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* AI Mins Usage */}
+                        <div className="glass-panel p-6 border border-white/10 rounded-2xl bg-[#121212]">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Zap className="w-5 h-5 text-blue-400" />
+                                    <span className="text-white/50 text-sm font-bold uppercase tracking-wider">AI Voice Mins Used</span>
                                 </div>
                             </div>
-                        ))}
+                            <div className="text-4xl font-black text-white mb-2 mt-4">
+                                {usage.ai_minutes_used} <span className="text-sm text-white/30">/ {limits.ai === -1 ? '∞' : limits.ai} LIMIT</span>
+                            </div>
+                            <div className="w-full bg-white/5 h-2 rounded-full mt-8 mb-3">
+                                <div className="bg-blue-400 h-2 rounded-full" style={{ width: `${limits.ai === -1 ? 0 : Math.min(100, (usage.ai_minutes_used / limits.ai) * 100)}%` }} />
+                            </div>
+                            <p className="text-xs text-white/40">Resets next billing cycle</p>
+                        </div>
+
+                        {/* SMS Usage */}
+                        <div className="glass-panel p-6 border border-white/10 rounded-2xl bg-[#121212]">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <MessageSquare className="w-5 h-5 text-green-400" />
+                                    <span className="text-white/50 text-sm font-bold uppercase tracking-wider">SMS Sent</span>
+                                </div>
+                            </div>
+                            <div className="text-4xl font-black text-white mb-2 mt-4">
+                                {usage.sms_used} <span className="text-sm text-white/30">/ {limits.sms === -1 ? '∞' : limits.sms} LIMIT</span>
+                            </div>
+                            <div className="w-full bg-white/5 h-2 rounded-full mt-8 mb-3">
+                                <div className="bg-green-400 h-2 rounded-full" style={{ width: `${limits.sms === -1 ? 0 : Math.min(100, (usage.sms_used / limits.sms) * 100)}%` }} />
+                            </div>
+                            <p className="text-xs text-white/40">Resets next billing cycle</p>
+                        </div>
                     </div>
-                )}
-            </div>
+
+                    <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-12"></div>
+
+                    {/* ===== SUBSCRIPTION PLANS GRID ===== */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                        {plans.map((p) => {
+                            const isActive = (planTier || 'basic').toLowerCase() === p.id;
+                            const isChanging = upgradingTo === p.id;
+                            
+                            return (
+                                <div key={p.id} className={`relative flex flex-col h-[650px] p-8 rounded-3xl transition-all duration-300 ${p.highlighted ? 'bg-[#18181A] border-2 border-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.15)] scale-[1.02] z-10' : 'bg-[#121212] border border-white/10 hover:border-white/30'}`}>
+                                    {p.badge && (
+                                        <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 text-[10px] font-black tracking-widest uppercase rounded-full ${p.highlighted ? 'bg-[#D4AF37] text-black' : 'bg-white text-black'}`}>
+                                            {p.badge}
+                                        </div>
+                                    )}
+                                    
+                                    {isActive && (
+                                        <div className="absolute top-4 right-4 text-[#D4AF37] text-xs font-bold px-3 py-1 border border-[#D4AF37]/50 rounded-full bg-[#D4AF37]/10 flex items-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3" /> CURRENT
+                                        </div>
+                                    )}
+
+                                    <div className="mb-8">
+                                        <h3 className="text-xl font-bold text-white mb-2">{p.name}</h3>
+                                        <p className="text-[#A0A0A0] text-sm h-10">{p.subtitle}</p>
+                                        <div className="mt-4 flex items-baseline gap-1">
+                                            <span className="text-4xl font-black">{p.price}</span>
+                                            <span className="text-[#A0A0A0] text-sm">/mo</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 space-y-4">
+                                        {p.features.map((f: any, i: number) => {
+                                            if (typeof f === 'string') {
+                                                return (
+                                                    <div key={i} className="flex items-start gap-3">
+                                                        <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                                                        <span className="text-sm text-gray-300">{f}</span>
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            if (f.strike) {
+                                                return (
+                                                    <div key={i} className="flex items-start gap-3 opacity-40">
+                                                        <X className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                                                        <span className="text-sm text-gray-400 line-through">{f.text}</span>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div key={i} className="flex items-start gap-3">
+                                                    {f.highlight ? <Zap className="w-5 h-5 text-[#D4AF37] mt-0.5 flex-shrink-0" /> : <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />}
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-sm ${f.highlight ? 'text-white font-bold' : 'text-gray-300'}`}>{f.text}</span>
+                                                        {f.subtext && <span className="text-[10px] text-white/40 mt-1">{f.subtext}</span>}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <button
+                                        disabled={isActive || !!upgradingTo}
+                                        onClick={() => handleUpgrade(p.id)}
+                                        className={`mt-8 w-full py-4 rounded-xl font-bold transition-all ${isActive ? 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10' : p.highlighted ? 'bg-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:brightness-110 active:scale-95' : 'bg-white text-black hover:bg-gray-200 active:scale-95'} flex justify-center items-center gap-2`}
+                                    >
+                                        {isChanging ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                                        {isActive ? 'CURRENT PLAN' : isChanging ? 'PROCESSING...' : 'UPGRADE'}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
         </div>
     );
 };
@@ -855,9 +937,20 @@ export const Settings: React.FC = () => {
     // Loyalty state
     const [loyaltyMultiplier, setLoyaltyMultiplier] = useState<number>(1.0);
     const [loyaltySaving, setLoyaltySaving] = useState(false);
-
     // Tab navigation
     const [activeSettingsTab, setActiveSettingsTab] = useState('general');
+
+    useEffect(() => {
+        const saved = localStorage.getItem('voxali_settings_tab');
+        if (saved) {
+            setActiveSettingsTab(saved);
+            localStorage.removeItem('voxali_settings_tab');
+        }
+
+        const handleUpgradeRequest = () => setActiveSettingsTab('billing');
+        window.addEventListener('voxali:request-upgrade', handleUpgradeRequest);
+        return () => window.removeEventListener('voxali:request-upgrade', handleUpgradeRequest);
+    }, []);
 
     // Integrations state
     const [twilioPhone, setTwilioPhone] = useState('');
@@ -1763,7 +1856,7 @@ export const Settings: React.FC = () => {
 
             {/* ============ WALLET & BILLING TAB ============ */}
             {activeSettingsTab === 'billing' && tenantId && (
-                <WalletTab tenantId={tenantId} />
+                <BillingTab tenantId={tenantId} />
             )}
 
             {/* ============ SERVICE MODAL ============ */}

@@ -5,11 +5,13 @@ import { useAuth } from '../context/AuthContext'
 import { showToast } from './ui/ToastNotification'
 import {
   CreditCard, Banknote, ShoppingBag, Scissors, CalendarCheck,
-  Search, Plus, Minus, Trash2, X, CheckCircle, SplitSquareVertical, Receipt
+  Search, Plus, Minus, Trash2, X, CheckCircle, SplitSquareVertical, Receipt, Gift
 } from 'lucide-react'
 import { generateReceiptPDF } from '../utils/receiptGenerator'
 
-type ItemType = 'service' | 'product' | 'custom'
+import { Package as PackageIcon } from 'lucide-react'
+
+type ItemType = 'service' | 'product' | 'custom' | 'package' | 'gift_card'
 
 interface CartItem {
   id: string
@@ -19,6 +21,8 @@ interface CartItem {
   quantity: number
   service_id?: string // For walk-in services
   stylist_name?: string // For linked bookings
+  template_id?: string // For selling packages
+  recipient_email?: string // For selling gift cards
 }
 
 interface ProductInfo {
@@ -27,6 +31,13 @@ interface ProductInfo {
   price: number
   sku: string
   stock: number
+}
+
+interface PackageInfo {
+  id: string
+  name: string
+  price: number
+  total_uses: number
 }
 
 interface ServiceInfo {
@@ -54,14 +65,19 @@ export function POSSystem() {
   const { user, staffRecord } = useAuth()
   
   // Views
-  const [activeTab, setActiveTab] = useState<'walkin' | 'bookings' | 'retail'>('walkin')
+  const [activeTab, setActiveTab] = useState<'walkin' | 'bookings' | 'retail' | 'packages' | 'giftcards'>('walkin')
   
   // Data State
   const [services, setServices] = useState<ServiceInfo[]>([])
   const [products, setProducts] = useState<ProductInfo[]>([])
   const [todayBookings, setTodayBookings] = useState<BookingInfo[]>([])
+  const [packageTemplates, setPackageTemplates] = useState<PackageInfo[]>([])
   const [loading, setLoading] = useState(false)
   
+  // Package Management (POS)
+  const [newGCAmount, setNewGCAmount] = useState('')
+  const [newGCEmail, setNewGCEmail] = useState('')
+
   // Product Management
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [newProduct, setNewProduct] = useState({ name: '', sku: '', price: '', stock: '10' })
@@ -131,6 +147,13 @@ export function POSSystem() {
           .eq('tenant_id', tenantId)
           .eq('is_active', true)
         if (data) setProducts(data.map(p => ({ ...p, stock: p.quantity })))
+      } else if (activeTab === 'packages') {
+        const { data } = await supabase
+          .from('client_package_templates')
+          .select('id, name, price, total_uses')
+          .eq('tenant_id', tenantId)
+          .eq('is_active', true)
+        if (data) setPackageTemplates(data)
       } else if (activeTab === 'bookings') {
         // Fetch today's confirmed/checked_in bookings
         // Convert 'now' to tenant timezone date
@@ -192,6 +215,11 @@ export function POSSystem() {
 
   // Cart Functions
   const addToCart = (item: any, type: ItemType) => {
+    if (type === 'package' && !linkedClientId) {
+        showToast('You must select a client from Today\'s Bookings first to sell a package.', 'error');
+        return;
+    }
+
     setCart(prev => {
       // Check if product already exists
       if (type === 'product') {
@@ -206,7 +234,9 @@ export function POSSystem() {
         name: type === 'custom' ? 'Custom Charge' : item.name,
         price: item.price,
         quantity: 1,
-        service_id: type === 'service' ? item.id : undefined
+        service_id: type === 'service' ? item.id : undefined,
+        template_id: type === 'package' ? item.id : undefined,
+        recipient_email: type === 'gift_card' ? item.recipient_email : undefined
       }]
     })
   }
@@ -260,8 +290,13 @@ export function POSSystem() {
     return total
   }
 
+  const taxableSubtotal = cart.reduce((acc, item) => {
+    if (item.type === 'package' || item.type === 'gift_card') return acc;
+    return acc + (item.price * item.quantity);
+  }, 0);
+
   const subtotal = calculateTotal()
-  const tax = subtotal * 0.08 // 8% placeholder tax
+  const tax = taxableSubtotal * 0.08 // 8% placeholder tax
   
   // Recalculate based on total before GC
   const preGFTotal = subtotal + tax + customTip - depositAlreadyPaid;
@@ -401,7 +436,7 @@ export function POSSystem() {
         const cardAmount = finalCharge - cashAmount
         paymentPromises.push(
           supabase.from('payments').insert([
-            { tenant_id: tenantId, booking_id: bookingId, amount: cashAmount, tip_amount: tipAmount, payment_method: 'cash', status: 'completed' },
+            { tenant_id: tenantId, booking_id: bookingId, amount: cashAmount, tip_amount: customTip, payment_method: 'cash', status: 'completed' },
             { tenant_id: tenantId, booking_id: bookingId, amount: cardAmount, tip_amount: 0, payment_method: 'card', status: 'completed' }
           ])
         );
@@ -411,7 +446,7 @@ export function POSSystem() {
             tenant_id: tenantId,
             booking_id: bookingId,
             amount: 0,
-            tip_amount: tipAmount,
+            tip_amount: customTip,
             payment_method: 'package',
             status: 'completed'
           })
@@ -433,7 +468,7 @@ export function POSSystem() {
             tenant_id: tenantId,
             booking_id: bookingId,
             amount: finalCharge,
-            tip_amount: tipAmount,
+            tip_amount: customTip,
             payment_method: paymentMethod,
             status: 'completed'
           })
@@ -448,8 +483,70 @@ export function POSSystem() {
         // Quick decrement via RPC or direct update if concurrency is low
         const prod = products.find(p => p.id === item.id)
         if (prod) {
-          await supabase.from('products').update({ quantity: Math.max(0, prod.stock - item.quantity) }).eq('id', item.id)
+          const oldStock = prod.stock;
+          const newStock = Math.max(0, prod.stock - item.quantity);
+          await supabase.from('products').update({ quantity: newStock }).eq('id', item.id);
+
+          // Trigger Low Stock Alert to Owner if it drops to 5 or below for the FIRST time
+          if (oldStock > 5 && newStock <= 5) {
+               await supabase.from('notification_queue').insert({
+                  tenant_id: tenantId,
+                  event_type: 'low_stock_alert',
+                  client_email: 'retail_alert@voxali.net', // Placeholder to satisfy queue structure
+                  client_name: 'Store Manager',
+                  booking_details: {
+                      product_name: prod.name,
+                      remaining_stock: newStock
+                  }
+               });
+               // Instantly trigger dispatch
+               await supabase.functions.invoke('send-notification', { body: {} }).catch(e => console.error(e));
+          }
         }
+      }
+
+      // X. Process Sold Packages
+      const packageItems = cart.filter(c => c.type === 'package')
+      for (const item of packageItems) {
+        const tpl = packageTemplates.find(p => p.id === item.template_id);
+        if (tpl && linkedClientId) {
+            await supabase.from('client_active_packages').insert({
+                tenant_id: tenantId,
+                client_id: linkedClientId,
+                template_id: tpl.id,
+                remaining_uses: tpl.total_uses
+            });
+        }
+      }
+
+      // Y. Process Sold Gift Cards
+      const gcItems = cart.filter(c => c.type === 'gift_card')
+      for (const item of gcItems) {
+          const code = Math.random().toString(36).substring(2, 10).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+          const { error: gcErr } = await supabase.from('gift_cards').insert({
+              tenant_id: tenantId,
+              code: code,
+              initial_value: item.price,
+              current_balance: item.price,
+              recipient_email: item.recipient_email || null,
+              status: 'active'
+          });
+
+          if (!gcErr && item.recipient_email) {
+              await supabase.from('notification_queue').insert({
+                  tenant_id: tenantId,
+                  event_type: 'gift_card_issued',
+                  client_email: item.recipient_email,
+                  client_name: 'Valued Client', // Provide fallback client name
+                  booking_details: {
+                      gift_card_code: code,
+                      gift_card_amount: item.price
+                  }
+              });
+              
+              // Instantly trigger edge function to email the digital code
+              await supabase.functions.invoke('send-notification', { body: {} }).catch(err => console.error(err));
+          }
       }
 
       // 4. Success handling
@@ -469,7 +566,7 @@ export function POSSystem() {
             price: c.price
           })),
           subtotal: subtotal,
-          tip: tipAmount,
+          tip: customTip,
           total: finalCharge,
           paymentMethod: paymentMethod
         });
@@ -554,6 +651,7 @@ export function POSSystem() {
   const filteredServices = services.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku?.toLowerCase().includes(searchQuery.toLowerCase()))
   const filteredBookings = todayBookings.filter(b => b.client_name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredPackages = packageTemplates.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   return (
     <div className="flex h-[calc(100vh-100px)] gap-6 animate-fade-in">
@@ -579,7 +677,11 @@ export function POSSystem() {
               <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 group">
                 <div className="flex-1 min-w-0 pr-3">
                   <div className="flex items-center gap-2">
-                    {item.type === 'service' ? <Scissors className="w-3.5 h-3.5 text-luxe-gold" /> : <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />}
+                    {item.type === 'service' ? <Scissors className="w-3.5 h-3.5 text-luxe-gold" /> : 
+                     item.type === 'product' ? <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" /> : 
+                     item.type === 'package' ? <PackageIcon className="w-3.5 h-3.5 text-luxe-gold" /> : 
+                     item.type === 'gift_card' ? <Gift className="w-3.5 h-3.5 text-purple-400" /> : 
+                     <ShoppingBag className="w-3.5 h-3.5 text-white/40" />}
                     <h4 className="font-medium text-white truncate text-sm">{item.name}</h4>
                   </div>
                   {item.stylist_name && (
@@ -743,24 +845,36 @@ export function POSSystem() {
       <div className="flex-1 glass-panel flex flex-col overflow-hidden">
         
         {/* Navigation Tabs */}
-        <div className="flex border-b border-white/5">
+        <div className="flex border-b border-white/5 overflow-x-auto custom-scrollbar">
           <button 
             onClick={() => setActiveTab('bookings')}
-            className={`flex-1 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'bookings' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
+            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'bookings' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
           >
-            <CalendarCheck className="w-5 h-5" /> Today's Bookings
+            <CalendarCheck className="w-4 h-4" /> Bookings
           </button>
           <button 
             onClick={() => setActiveTab('walkin')}
-            className={`flex-1 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'walkin' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
+            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'walkin' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
           >
-            <Scissors className="w-5 h-5" /> Services list (Walk-in)
+            <Scissors className="w-4 h-4" /> Services
           </button>
           <button 
             onClick={() => setActiveTab('retail')}
-            className={`flex-1 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'retail' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
+            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'retail' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
           >
-            <ShoppingBag className="w-5 h-5" /> Retail Products
+            <ShoppingBag className="w-4 h-4" /> Retail
+          </button>
+          <button 
+            onClick={() => setActiveTab('packages')}
+            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'packages' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
+          >
+            <PackageIcon className="w-4 h-4" /> Packages
+          </button>
+          <button 
+            onClick={() => setActiveTab('giftcards')}
+            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'giftcards' ? 'text-VXL-purple border-b-2 border-purple-500 bg-purple-500/5' : 'text-white/40 hover:bg-white/5'}`}
+          >
+            <Gift className="w-4 h-4 text-purple-400" /> Gift Cards
           </button>
         </div>
 
@@ -770,10 +884,11 @@ export function POSSystem() {
             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
             <input
               type="text"
-              placeholder={`Search ${activeTab}...`}
+              placeholder={activeTab === 'giftcards' ? "Search not available..." : `Search ${activeTab}...`}
               value={searchQuery}
+              disabled={activeTab === 'giftcards'}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-luxe-gold focus:ring-1 focus:ring-luxe-gold transition-all"
+              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-luxe-gold focus:ring-1 focus:ring-luxe-gold transition-all disabled:opacity-50"
             />
           </div>
         </div>
@@ -869,6 +984,83 @@ export function POSSystem() {
                   <div onClick={() => setShowAddProductModal(true)} className="cursor-pointer group p-4 bg-emerald-500/5 border border-emerald-500/30 border-dashed rounded-2xl hover:border-emerald-400 hover:bg-emerald-400/10 transition-all text-center flex items-center justify-center flex-col min-h-[160px]">
                       <Plus className="w-8 h-8 text-emerald-400/50 group-hover:text-emerald-400 mb-2" />
                       <span className="font-semibold text-emerald-400/70 group-hover:text-emerald-400">Add New Product</span>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'packages' && (
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredPackages.length === 0 ? (
+                    <div className="col-span-full py-12 text-center text-white/40">
+                      <PackageIcon className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                      <span className="block mb-1">No active package templates.</span>
+                      <span className="text-xs">Create templates in the Packages module first.</span>
+                    </div>
+                  ) : (
+                    filteredPackages.map(p => (
+                      <div key={p.id} onClick={() => addToCart(p, 'package')} className="cursor-pointer group p-5 bg-gradient-to-br from-white/5 to-transparent border border-white/10 rounded-2xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-left flex flex-col h-full h-min-[140px]">
+                        <div className="flex justify-between items-start mb-2">
+                          <PackageIcon className="w-6 h-6 text-luxe-gold group-hover:scale-110 transition-transform" />
+                          <span className="text-xs font-bold bg-white/10 px-2 py-0.5 rounded text-white/70">{p.total_uses} credits</span>
+                        </div>
+                        <h4 className="font-bold text-white text-md mb-3 min-h-[44px]">{p.name}</h4>
+                        <div className="mt-auto flex items-end justify-between w-full">
+                          <span className="font-black text-luxe-gold text-lg">${p.price.toFixed(2)}</span>
+                          <span className="text-xs text-white/30 font-medium">Auto-Issue →</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'giftcards' && (
+                <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto animate-in fade-in zoom-in duration-300">
+                  <div className="bg-gradient-to-br from-[#3B0764] to-[#581C87] w-full p-8 rounded-3xl border border-purple-500/40 shadow-2xl shadow-purple-500/20 relative overflow-hidden">
+                    <div className="absolute top-[-20px] right-[-20px] text-purple-900/30 rotate-12">
+                      <Gift size={150} />
+                    </div>
+                    <div className="relative z-10">
+                      <h3 className="text-2xl font-black text-white mb-1">Issue Gift Card</h3>
+                      <p className="text-purple-200/60 text-sm mb-6">Will be generated & emailed upon checkout.</p>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-purple-200/50 uppercase tracking-wider mb-2">Card Amount ($) *</label>
+                          <input 
+                              type="number" value={newGCAmount} onChange={e => setNewGCAmount(e.target.value)}
+                              placeholder="e.g. 100" 
+                              className="w-full bg-black/40 border border-purple-400/30 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-400 focus:bg-black/60 text-xl font-bold font-mono transition-all box-glow"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-purple-200/50 uppercase tracking-wider mb-2">Recipient Email (Optional)</label>
+                          <input 
+                              type="email" value={newGCEmail} onChange={e => setNewGCEmail(e.target.value)}
+                              placeholder="client@example.com" 
+                              className="w-full bg-black/40 border border-purple-400/30 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-400 focus:bg-black/60 transition-all placeholder:text-white/20"
+                          />
+                        </div>
+                        
+                        <button 
+                          onClick={() => {
+                            if (!newGCAmount || parseFloat(newGCAmount) <= 0) return showToast('Enter valid amount', 'error');
+                            addToCart({
+                              id: crypto.randomUUID(), // Unique for every GC
+                              name: 'Gift Card',
+                              price: parseFloat(newGCAmount),
+                              recipient_email: newGCEmail || undefined
+                            }, 'gift_card');
+                            setNewGCAmount('');
+                            setNewGCEmail('');
+                            showToast('Gift Card added to cart', 'success');
+                          }}
+                          className="w-full mt-4 bg-purple-500 text-white font-bold py-3.5 rounded-xl hover:bg-purple-400 transition-colors uppercase tracking-wider shadow-lg flex justify-center items-center gap-2"
+                        >
+                          <Plus className="w-5 h-5"/> Add To Cart
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

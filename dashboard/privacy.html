@@ -1,151 +1,368 @@
 <!DOCTYPE html>
 <html lang="en">
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy — Voxali</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Privacy Policy | Voxali</title>
+    <meta name="description"
+        content="Voxali the ultimate AI salon booking platform.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        luxe: {
+                            obsidian: '#0A0A0A',
+                            charcoal: '#151515',
+                            gold: '#D4AF37',
+                            muted: '#A1A1AA',
+                            surface: '#1E1E1E'
+                        }
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-glow': 'pulseGlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-up': 'slideUp 0.8s cubic-bezier(0, 0, 0.2, 1) forwards',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: 0.4 },
+                            '50%': { opacity: 0.1 },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(40px)', opacity: 0 },
+                            '100%': { transform: 'translateY(0)', opacity: 1 },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        :root {
-            --bg-dark: #0f1115;
-            --bg-surface: #1a1d24;
-            --text-primary: #f3f4f6;
-            --text-secondary: #9ca3af;
-            --accent-gold: #f59e0b;
-            --border-color: #374151;
-        }
-
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-primary);
-            line-height: 1.7;
-            margin: 0;
-            padding: 0;
+            background-color: #0A0A0A;
+            color: #F5F5F7;
         }
 
-        nav {
-            padding: 1.5rem 2rem;
+        .glass-nav {
+            backdrop-filter: blur(20px);
+            background: rgba(10, 10, 15, 0.85);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #FDE68A 0%, #D4AF37 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .bg-gradient-gold {
+            background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+        }
+
+        .glass-card {
+            background: rgba(21, 21, 21, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .hero-glow {
+            position: absolute;
+            top: 20%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Mobile Nav Drawer */
+        #mobile-menu {
+            display: none;
+        }
+        #mobile-menu.open {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            background: rgba(15, 17, 21, 0.9);
-            backdrop-filter: blur(10px);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: var(--accent-gold);
-            letter-spacing: 2px;
-            text-decoration: none;
-        }
-
-        .nav-links a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            margin-left: 2rem;
-            font-size: 0.95rem;
-            transition: color 0.2s;
-        }
-
-        .nav-links a:hover {
-            color: var(--text-primary);
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 4rem auto;
-            padding: 2rem;
-            background-color: var(--bg-surface);
-            border-radius: 16px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        }
-
-        h1 {
-            color: var(--accent-gold);
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .last-updated {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-bottom: 2.5rem;
-        }
-
-        h2 {
-            font-size: 1.5rem;
-            margin-top: 2.5rem;
-            margin-bottom: 1rem;
-            color: #ffffff;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 0.5rem;
-        }
-
-        p,
-        ul {
-            color: var(--text-secondary);
-        }
-
-        li {
-            margin-bottom: 0.5rem;
         }
     </style>
+<style>
+.container {
+    max-width: 800px;
+    margin: 4rem auto;
+    padding: 2rem;
+    background-color: var(--bg-surface, #1E1E1E);
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.05);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    color: #A1A1AA;
+}
+h1 { color: #D4AF37; font-size: 2.5rem; margin-bottom: 0.5rem; font-weight: 900;}
+h2 { font-size: 1.5rem; margin-top: 2.5rem; margin-bottom: 1rem; color: #ffffff; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem; font-weight: 700;}
+.last-updated { color: #A1A1AA; font-size: 0.9rem; margin-bottom: 2.5rem; }
+p { margin-bottom: 1rem; }
+li { margin-bottom: 0.5rem; }
+ul { padding-left: 1.5rem; list-style-type: disc; margin-bottom: 1rem; }
+</style>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Voxali",
+      "operatingSystem": "Web Application",
+      "applicationCategory": "BusinessApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "49.00",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Voxali Inc.",
+      "url": "https://voxali.net",
+      "logo": "https://voxali.net/logo.png"
+    }
+    </script>
 </head>
+<body class="antialiased overflow-x-hidden selection:bg-luxe-gold selection:text-black">
+
+    <!-- HERO GLOW -->
+    <div class="hero-glow animate-pulse-glow"></div>
+
 
 <body>
-    <nav>
-        <a href="pricing.html" class="logo">VOXALI</a>
-        <div class="nav-links">
-            <a href="pricing.html">Back to Home</a>
+    
+    <!-- NAVBAR -->
+    <!-- NAVBAR -->
+    <nav class="fixed top-0 w-full z-50 glass-nav transition-all duration-300 py-4 px-6 md:px-12">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="/index.html" class="text-2xl font-black tracking-widest text-white flex items-center gap-2">
+                <span class="text-gradient">VOXALI</span>
+            </a>
+            
+            <!-- Desktop Nav -->
+            <div class="hidden md:flex items-center gap-8">
+                <a href="/index.html" class="text-sm font-medium text-white transition-colors">Home</a>
+                <a href="/features.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Features</a>
+                <a href="/pricing.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Pricing</a>
+                <a href="/how-it-works.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">How it Works</a>
+                <a href="/about.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">About</a>
+                <a href="/contact.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Contact</a>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="/app/" class="hidden md:block text-sm font-semibold text-white border border-white/10 hover:border-white/30 px-5 py-2.5 rounded-lg transition-all">
+                    Sign In
+                </a>
+                <a href="/pricing.html" class="text-sm font-bold text-black bg-gradient-gold px-5 py-2.5 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all">
+                    Get Started
+                </a>
+                <!-- Mobile Hamburger -->
+                <button id="hamburger-btn" onclick="toggleMobileMenu()" class="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-white/10 transition-all" aria-label="Open Menu">
+                    <span class="w-6 h-0.5 bg-white rounded-full transition-all" id="ham-1"></span>
+                    <span class="w-6 h-0.5 bg-white rounded-full transition-all" id="ham-2"></span>
+                    <span class="w-4 h-0.5 bg-white rounded-full transition-all" id="ham-3"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Drawer -->
+        <div id="mobile-menu" class="hidden flex-col gap-2 pt-4 pb-6 border-t border-white/10 mt-4 bg-luxe-charcoal absolute left-0 w-full px-6">
+            <a href="/index.html" class="block py-3 px-4 text-sm font-semibold text-white rounded-lg hover:bg-white/5 transition-all">Home</a>
+            <a href="/features.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Features</a>
+            <a href="/pricing.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Pricing</a>
+            <a href="/how-it-works.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">How it Works</a>
+            <a href="/about.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">About</a>
+            <a href="/contact.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Contact</a>
+            <div class="mt-3 pt-3 border-t border-white/10 flex gap-3 px-4">
+                <a href="/app/" class="flex-1 text-center text-sm font-semibold text-white border border-white/10 px-4 py-2.5 rounded-lg">Sign In</a>
+                <a href="/pricing.html" class="flex-1 text-center text-sm font-bold text-black bg-gradient-gold px-4 py-2.5 rounded-lg">Get Started</a>
+            </div>
         </div>
     </nav>
 
-    <div class="container">
-        <h1>Privacy Policy</h1>
-        <p class="last-updated">Last Updated: October 2023</p>
+    
+    <!-- HEADER SECTION -->
+    <main class="relative pt-40 pb-16 px-6 text-center">
+        <div class="max-w-4xl mx-auto animate-[slideUp_0.8s_ease-out]">
+            <h1 class="text-4xl md:text-5xl font-black tracking-tight mb-6">
+                Privacy Policy
+            </h1>
+            <p class="text-lg text-luxe-muted font-medium mb-10">
+                Last Updated: June 2025
+            </p>
+        </div>
+    </main>
 
-        <p>At Voxali, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and
-            safeguard your information when you visit our website or use our AI-powered salon management platform.</p>
+    <div class="container bg-luxe-charcoal border-white/5 rounded-2xl mx-auto mb-24 px-8 md:px-16 py-12 prose prose-invert prose-gold max-w-4xl">
+        <p>At Voxali, we take your privacy seriously. This Privacy Policy explains how we collect, use, and protect your information when you visit our website or use our AI-powered salon management platform.</p>
 
-        <h2>1. Information We Collect</h2>
-        <p>We may collect information about you in a variety of ways. The information we may collect includes:</p>
-        <ul>
-            <li><strong>Personal Data:</strong> Personally identifiable information, such as your name, shipping
-                address, email address, and telephone number, and demographic information that you voluntarily give to
-                us when you register for Voxali.</li>
-            <li><strong>Client Data:</strong> Information regarding your salon's clients that you input into the CRM,
-                including names, contact details, and appointment history.</li>
-            <li><strong>Call Transcripts & Recordings:</strong> Data generated by the AI Receptionist, including audio
-                recordings and text transcripts for quality assurance and service delivery.</li>
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">1. Information We Collect</h2>
+        <p>We may collect the following types of information:</p>
+        <ul class="space-y-2 list-disc pl-5">
+            <li><strong>Account Information:</strong> Your name, email address, phone number, and business details provided during registration.</li>
+            <li><strong>Salon and Client Data:</strong> Information you enter into the platform, including staff details, services, client names, contact details, appointment history, and preferences.</li>
+            <li><strong>Call and Communication Data:</strong> Voxali may process data related to AI-powered call handling, including call metadata, booking activity, and communication workflows. Expanded features such as call recording tools may be introduced in future releases. Call transcripts are not currently part of the platform offering.</li>
+            <li><strong>Payment Information:</strong> Payment details are processed through Stripe. Voxali does not directly store your full payment card information.</li>
+            <li><strong>Usage Data:</strong> Information about how you use the platform, including pages visited, features used, and general activity logs.</li>
+            <li><strong>Device and Browser Data:</strong> IP address, browser type, device type, and similar technical information collected automatically when you visit our website.</li>
         </ul>
 
-        <h2>2. Use of Your Information</h2>
-        <p>Having accurate information about you permits us to provide you with a smooth, efficient, and customized
-            experience. We use data to:</p>
-        <ul>
-            <li>Create and manage your salon account.</li>
-            <li>Process transactions and send related information, including confirmations and receipts.</li>
-            <li>Provide the AI voice answering service and transcriptions.</li>
-            <li>Send you technical notices, updates, security alerts, and support messages.</li>
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">2. How We Use Your Information</h2>
+        <p>We use collected information to:</p>
+        <ul class="space-y-2 list-disc pl-5">
+            <li>Create and manage your salon account</li>
+            <li>Provide the AI receptionist and booking services</li>
+            <li>Process payments and deposits through Stripe</li>
+            <li>Send email and SMS reminders as configured in your plan</li>
+            <li>Send system notifications, updates, and support messages</li>
+            <li>Improve the platform and user experience</li>
+            <li>Maintain security and prevent unauthorized access</li>
+            <li>Comply with legal obligations</li>
         </ul>
 
-        <h2>3. Data Security</h2>
-        <p>We use administrative, technical, and physical security measures (including Supabase RLS and encrypted edge
-            functions) to help protect your personal information. While we have taken reasonable steps to secure the
-            personal information you provide to us, please be aware that despite our efforts, no security measures are
-            perfect or impenetrable.</p>
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">3. Data Sharing</h2>
+        <p>We do not sell your personal information.</p>
+        <p>We may share data with trusted third-party service providers that help us operate the platform, including:</p>
+        <ul class="space-y-2 list-disc pl-5">
+            <li><strong>Stripe</strong> for payment processing</li>
+            <li><strong>Twilio</strong> for telephony and messaging</li>
+            <li><strong>ElevenLabs</strong> for AI voice generation</li>
+            <li><strong>Supabase</strong> for data infrastructure</li>
+            <li><strong>Cloudflare</strong> for hosting and security</li>
+        </ul>
 
-        <h2>4. Contact Us</h2>
-        <p>If you have questions or comments about this Privacy Policy, please contact us at support@voxali.com.</p>
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">4. Cookies and Tracking</h2>
+        <p>Our website may use cookies and similar technologies for basic functionality, analytics, and improving user experience. You can manage cookie preferences through your browser settings.</p>
+
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">5. Data Retention</h2>
+        <p>We retain your data for as long as your account is active or as needed to provide services. If you close your account, we will delete or anonymize your data within a reasonable timeframe, unless required to retain it for legal or compliance purposes.</p>
+
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">6. Data Security</h2>
+        <p>We use access controls, account separation, encryption where applicable, and trusted infrastructure providers to help protect your information. While we take reasonable steps to secure your data, no system is completely secure. For more details, visit our <a href="/security.html" class="text-luxe-gold hover:underline">Security page</a>.</p>
+
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">7. Your Rights</h2>
+        <p>Depending on your location, you may have the right to:</p>
+        <ul class="space-y-2 list-disc pl-5">
+            <li>Access the personal data we hold about you</li>
+            <li>Request correction of inaccurate data</li>
+            <li>Request deletion of your data</li>
+            <li>Object to certain processing activities</li>
+            <li>Request data portability</li>
+        </ul>
+        <p>To exercise any of these rights, contact us at <strong><a href="mailto:support@voxali.net" class="text-luxe-gold hover:underline">support@voxali.net</a></strong>.</p>
+
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">8. International Data</h2>
+        <p>If you are accessing Voxali from outside the regions where our infrastructure providers operate, your data may be transferred and processed in other jurisdictions. By using the platform, you acknowledge this transfer.</p>
+
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">9. Children's Privacy</h2>
+        <p>Voxali is not intended for use by individuals under the age of 16. We do not knowingly collect personal data from children.</p>
+
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">10. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated date. Continued use of the platform after changes constitutes acceptance of the revised policy.</p>
+
+        <h2 class="text-2xl font-bold text-white mt-10 mb-4 pb-2 border-b border-white/10">11. Contact Us</h2>
+        <p>If you have questions about this Privacy Policy, contact us at: <strong><a href="mailto:support@voxali.net" class="text-luxe-gold hover:underline">support@voxali.net</a></strong></p>
+        <p>For legal or compliance inquiries: <strong><a href="mailto:legal@voxali.net" class="text-luxe-gold hover:underline">legal@voxali.net</a></strong></p>
     </div>
-</body>
 
+    
+    <!-- FOOTER -->
+    <!-- FOOTER -->
+    <footer class="border-t border-white/5 py-16 px-6 bg-luxe-charcoal mt-10">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10 lg:gap-6 mb-12">
+            <!-- Brand -->
+            <div class="lg:col-span-2">
+                <span class="text-2xl font-black tracking-wider text-gradient block mb-4">VOXALI</span>
+                <p class="text-sm text-luxe-muted w-3/4 leading-relaxed mb-6">Built to help salons book more clients with less front-desk stress. Your 24/7 AI Receptionist & CRM.</p>
+                <a href="/app/" class="inline-block text-sm font-bold text-white border border-white/20 hover:border-white/50 px-5 py-2.5 rounded-lg transition-all">Sign In to Dashboard</a>
+            </div>
+            
+            <!-- Product -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Product</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/features.html" class="hover:text-luxe-gold transition-colors w-fit">Features</a>
+                    <a href="/how-it-works.html" class="hover:text-luxe-gold transition-colors w-fit">How It Works</a>
+                    <a href="/pricing.html" class="hover:text-luxe-gold transition-colors w-fit">Pricing</a>
+                    <a href="/demo.html" class="hover:text-luxe-gold transition-colors w-fit">Demo</a>
+                </div>
+            </div>
+
+            <!-- Company -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Company</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/about.html" class="hover:text-luxe-gold transition-colors w-fit">About</a>
+                    <a href="/contact.html" class="hover:text-luxe-gold transition-colors w-fit">Contact</a>
+                </div>
+            </div>
+
+            <!-- Resources -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Resources</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/faq.html" class="hover:text-luxe-gold transition-colors w-fit">FAQ</a>
+                    <a href="/markets.html" class="hover:text-luxe-gold transition-colors w-fit">Supported Markets</a>
+                    <a href="/setup-guide.html" class="hover:text-luxe-gold transition-colors w-fit">Setup Guide</a>
+                </div>
+            </div>
+
+            <!-- Legal & Contact -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Legal</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/privacy.html" class="hover:text-luxe-gold transition-colors w-fit">Privacy Policy</a>
+                    <a href="/terms.html" class="hover:text-luxe-gold transition-colors w-fit">Terms of Service</a>
+                    <a href="/security.html" class="hover:text-luxe-gold transition-colors w-fit">Security</a>
+                    <a href="/compliance.html" class="hover:text-luxe-gold transition-colors w-fit">Compliance</a>
+                </div>
+                <div class="mt-6">
+                    <a href="mailto:support@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block mb-1">support@voxali.net</a>
+                    <a href="mailto:sales@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block mb-1">sales@voxali.net</a>
+                    <a href="mailto:legal@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block">legal@voxali.net</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-sm text-luxe-muted">&copy; 2026 Voxali Inc. All rights reserved.</span>
+        </div>
+    </footer>
+</body>
+</html>
+</body>
+</html>
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            const h1 = document.getElementById('ham-1');
+            const h3 = document.getElementById('ham-3');
+            menu.classList.toggle('hidden');
+            menu.classList.toggle('flex');
+            h1.classList.toggle('rotate-45');
+            h1.classList.toggle('translate-y-2');
+            h3.classList.toggle('opacity-0');
+        }
+    </script>
+</body>
 </html>

@@ -10,6 +10,7 @@ import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { PageSkeleton } from './ui/Skeleton';
+import { FeatureLock } from './ui/FeatureLock';
 
 interface Campaign {
     id: string;
@@ -218,6 +219,11 @@ export const Marketing: React.FC = () => {
     if (loading) return <PageSkeleton />;
 
     return (
+        <FeatureLock 
+            requiredTier="growth" 
+            featureName="Marketing Campaigns" 
+            description="Launch SMS & Email campaigns, blast promos, and recover inactive clients with automated marketing tools."
+        >
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -564,5 +570,6 @@ export const Marketing: React.FC = () => {
                 </div>
             )}
         </div>
+        </FeatureLock>
     );
 };

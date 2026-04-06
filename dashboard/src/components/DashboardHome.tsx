@@ -30,6 +30,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { DashboardSkeleton } from './ui/Skeleton';
+import { useAuth } from '../context/AuthContext';
 
 interface DashboardStats {
     bookings_today: number;
@@ -38,11 +39,8 @@ interface DashboardStats {
     calls_today: number;
     twilio_number?: string;
     ai_used?: number;
-    ai_limit?: number;
     sms_used?: number;
-    sms_limit?: number;
-    email_used?: number;
-    email_limit?: number;
+    coin_balance?: number;
 }
 
 interface RevenueDay {
@@ -65,6 +63,8 @@ interface DashboardHomeProps {
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) => {
     const { tenantId } = useTenant();
+    const { isOwner, isSuperAdmin } = useAuth();
+    const isOwnerPrivilege = isOwner || isSuperAdmin;
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [chartData, setChartData] = useState<RevenueDay[]>([]);
     const [activities, setActivities] = useState<RecentBooking[]>([]);
@@ -106,11 +106,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                 calls_today: callsRes.data?.length || 0,
                 twilio_number: tData.twilio_number || '',
                 ai_used: tData.ai_minutes_used || 0,
-                ai_limit: tData.plan_ai_minutes_limit || 150,
                 sms_used: tData.sms_used || 0,
-                sms_limit: tData.plan_sms_limit || 200,
-                email_used: tData.emails_used || 0,
-                email_limit: tData.plan_email_limit || 500,
+                coin_balance: tenantRes.data?.coin_balance || 0,
             });
 
             // Weekly revenue chart
@@ -278,9 +275,11 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                 </div>
             </div>
 
-            {/* AI Control Center */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* AI Control Center & Plan Usage - Owner Only */}
+            {isOwnerPrivilege && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="glass-panel p-6 border-l-4 border-l-luxe-gold">
+                    {/* ... Bella Content ... */}
                     {stats?.twilio_number && (
                         <div className="mb-6 p-4 rounded-xl bg-luxe-gold/10 border border-luxe-gold/20 flex flex-col gap-2">
                             <h4 className="font-bold text-luxe-gold flex items-center gap-2">
@@ -348,24 +347,25 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                     </div>
                 </div>
 
-                <div className="glass-panel p-6 border-t-4 border-t-blue-500/50 flex flex-col justify-between">
-                    <div>
-                        <h3 className="font-bold text-lg flex items-center gap-2 mb-6">
-                            <Activity className="w-5 h-5 text-blue-400" />
-                            Current Plan Usage
-                        </h3>
-                        <div className="space-y-5">
-                            <UsageBar label="AI Call Minutes" used={stats?.ai_used ?? 0} limit={stats?.ai_limit ?? 150} color="bg-emerald-500" />
-                            <UsageBar label="SMS Credits" used={stats?.sms_used ?? 0} limit={stats?.sms_limit ?? 200} color="bg-blue-500" />
-                            <UsageBar label="Email Campaigns" used={stats?.email_used ?? 0} limit={stats?.email_limit ?? 500} color="bg-purple-500" />
+                    <div className="glass-panel p-6 border-t-4 border-t-blue-500/50 flex flex-col justify-between">
+                        <div>
+                            <h3 className="font-bold text-lg flex items-center gap-2 mb-6 text-white tracking-tight">
+                                <Activity className="w-5 h-5 text-luxe-gold" />
+                                Resource Usage & Wallet
+                            </h3>
+                            <div className="space-y-5">
+                                <UsageBar label="Available AI Coins" used={stats?.coin_balance ?? 0} limit={stats?.coin_balance ?? 0} color="bg-luxe-gold" hideBar />
+                                <UsageBar label="AI Call Minutes (Equivalent)" used={stats?.ai_used ?? 0} limit={Math.max(stats?.ai_used ?? 0, Math.floor((stats?.coin_balance ?? 0) / 20))} color="bg-emerald-500" />
+                                <UsageBar label="SMS Credits (Equivalent)" used={stats?.sms_used ?? 0} limit={Math.max(stats?.sms_used ?? 0, Math.floor((stats?.coin_balance ?? 0) / 5))} color="bg-blue-500" />
+                            </div>
+                        </div>
+                        <div className="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-xs">
+                            <span className="text-white/40">Usage resets on your billing cycle</span>
+                            <button onClick={() => setActiveTab?.('settings')} className="text-luxe-gold font-bold hover:underline">Manage Plan</button>
                         </div>
                     </div>
-                    <div className="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-xs">
-                        <span className="text-white/40">Usage resets on your billing cycle</span>
-                        <button onClick={() => setActiveTab?.('settings')} className="text-luxe-gold font-bold hover:underline">Manage Plan</button>
-                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
@@ -375,10 +375,11 @@ interface UsageBarProps {
     used: number;
     limit: number;
     color: string;
+    hideBar?: boolean;
 }
 
-const UsageBar: React.FC<UsageBarProps> = ({ label, used, limit, color }) => {
-    const percent = Math.min(100, Math.max(0, (used / limit) * 100));
+const UsageBar: React.FC<UsageBarProps> = ({ label, used, limit, color, hideBar }) => {
+    const percent = limit === 0 ? 0 : Math.min(100, Math.max(0, (used / limit) * 100));
     const isWarning = percent > 85;
     const isDanger = percent >= 100;
 
@@ -387,18 +388,20 @@ const UsageBar: React.FC<UsageBarProps> = ({ label, used, limit, color }) => {
             <div className="flex justify-between items-end mb-1.5">
                 <span className="text-xs font-bold text-white/70 tracking-wide">{label}</span>
                 <span className="text-xs font-mono">
-                    <span className={isDanger ? 'text-red-400 font-bold' : isWarning ? 'text-yellow-400 font-bold' : 'text-white'}>
-                        {used}
+                    <span className={(isDanger && !hideBar) ? 'text-red-400 font-bold' : isWarning && !hideBar ? 'text-yellow-400 font-bold' : hideBar ? 'text-luxe-gold font-black text-sm' : 'text-white'}>
+                        {used.toLocaleString()}
                     </span>
-                    <span className="text-white/30"> / {limit}</span>
+                    {!hideBar && <span className="text-white/30"> / {limit.toLocaleString()}</span>}
                 </span>
             </div>
-            <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                <div
-                    className={`h-full ${isDanger ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : color} transition-all duration-1000 ease-out`}
-                    style={{ width: `${percent}%` }}
-                />
-            </div>
+            {!hideBar && (
+                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full ${isDanger ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : color} transition-all duration-1000 ease-out`}
+                        style={{ width: `${percent}%` }}
+                    />
+                </div>
+            )}
         </div>
     );
 };

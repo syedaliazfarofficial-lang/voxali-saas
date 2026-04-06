@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>How It Works | Set Up Voxali AI Receptionist</title>
+    <title>About Voxali | AI Receptionist and Salon Software</title>
     <meta name="description"
-        content="Learn how easy it is to set up Voxali. Configure your salon hours, services, and staff, and let Bella handle the booking calls.">
+        content="Learn about Voxali, the salon-focused platform that combines an AI receptionist, booking software, reminders, payments, and CRM in one system.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -123,9 +123,9 @@
     }
     </script>
 </head>
-
 <body class="antialiased overflow-x-hidden selection:bg-luxe-gold selection:text-black">
 
+    <!-- HERO GLOW -->
     <div class="hero-glow animate-pulse-glow"></div>
 
     <!-- NAVBAR -->
@@ -178,153 +178,137 @@
         </div>
     </nav>
 
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            const h1 = document.getElementById('ham-1');
+            const h3 = document.getElementById('ham-3');
+            menu.classList.toggle('open');
+            h1.classList.toggle('rotate-45');
+            h1.classList.toggle('translate-y-2');
+            h3.classList.toggle('opacity-0');
+        }
+    </script>
+
     <!-- HEADER SECTION -->
-    <main class="relative pt-40 pb-20 px-6 text-center">
+    <main class="relative pt-40 pb-16 px-6 text-center">
         <div class="max-w-4xl mx-auto animate-[slideUp_0.8s_ease-out]">
-            <h2 class="text-sm font-bold tracking-widest text-luxe-gold uppercase mb-4">Total Automation</h2>
-            <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-6">
-                Up & running in <span class="text-gradient">5 Minutes.</span>
+            <h1 class="text-4xl md:text-5xl font-black tracking-tight mb-6">
+                Built to help salons book more clients with less front-desk stress
             </h1>
-            <p class="text-xl text-luxe-muted font-medium mb-10 max-w-2xl mx-auto">
-                No complex integration required. Voxali is designed to replace your front desk overnight.
+            <p class="text-xl text-white/80 font-medium mb-10">
+                Voxali is a salon-focused software platform designed to reduce missed calls, automate appointment handling, and simplify day-to-day operations.
             </p>
+            <p class="text-lg text-luxe-muted font-medium mb-10">
+                We combine an AI receptionist, online booking, reminders, payments, and client management into one system built for modern salons and spas.
+            </p>
+            <div class="flex items-center justify-center gap-4">
+                <a href="/pricing.html" class="px-8 py-4 glass-card text-white font-bold rounded-xl text-lg hover:bg-white/5 transition-all">See Pricing</a>
+                <a href="/contact.html" class="px-8 py-4 bg-gradient-gold text-black font-bold rounded-xl text-lg hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all">Book a Demo</a>
+            </div>
         </div>
     </main>
 
-    <!-- TIMELINE SECTION -->
-    <section class="py-20 px-6 relative animate-[slideUp_0.8s_ease-out_200ms_both]">
-        <div class="max-w-4xl mx-auto">
-            
-            <div class="relative space-y-16 before:absolute before:inset-0 before:ml-8 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-1 before:bg-gradient-to-b before:from-luxe-gold/50 before:via-white/10 before:to-transparent">
-                
-                <!-- STEP 1 -->
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                    <div class="flex items-center justify-center w-16 h-16 rounded-full border-4 border-luxe-obsidian bg-luxe-gold text-black font-black text-2xl shadow-[0_0_30px_rgba(212,175,55,0.5)] shrink-0 z-10 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 transition-transform group-hover:scale-110">
-                        1
-                    </div>
-                    <div class="w-[calc(100%-5rem)] md:w-[calc(50%-4rem)] glass-card p-8 rounded-3xl hover:border-luxe-gold/50 transition-all">
-                        <h4 class="text-2xl font-black text-white mb-3">Onboarding</h4>
-                        <p class="text-luxe-muted leading-relaxed">You sign up for Voxali and input your salon's basic details: your address, operating hours, staff members, and the services you provide (along with prices and durations).</p>
-                    </div>
-                </div>
-
-                <!-- STEP 2 -->
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                    <div class="flex items-center justify-center w-16 h-16 rounded-full border-4 border-luxe-obsidian bg-[#111] border border-white/20 text-white font-black text-2xl shadow-[0_0_30px_rgba(255,255,255,0.05)] shrink-0 z-10 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 transition-transform group-hover:scale-110">
-                        2
-                    </div>
-                    <div class="w-[calc(100%-5rem)] md:w-[calc(50%-4rem)] glass-card p-8 rounded-3xl hover:border-white/30 transition-all">
-                        <h4 class="text-2xl font-black text-white mb-3">Your AI Number</h4>
-                        <p class="text-luxe-muted leading-relaxed">The system instantly securely provisions a brand new, local phone number powered by Twilio. This number is directly wired into your new AI Receptionist, Aria.</p>
-                    </div>
-                </div>
-
-                <!-- STEP 3 -->
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                    <div class="flex items-center justify-center w-16 h-16 rounded-full border-4 border-luxe-obsidian bg-[#111] border border-white/20 text-white font-black text-2xl shadow-[0_0_30px_rgba(255,255,255,0.05)] shrink-0 z-10 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 transition-transform group-hover:scale-110">
-                        3
-                    </div>
-                    <div class="w-[calc(100%-5rem)] md:w-[calc(50%-4rem)] glass-card p-8 rounded-3xl hover:border-white/30 transition-all">
-                        <h4 class="text-2xl font-black text-white mb-3">Forwarding</h4>
-                        <p class="text-luxe-muted leading-relaxed">You can either share this new AI number directly on your Instagram/Google Maps, OR simply set up unconditional Call Forwarding on your existing salon phone so every ring goes straight to Aria.</p>
-                    </div>
-                </div>
-                
-                <!-- STEP 4 -->
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
-                    <div class="flex items-center justify-center w-16 h-16 rounded-full border-4 border-luxe-obsidian bg-gradient-gold text-black font-black text-2xl shadow-[0_0_40px_rgba(212,175,55,0.6)] shrink-0 z-10 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 transition-transform group-hover:scale-110">
-                        4
-                    </div>
-                    <div class="w-[calc(100%-5rem)] md:w-[calc(50%-4rem)] glass-card p-8 rounded-3xl border-luxe-gold/30 shadow-[0_0_30px_rgba(212,175,55,0.05)] transition-all">
-                        <h4 class="text-2xl font-black text-white mb-3 flex items-center gap-3">
-                            <span class="relative flex h-3 w-3">
-                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                              <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                            </span>
-                            Live Execution
-                        </h4>
-                        <p class="text-luxe-muted leading-relaxed">Aria operates implicitly. When a client calls, she accesses your Voxali calendar database in &lt;0.5s via Edge Functions. She finds empty slots, negotiates the time securely, and writes the booking into your dashboard instantly.</p>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </section>
-
-    <!-- LIVE DEMO / CONVO SECTION -->
-    <section class="py-24 px-6 bg-luxe-charcoal border-y border-white/5">
-        <div class="max-w-5xl mx-auto flex flex-col md:flex-row items-center gap-12">
-            <div class="flex-1 space-y-6">
-                <h2 class="text-sm font-bold tracking-widest text-luxe-gold uppercase">Listen In</h2>
-                <h3 class="text-4xl font-black">A typical booking flow.</h3>
-                <p class="text-luxe-muted text-lg">Aria is programmed to sound exactly like a friendly human receptionist. She is polite, efficient, and handles objections effortlessly.</p>
+    <!-- CONTENT SECTIONS -->
+    <section class="py-20 px-6 border-t border-white/5">
+        <div class="max-w-4xl mx-auto space-y-20">
+            <div>
+                <h3 class="text-luxe-gold text-sm font-bold tracking-widest uppercase mb-4">Our Mission</h3>
+                <h2 class="text-3xl font-black mb-6">We help salons stay responsive, organized, and ready to grow</h2>
+                <p class="text-luxe-muted text-lg mb-4">Salons lose revenue every time a call goes unanswered, a client forgets an appointment, or staff are too busy to manage the front desk efficiently.</p>
+                <p class="text-luxe-muted text-lg mb-4">Voxali was built to solve that problem.</p>
+                <p class="text-luxe-muted text-lg">Our goal is simple: give salons a smarter way to manage calls, bookings, reminders, deposits, and client relationships without relying on disconnected tools or constant manual work.</p>
             </div>
 
-            <!-- CHAT BUBBLES -->
-            <div class="flex-1 w-full space-y-4">
-                <!-- AI Bubble -->
-                <div class="flex gap-4">
-                    <div class="w-10 h-10 rounded-full bg-luxe-gold/20 flex flex-shrink-0 items-center justify-center border border-luxe-gold/50 shadow-[0_0_15px_rgba(212,175,55,0.2)]">
-                        🤖
-                    </div>
-                    <div class="glass-card p-4 rounded-b-2xl rounded-tr-2xl text-sm leading-relaxed border-luxe-gold/30">
-                        "Thank you for calling Velvet Rose Salon. This is Aria. How may I help you today?"
-                    </div>
-                </div>
-                <!-- User Bubble -->
-                <div class="flex gap-4 justify-end">
-                    <div class="glass-card bg-white/5 p-4 rounded-b-2xl rounded-tl-2xl text-sm leading-relaxed text-right">
-                        "Hi, I need to get a balayage done this Friday. Do you have anything open around 3 PM?"
-                    </div>
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex flex-shrink-0 items-center justify-center font-bold text-xs">
-                        CL
-                    </div>
-                </div>
-                <!-- AI Bubble -->
-                <div class="flex gap-4">
-                    <div class="w-10 h-10 rounded-full bg-luxe-gold/20 flex flex-shrink-0 items-center justify-center border border-luxe-gold/50 shadow-[0_0_15px_rgba(212,175,55,0.2)]">
-                        🤖
-                    </div>
-                    <div class="glass-card p-4 rounded-b-2xl rounded-tr-2xl text-sm leading-relaxed border-luxe-gold/30">
-                        "Let me check that for you. Our 3 PM slot is taken, but Ali is available at 1:30 PM, or Sarah has an opening at 4:00 PM for a full balayage. Would either of those work for you?"
-                    </div>
-                </div>
-                <!-- User Bubble -->
-                <div class="flex gap-4 justify-end">
-                    <div class="glass-card bg-white/5 p-4 rounded-b-2xl rounded-tl-2xl text-sm leading-relaxed text-right">
-                        "I'll take the 4:00 PM with Sarah."
-                    </div>
-                    <div class="w-10 h-10 rounded-full bg-white/10 flex flex-shrink-0 items-center justify-center font-bold text-xs">
-                        CL
-                    </div>
-                </div>
-                <!-- AI Bubble -->
-                <div class="flex gap-4">
-                    <div class="w-10 h-10 rounded-full bg-luxe-gold/20 flex flex-shrink-0 items-center justify-center border border-luxe-gold/50 shadow-[0_0_15px_rgba(212,175,55,0.2)]">
-                        🤖
-                    </div>
-                    <div class="glass-card p-4 rounded-b-2xl rounded-tr-2xl text-sm leading-relaxed border-luxe-gold/30">
-                        "Perfect! You are booked for Friday at 4:00 PM with Sarah. I will send a confirmation SMS to this number right now. Have a lovely day!"
-                    </div>
-                </div>
+            <div>
+                <h3 class="text-luxe-gold text-sm font-bold tracking-widest uppercase mb-4">What Voxali Does</h3>
+                <h2 class="text-3xl font-black mb-6">One platform for your salon's front desk and operations</h2>
+                <p class="text-luxe-muted text-lg mb-6">With Voxali, salons can:</p>
+                <ul class="text-luxe-muted text-lg space-y-3 list-disc pl-6">
+                    <li>Answer booking calls with an AI receptionist</li>
+                    <li>Handle appointment scheduling, rescheduling, and cancellations</li>
+                    <li>Let clients book online</li>
+                    <li>Send email reminders automatically</li>
+                    <li>Send SMS reminders on AI plans</li>
+                    <li>Collect deposits through Stripe</li>
+                    <li>Manage staff calendars and client records</li>
+                    <li>Track bookings, revenue, and salon activity from one dashboard</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="text-luxe-gold text-sm font-bold tracking-widest uppercase mb-4">Built for Salon Teams</h3>
+                <h2 class="text-3xl font-black mb-6">Designed for busy salons and spas</h2>
+                <p class="text-luxe-muted text-lg mb-6">Voxali is built for salons that want to:</p>
+                <ul class="text-luxe-muted text-lg space-y-3 list-disc pl-6 mb-6">
+                    <li>reduce missed calls</li>
+                    <li>improve booking speed</li>
+                    <li>cut down on front-desk pressure</li>
+                    <li>reduce no-shows with reminders</li>
+                    <li>keep client and staff information organized</li>
+                    <li>replace multiple salon tools with one system</li>
+                </ul>
+                <p class="text-luxe-muted text-lg">Whether you run a small salon or a growing team, Voxali helps you stay available to clients without adding more chaos to your day.</p>
+            </div>
+
+            <div>
+                <h3 class="text-luxe-gold text-sm font-bold tracking-widest uppercase mb-4">How We Support Your Setup</h3>
+                <h2 class="text-3xl font-black mb-6">Simple setup for smaller teams, white-glove onboarding for larger ones</h2>
+                <p class="text-luxe-muted text-lg mb-4">Getting started with Voxali is straightforward. You can set up your salon details, services, staff members, and hours quickly. Higher-tier plans include more hands-on support.</p>
+                <p class="text-luxe-muted text-lg mb-4"><strong>Setup support includes:</strong></p>
+                <ul class="text-luxe-muted text-lg space-y-3 list-disc pl-6">
+                    <li>adding business hours</li>
+                    <li>setting staff and services</li>
+                    <li>configuring reminders</li>
+                    <li>connecting payments</li>
+                    <li>setting up call forwarding</li>
+                    <li>helping Growth and Enterprise customers with white-glove onboarding</li>
+                </ul>
+            </div>
+
+             <div>
+                <h3 class="text-luxe-gold text-sm font-bold tracking-widest uppercase mb-4">Languages and Availability</h3>
+                <h2 class="text-3xl font-black mb-6">Built for salons serving diverse clients</h2>
+                <p class="text-luxe-muted text-lg mb-4">Voxali supports multiple languages, making it easier for salons to serve a wider client base.</p>
+                <p class="text-luxe-muted text-lg mb-4">We are focused on businesses operating in Stripe-supported markets, including countries such as:</p>
+                <ul class="text-luxe-muted text-lg space-y-3 list-disc pl-6">
+                    <li>United States</li>
+                    <li>United Kingdom</li>
+                    <li>Canada</li>
+                    <li>Australia</li>
+                    <li>and other eligible regions</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="text-luxe-gold text-sm font-bold tracking-widest uppercase mb-4">Why Voxali</h3>
+                <h2 class="text-3xl font-black mb-6">Why salons choose Voxali</h2>
+                <ul class="text-luxe-muted text-lg space-y-3 list-disc pl-6">
+                    <li>AI receptionist built for salon workflows</li>
+                    <li>Booking, reminders, CRM, and payments in one platform</li>
+                    <li>Email reminders included in all plans</li>
+                    <li>SMS reminders included in AI plans</li>
+                    <li>Supports call forwarding from your existing salon number</li>
+                    <li>White-glove onboarding available for Growth and Enterprise plans</li>
+                    <li>Built for modern salons in Stripe-supported markets</li>
+                </ul>
             </div>
         </div>
     </section>
 
     <!-- BOTTOM CTA -->
-    <section class="py-24 px-6 relative overflow-hidden">
+    <section class="py-24 px-6 relative overflow-hidden border-t border-white/5">
         <div class="absolute inset-0 bg-gradient-gold opacity-5"></div>
         <div class="max-w-4xl mx-auto text-center relative z-10 glass-card p-12 rounded-3xl border-luxe-gold/20 shadow-[0_0_50px_rgba(212,175,55,0.05)]">
-            <h2 class="text-3xl md:text-5xl font-black mb-6">Experience the magic.</h2>
-            <p class="text-lg text-luxe-muted mb-10">Stop paying $2,500/month for missed calls. Setup your AI receptionist in minutes.</p>
-            <a href="/pricing" class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-gold text-black font-bold rounded-xl text-lg hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all hover:-translate-y-1">
-                View Plans & Pricing
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-            </a>
+            <h2 class="text-3xl md:text-5xl font-black mb-6">Ready to modernize your salon front desk?</h2>
+            <p class="text-lg text-luxe-muted mb-10">See how Voxali can help your salon answer more calls, manage bookings faster, and reduce manual work.</p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="/pricing.html" class="px-8 py-4 glass-card text-white font-bold rounded-xl text-lg hover:bg-white/5 transition-all w-full sm:w-auto">See Pricing</a>
+                <a href="/contact.html" class="px-8 py-4 bg-gradient-gold text-black font-bold rounded-xl text-lg hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all w-full sm:w-auto">Book a Demo</a>
+            </div>
         </div>
     </section>
 
-    
     <!-- FOOTER -->
     <!-- FOOTER -->
     <!-- FOOTER -->
@@ -392,20 +376,5 @@
 </html>
 </body>
 </html>
-
-    <script>
-        function toggleMobileMenu() {
-            const menu = document.getElementById('mobile-menu');
-            const h1 = document.getElementById('ham-1');
-            const h3 = document.getElementById('ham-3');
-            menu.classList.toggle('hidden');
-            menu.classList.toggle('flex');
-            h1.classList.toggle('rotate-45');
-            h1.classList.toggle('translate-y-2');
-            h3.classList.toggle('opacity-0');
-        }
-    </script>
 </body>
-</html>
-\n</body>
 </html>

@@ -36,6 +36,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { generateMasterReportPDF } from '../utils/pdfGenerator';
 import { Skeleton } from './ui/Skeleton';
+import { FeatureLock } from './ui/FeatureLock';
 
 interface RevDay { day: string; revenue: number; booking_count: number }
 interface ServiceRow { service_name: string; booking_count: number; total_revenue: number }
@@ -308,6 +309,11 @@ export const Analytics: React.FC = () => {
 
 
     return (
+        <FeatureLock 
+            requiredTier="growth" 
+            featureName="Advanced Analytics" 
+            description="Unlock predictive insights, staff commissions, and real-time revenue reports to scale your salon business."
+        >
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             {/* Header & Controls */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -900,6 +906,7 @@ export const Analytics: React.FC = () => {
             )}
 
         </div>
+        </FeatureLock>
     );
 };
 

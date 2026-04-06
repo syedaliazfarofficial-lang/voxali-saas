@@ -144,6 +144,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (mountedRef.current) {
                 setStaffId(pStaffId);
                 setStaffRecord(staffData);
+
+                // Dynamically upgrade auth role based on explicit staff job title
+                const jobTitle = (staffData.role || '').toUpperCase();
+                if (jobTitle === 'MANAGER') {
+                    setRole('manager');
+                } else if (jobTitle === 'RECEPTIONIST' || jobTitle === 'FRONT_DESK') {
+                    setRole('receptionist');
+                }
+
                 console.log('[AuthContext] Staff record loaded:', staffData.full_name, '| tenant verified ✓');
             }
         } catch (err) {

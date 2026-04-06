@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Features — Voxali AI Receptionist</title>
+    <title>Features | Voxali Salon Software & AI Receptionist</title>
     <meta name="description"
-        content="Discover the full power of Voxali: AI Voice Receptionist, Smart Booking, CRM, and Payments all in one platform.">
+        content="Explore the full suite of Voxali features. From automated Bella AI calls to smart booking, email reminders, and revenue analytics for your salon.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -27,10 +27,15 @@
                         }
                     },
                     animation: {
+                        'float': 'float 6s ease-in-out infinite',
                         'pulse-glow': 'pulseGlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'slide-up': 'slideUp 0.8s cubic-bezier(0, 0, 0.2, 1) forwards'
+                        'slide-up': 'slideUp 0.8s cubic-bezier(0, 0, 0.2, 1) forwards',
                     },
                     keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
                         pulseGlow: {
                             '0%, 100%': { opacity: 0.4 },
                             '50%': { opacity: 0.1 },
@@ -71,27 +76,52 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
         }
         
-        .glass-card:hover {
-            border-color: rgba(212, 175, 55, 0.3);
-            transform: translateY(-5px);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 20px rgba(212, 175, 55, 0.05);
-        }
-
         .hero-glow {
             position: absolute;
-            top: 0%;
+            top: 20%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 1000px;
-            height: 1000px;
-            background: radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 60%);
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.15) 0%, transparent 60%);
             pointer-events: none;
             z-index: -1;
         }
+
+        /* Mobile Nav Drawer */
+        #mobile-menu {
+            display: none;
+        }
+        #mobile-menu.open {
+            display: flex;
+        }
     </style>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Voxali",
+      "operatingSystem": "Web Application",
+      "applicationCategory": "BusinessApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "49.00",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Voxali Inc.",
+      "url": "https://voxali.net",
+      "logo": "https://voxali.net/logo.png"
+    }
+    </script>
 </head>
 
 <body class="antialiased overflow-x-hidden selection:bg-luxe-gold selection:text-black">
@@ -99,26 +129,51 @@
     <div class="hero-glow animate-pulse-glow"></div>
 
     <!-- NAVBAR -->
-    <nav class="fixed w-full z-50 glass-nav transition-all duration-300 py-4 px-6 md:px-12">
+    <!-- NAVBAR -->
+    <!-- NAVBAR -->
+    <nav class="fixed top-0 w-full z-50 glass-nav transition-all duration-300 py-4 px-6 md:px-12">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <a href="/" class="text-2xl font-black tracking-widest text-white flex items-center gap-2">
+            <a href="/index.html" class="text-2xl font-black tracking-widest text-white flex items-center gap-2">
                 <span class="text-gradient">VOXALI</span>
             </a>
             
+            <!-- Desktop Nav -->
             <div class="hidden md:flex items-center gap-8">
-                <a href="/" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Home</a>
-                <a href="/features.html" class="text-sm font-medium text-white transition-colors">Features</a>
-                <a href="/pricing" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Pricing</a>
+                <a href="/index.html" class="text-sm font-medium text-white transition-colors">Home</a>
+                <a href="/features.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Features</a>
+                <a href="/pricing.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Pricing</a>
                 <a href="/how-it-works.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">How it Works</a>
+                <a href="/about.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">About</a>
+                <a href="/contact.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Contact</a>
             </div>
 
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
                 <a href="/app/" class="hidden md:block text-sm font-semibold text-white border border-white/10 hover:border-white/30 px-5 py-2.5 rounded-lg transition-all">
                     Sign In
                 </a>
-                <a href="/pricing" class="text-sm font-bold text-black bg-gradient-gold px-6 py-2.5 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all hover:-translate-y-0.5">
+                <a href="/pricing.html" class="text-sm font-bold text-black bg-gradient-gold px-5 py-2.5 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all">
                     Get Started
                 </a>
+                <!-- Mobile Hamburger -->
+                <button id="hamburger-btn" onclick="toggleMobileMenu()" class="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-white/10 transition-all" aria-label="Open Menu">
+                    <span class="w-6 h-0.5 bg-white rounded-full transition-all" id="ham-1"></span>
+                    <span class="w-6 h-0.5 bg-white rounded-full transition-all" id="ham-2"></span>
+                    <span class="w-4 h-0.5 bg-white rounded-full transition-all" id="ham-3"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Drawer -->
+        <div id="mobile-menu" class="hidden flex-col gap-2 pt-4 pb-6 border-t border-white/10 mt-4 bg-luxe-charcoal absolute left-0 w-full px-6">
+            <a href="/index.html" class="block py-3 px-4 text-sm font-semibold text-white rounded-lg hover:bg-white/5 transition-all">Home</a>
+            <a href="/features.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Features</a>
+            <a href="/pricing.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Pricing</a>
+            <a href="/how-it-works.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">How it Works</a>
+            <a href="/about.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">About</a>
+            <a href="/contact.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Contact</a>
+            <div class="mt-3 pt-3 border-t border-white/10 flex gap-3 px-4">
+                <a href="/app/" class="flex-1 text-center text-sm font-semibold text-white border border-white/10 px-4 py-2.5 rounded-lg">Sign In</a>
+                <a href="/pricing.html" class="flex-1 text-center text-sm font-bold text-black bg-gradient-gold px-4 py-2.5 rounded-lg">Get Started</a>
             </div>
         </div>
     </nav>
@@ -128,10 +183,10 @@
         <div class="max-w-4xl mx-auto animate-[slideUp_0.8s_ease-out]">
             <h2 class="text-sm font-bold tracking-widest text-luxe-gold uppercase mb-4">The Complete Platform</h2>
             <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-6">
-                Everything you need to <br><span class="text-gradient">run a $1M salon.</span>
+                Everything you need to <br><span class="text-gradient">run a modern salon.</span>
             </h1>
             <p class="text-xl text-luxe-muted font-medium mb-10 max-w-2xl mx-auto">
-                Voxali is the world's only platform that combines a human-like AI voice receptionist with an elite, full-suite salon management dashboard.
+                Voxali combines a human-like AI voice receptionist with an elite, full-suite salon management dashboard.
             </p>
         </div>
     </main>
@@ -152,15 +207,15 @@
             <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="glass-card p-8 rounded-2xl">
                     <h3 class="text-xl font-bold mb-3 text-white">24/7 Voice Receptionist</h3>
-                    <p class="text-luxe-muted text-sm leading-relaxed">Aria answers every call instantly. She speaks naturally, understands context, checks real-time availability, and books appointments securely over the phone.</p>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Bella answers every call instantly. She speaks naturally, understands context, checks real-time availability, and books appointments securely over the phone.</p>
                 </div>
                 <div class="glass-card p-8 rounded-2xl">
                     <h3 class="text-xl font-bold mb-3 text-white">Smart Rescheduling</h3>
-                    <p class="text-luxe-muted text-sm leading-relaxed">Clients can call to change or cancel appointments. Aria automatically deletes the old slot and finds new available times based on your specific calendar rules.</p>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Clients can call to change or cancel appointments. Bella automatically deletes the old slot and finds new available times based on your specific calendar rules.</p>
                 </div>
                 <div class="glass-card p-8 rounded-2xl">
-                    <h3 class="text-xl font-bold mb-3 text-white">Multilingual Support (Soon)</h3>
-                    <p class="text-luxe-muted text-sm leading-relaxed">Aria will soon converse fluently in English, Spanish, Arabic, and Urdu, ensuring you never lose a client due to a language barrier.</p>
+                    <h3 class="text-xl font-bold mb-3 text-white">Multilingual Support</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Bella can converse fluently in English, Spanish, Arabic, and Urdu, ensuring you never lose a client due to a language barrier.</p>
                 </div>
             </div>
         </div>
@@ -179,7 +234,11 @@
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="glass-card p-8 rounded-2xl">
+                    <h3 class="text-xl font-bold mb-3 text-white">Custom Online Booking Page</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Let clients book online, choose services, select their preferred stylist, and pay deposits without calling.</p>
+                </div>
                 <div class="glass-card p-8 rounded-2xl">
                     <h3 class="text-xl font-bold mb-3 text-white">Conflict-Free Calendar</h3>
                     <p class="text-luxe-muted text-sm leading-relaxed">Multi-stylist availability engine instantly calculates open slots, preventing overlaps and respecting your custom buffer times.</p>
@@ -189,8 +248,8 @@
                     <p class="text-luxe-muted text-sm leading-relaxed">Store comprehensive client histories including preferences, past services, total spent, and specific notes (e.g., "allergic to sulfate").</p>
                 </div>
                 <div class="glass-card p-8 rounded-2xl">
-                    <h3 class="text-xl font-bold mb-3 text-white">Automated SMS Reminders</h3>
-                    <p class="text-luxe-muted text-sm leading-relaxed">Reduce no-shows by 85%. The system automatically sends customizable SMS and email reminders 24 hours and 2 hours before appointments.</p>
+                    <h3 class="text-xl font-bold mb-3 text-white">Automated Reminders</h3>
+                    <p class="text-luxe-muted text-sm leading-relaxed">Help reduce no-shows with automated SMS and email reminders sent 24 hours and 2 hours before appointments.</p>
                 </div>
             </div>
         </div>
@@ -231,7 +290,7 @@
         <div class="absolute inset-0 bg-gradient-gold opacity-5"></div>
         <div class="max-w-4xl mx-auto text-center relative z-10 glass-card p-12 rounded-3xl border-luxe-gold/20 shadow-[0_0_50px_rgba(212,175,55,0.05)]">
             <h2 class="text-3xl md:text-5xl font-black mb-6">Stop missing opportunities.</h2>
-            <p class="text-lg text-luxe-muted mb-10">Get the full suite of Voxali features today. Let Aria handle the phones while you focus on the art.</p>
+            <p class="text-lg text-luxe-muted mb-10">Get the full suite of Voxali features today. Let Bella handle the phones while you focus on the art.</p>
             <a href="/pricing" class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-gold text-black font-bold rounded-xl text-lg hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all hover:-translate-y-1">
                 View Plans & Pricing
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
@@ -239,21 +298,88 @@
         </div>
     </section>
 
+    
     <!-- FOOTER -->
-    <footer class="border-t border-white/5 py-12 px-6 bg-luxe-charcoal">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-            <div class="flex items-center gap-2">
-                <span class="text-xl font-black tracking-wider text-gradient">VOXALI</span>
-                <span class="text-sm text-luxe-muted ml-4">&copy; 2026 Voxali Inc. All rights reserved.</span>
+    <!-- FOOTER -->
+    <!-- FOOTER -->
+    <footer class="border-t border-white/5 py-16 px-6 bg-luxe-charcoal mt-10">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10 lg:gap-6 mb-12">
+            <!-- Brand -->
+            <div class="lg:col-span-2">
+                <span class="text-2xl font-black tracking-wider text-gradient block mb-4">VOXALI</span>
+                <p class="text-sm text-luxe-muted w-3/4 leading-relaxed mb-6">Built to help salons book more clients with less front-desk stress. Your 24/7 AI Receptionist & CRM.</p>
+                <a href="/app/" class="inline-block text-sm font-bold text-white border border-white/20 hover:border-white/50 px-5 py-2.5 rounded-lg transition-all">Sign In to Dashboard</a>
             </div>
             
-            <div class="flex items-center gap-6 text-sm font-medium text-luxe-muted">
-                <a href="/terms" class="hover:text-luxe-gold transition-colors">Terms of Service</a>
-                <a href="/privacy" class="hover:text-luxe-gold transition-colors">Privacy Policy</a>
-                <a href="/app/" class="hover:text-white transition-colors border border-white/10 px-4 py-1.5 rounded-md">Log In</a>
+            <!-- Product -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Product</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/features.html" class="hover:text-luxe-gold transition-colors w-fit">Features</a>
+                    <a href="/how-it-works.html" class="hover:text-luxe-gold transition-colors w-fit">How It Works</a>
+                    <a href="/pricing.html" class="hover:text-luxe-gold transition-colors w-fit">Pricing</a>
+                    <a href="/demo.html" class="hover:text-luxe-gold transition-colors w-fit">Demo</a>
+                </div>
+            </div>
+
+            <!-- Company -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Company</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/about.html" class="hover:text-luxe-gold transition-colors w-fit">About</a>
+                    <a href="/contact.html" class="hover:text-luxe-gold transition-colors w-fit">Contact</a>
+                </div>
+            </div>
+
+            <!-- Resources -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Resources</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/faq.html" class="hover:text-luxe-gold transition-colors w-fit">FAQ</a>
+                    <a href="/markets.html" class="hover:text-luxe-gold transition-colors w-fit">Supported Markets</a>
+                    <a href="/setup-guide.html" class="hover:text-luxe-gold transition-colors w-fit">Setup Guide</a>
+                </div>
+            </div>
+
+            <!-- Legal & Contact -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Legal</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/privacy.html" class="hover:text-luxe-gold transition-colors w-fit">Privacy Policy</a>
+                    <a href="/terms.html" class="hover:text-luxe-gold transition-colors w-fit">Terms of Service</a>
+                    <a href="/security.html" class="hover:text-luxe-gold transition-colors w-fit">Security</a>
+                    <a href="/compliance.html" class="hover:text-luxe-gold transition-colors w-fit">Compliance</a>
+                </div>
+                <div class="mt-6">
+                    <a href="mailto:support@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block mb-1">support@voxali.net</a>
+                    <a href="mailto:sales@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block mb-1">sales@voxali.net</a>
+                    <a href="mailto:legal@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block">legal@voxali.net</a>
+                </div>
             </div>
         </div>
+        
+        <div class="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-sm text-luxe-muted">&copy; 2026 Voxali Inc. All rights reserved.</span>
+        </div>
     </footer>
-
 </body>
+</html>
+</body>
+</html>
+
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            const h1 = document.getElementById('ham-1');
+            const h3 = document.getElementById('ham-3');
+            menu.classList.toggle('hidden');
+            menu.classList.toggle('flex');
+            h1.classList.toggle('rotate-45');
+            h1.classList.toggle('translate-y-2');
+            h3.classList.toggle('opacity-0');
+        }
+    </script>
+</body>
+</html>
+\n</body>
 </html>

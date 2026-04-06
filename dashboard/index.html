@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voxali — The World's #1 AI Receptionist for Salons</title>
+    <title>Voxali | AI Receptionist and Salon Booking Software</title>
     <meta name="description"
-        content="Automate your salon with a 24/7 AI receptionist, smart online booking, and complete CRM perfectly designed for high-end salons and spas.">
+        content="Voxali is a salon-focused platform with an AI receptionist, booking software, reminders, and CRM. Never miss another booking call again.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -30,8 +30,6 @@
                         'float': 'float 6s ease-in-out infinite',
                         'pulse-glow': 'pulseGlow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                         'slide-up': 'slideUp 0.8s cubic-bezier(0, 0, 0.2, 1) forwards',
-                        'marquee': 'marquee 80s linear infinite',
-                        'marquee2': 'marquee2 80s linear infinite',
                     },
                     keyframes: {
                         float: {
@@ -42,21 +40,9 @@
                             '0%, 100%': { opacity: 0.4 },
                             '50%': { opacity: 0.1 },
                         },
-                        fadeIn: {
-                            '0%': { opacity: 0 },
-                            '100%': { opacity: 1 },
-                        },
                         slideUp: {
                             '0%': { transform: 'translateY(40px)', opacity: 0 },
                             '100%': { transform: 'translateY(0)', opacity: 1 },
-                        },
-                        marquee: {
-                            '0%': { transform: 'translateX(0%)' },
-                            '100%': { transform: 'translateX(-100%)' },
-                        },
-                        marquee2: {
-                            '0%': { transform: 'translateX(100%)' },
-                            '100%': { transform: 'translateX(0%)' },
                         }
                     }
                 }
@@ -104,30 +90,6 @@
             z-index: -1;
         }
 
-        /* Mockup specific styles */
-        .mockup-container {
-            perspective: 1000px;
-        }
-        
-        .iphone-mockup {
-            transform: rotateY(-15deg) rotateX(5deg);
-            box-shadow: -20px 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(212,175,55,0.2);
-            border: 8px solid #2a2a2a;
-            border-radius: 40px;
-            overflow: hidden;
-            background: #000;
-            position: relative;
-        }
-
-        .macbook-mockup {
-            box-shadow: 0 30px 60px rgba(0,0,0,0.6), 0 0 80px rgba(212,175,55,0.1);
-            border: 4px solid #333;
-            border-radius: 12px 12px 0 0;
-            border-bottom: 16px solid #222;
-            overflow: hidden;
-            position: relative;
-        }
-
         /* Mobile Nav Drawer */
         #mobile-menu {
             display: none;
@@ -135,15 +97,31 @@
         #mobile-menu.open {
             display: flex;
         }
-
-        @media (max-width: 640px) {
-            .macbook-mockup {
-                border-radius: 8px 8px 0 0;
-                border-width: 2px 2px 0 2px;
-                border-bottom: 10px solid #222;
-            }
-        }
     </style>
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Voxali",
+      "operatingSystem": "Web Application",
+      "applicationCategory": "BusinessApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "49.00",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Voxali Inc.",
+      "url": "https://voxali.net",
+      "logo": "https://voxali.net/logo.png"
+    }
+    </script>
 </head>
 
 <body class="antialiased overflow-x-hidden selection:bg-luxe-gold selection:text-black">
@@ -152,25 +130,29 @@
     <div class="hero-glow animate-pulse-glow"></div>
 
     <!-- NAVBAR -->
-    <nav class="fixed w-full z-50 glass-nav transition-all duration-300 py-4 px-6 md:px-12">
+    <!-- NAVBAR -->
+    <!-- NAVBAR -->
+    <nav class="fixed top-0 w-full z-50 glass-nav transition-all duration-300 py-4 px-6 md:px-12">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <a href="/" class="text-2xl font-black tracking-widest text-white flex items-center gap-2">
+            <a href="/index.html" class="text-2xl font-black tracking-widest text-white flex items-center gap-2">
                 <span class="text-gradient">VOXALI</span>
             </a>
             
             <!-- Desktop Nav -->
             <div class="hidden md:flex items-center gap-8">
-                <a href="/" class="text-sm font-medium text-white transition-colors">Home</a>
+                <a href="/index.html" class="text-sm font-medium text-white transition-colors">Home</a>
                 <a href="/features.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Features</a>
-                <a href="/pricing" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Pricing</a>
+                <a href="/pricing.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Pricing</a>
                 <a href="/how-it-works.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">How it Works</a>
+                <a href="/about.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">About</a>
+                <a href="/contact.html" class="text-sm font-medium text-luxe-muted hover:text-white transition-colors">Contact</a>
             </div>
 
             <div class="flex items-center gap-3">
                 <a href="/app/" class="hidden md:block text-sm font-semibold text-white border border-white/10 hover:border-white/30 px-5 py-2.5 rounded-lg transition-all">
                     Sign In
                 </a>
-                <a href="/pricing" class="text-sm font-bold text-black bg-gradient-gold px-5 py-2.5 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all">
+                <a href="/pricing.html" class="text-sm font-bold text-black bg-gradient-gold px-5 py-2.5 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all">
                     Get Started
                 </a>
                 <!-- Mobile Hamburger -->
@@ -183,14 +165,16 @@
         </div>
 
         <!-- Mobile Menu Drawer -->
-        <div id="mobile-menu" class="flex-col gap-2 pt-4 pb-6 border-t border-white/10 mt-4">
-            <a href="/" class="block py-3 px-4 text-sm font-semibold text-white rounded-lg hover:bg-white/5 transition-all">Home</a>
+        <div id="mobile-menu" class="hidden flex-col gap-2 pt-4 pb-6 border-t border-white/10 mt-4 bg-luxe-charcoal absolute left-0 w-full px-6">
+            <a href="/index.html" class="block py-3 px-4 text-sm font-semibold text-white rounded-lg hover:bg-white/5 transition-all">Home</a>
             <a href="/features.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Features</a>
-            <a href="/pricing" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Pricing</a>
+            <a href="/pricing.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Pricing</a>
             <a href="/how-it-works.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">How it Works</a>
+            <a href="/about.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">About</a>
+            <a href="/contact.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Contact</a>
             <div class="mt-3 pt-3 border-t border-white/10 flex gap-3 px-4">
                 <a href="/app/" class="flex-1 text-center text-sm font-semibold text-white border border-white/10 px-4 py-2.5 rounded-lg">Sign In</a>
-                <a href="/pricing" class="flex-1 text-center text-sm font-bold text-black bg-gradient-gold px-4 py-2.5 rounded-lg">Get Started</a>
+                <a href="/pricing.html" class="flex-1 text-center text-sm font-bold text-black bg-gradient-gold px-4 py-2.5 rounded-lg">Get Started</a>
             </div>
         </div>
     </nav>
@@ -216,19 +200,18 @@
                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-luxe-gold opacity-75"></span>
                   <span class="relative inline-flex rounded-full h-2 w-2 bg-luxe-gold"></span>
                 </span>
-                The World's #1 AI Receptionist for Salons
+                Trusted by Forward-Thinking Salons
             </div>
 
             <!-- Headline -->
             <h1 class="text-3xl sm:text-5xl md:text-7xl lg:text-[5.5rem] font-black tracking-tight leading-[1.1] mb-6 sm:mb-8 animate-[slideUp_0.8s_ease-out_100ms_both] px-2">
-                Never Miss a Client.<br>
-                <span class="text-gradient">Automate Your Salon.</span>
+                Never miss another salon booking call with<br>
+                <span class="text-gradient">Bella, your 24/7 AI receptionist.</span>
             </h1>
 
             <!-- Subtitle -->
             <p class="text-base sm:text-lg md:text-xl text-luxe-muted font-medium max-w-2xl mx-auto mb-8 sm:mb-12 animate-[slideUp_0.8s_ease-out_200ms_both] leading-relaxed px-2">
-                A human-like AI voice agent that books appointments 24/7, handles rescheduling, and syncs directly with an elite CRM dashboard. Save $2,500/month on front-desk staffing immediately.
-            </p>
+                Bella is your salon’s 24/7 AI receptionist, booking software, reminders, and CRM in one platform.</p>
 
             <!-- CTAs -->
             <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-10 sm:mb-16 lg:mb-20 animate-[slideUp_0.8s_ease-out_300ms_both] px-2">
@@ -239,6 +222,15 @@
                 <a href="/how-it-works.html" class="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 glass-card text-white font-semibold rounded-xl text-base sm:text-lg hover:bg-white/5 transition-all flex items-center justify-center gap-2">
                     See How It Works
                 </a>
+            </div>
+
+            
+            <!-- Trust Bar -->
+            <div class="flex flex-wrap items-center justify-center gap-6 sm:gap-12 mt-12 animate-[slideUp_0.8s_ease-out_400ms_both]">
+                <div class="flex items-center gap-2 text-sm text-luxe-muted font-medium"><svg class="w-5 h-5 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Email reminders in every plan</div>
+                <div class="flex items-center gap-2 text-sm text-luxe-muted font-medium"><svg class="w-5 h-5 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> SMS reminders in AI plans</div>
+                <div class="flex items-center gap-2 text-sm text-luxe-muted font-medium"><svg class="w-5 h-5 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Secure payments via Stripe</div>
+                <div class="flex items-center gap-2 text-sm text-luxe-muted font-medium"><svg class="w-5 h-5 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Call forwarding supported</div>
             </div>
 
             <!-- Dashboard Mockup Display -->
@@ -2472,43 +2464,43 @@
             
             <div class="space-y-4">
                 <details class="group glass-card rounded-xl px-6 py-4 cursor-pointer" open>
-                    <summary class="flex justify-between items-center font-semibold text-lg list-none">
-                        Do I need technical skills to set this up?
+                    <summary class="flex justify-between items-center font-semibold text-lg list-none text-white">
+                        Can I keep my current salon number?
                         <span class="transition group-open:rotate-180 text-luxe-gold">
                              <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
                         </span>
                     </summary>
-                    <p class="text-luxe-muted mt-4 text-sm leading-relaxed">Not at all! You simply sign up, tell us your salon's opening hours and services, and we provide you with a new phone number. You just forward your existing calls to that number, and Aria takes over.</p>
+                    <p class="text-luxe-muted mt-4 text-sm leading-relaxed">Yes! We provide you with a new Voxali number. You simply set up Call Forwarding with your current provider so missed calls automatically route to Bella.</p>
                 </details>
 
                 <details class="group glass-card rounded-xl px-6 py-4 cursor-pointer">
-                    <summary class="flex justify-between items-center font-semibold text-lg list-none">
-                        Does the AI sound robotic?
+                    <summary class="flex justify-between items-center font-semibold text-lg list-none text-white">
+                        Does Bella handle rescheduling?
                         <span class="transition group-open:rotate-180 text-luxe-gold">
                              <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
                         </span>
                     </summary>
-                    <p class="text-luxe-muted mt-4 text-sm leading-relaxed">No. We use state-of-the-art voice generation from ElevenLabs. Aria sounds like a real, friendly human receptionist, complete with natural pauses and conversational tone.</p>
+                    <p class="text-luxe-muted mt-4 text-sm leading-relaxed">Yes! If a client calls to change their appointment, Bella deletes the old slot, finds new available times based on your calendar rules, and books the new one securely.</p>
                 </details>
 
                 <details class="group glass-card rounded-xl px-6 py-4 cursor-pointer">
-                    <summary class="flex justify-between items-center font-semibold text-lg list-none">
-                        Can she handle complex rescheduling?
+                    <summary class="flex justify-between items-center font-semibold text-lg list-none text-white">
+                        Are reminders included?
                         <span class="transition group-open:rotate-180 text-luxe-gold">
                              <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
                         </span>
                     </summary>
-                    <p class="text-luxe-muted mt-4 text-sm leading-relaxed">Yes! If a client calls to change their appointment, Aria securely authenticates them, deletes the old slot, finds new available times based on your calendar rules, and books the new one.</p>
+                    <p class="text-luxe-muted mt-4 text-sm leading-relaxed">Email reminders are included in every single plan to prevent no-shows. SMS reminders are unlocked securely in our AI Starter, Growth, and Enterprise plans.</p>
                 </details>
                 
                 <details class="group glass-card rounded-xl px-6 py-4 cursor-pointer">
-                    <summary class="flex justify-between items-center font-semibold text-lg list-none">
-                        Is my clients' data secure?
+                    <summary class="flex justify-between items-center font-semibold text-lg list-none text-white">
+                        Is there a free trial?
                         <span class="transition group-open:rotate-180 text-luxe-gold">
                              <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
                         </span>
                     </summary>
-                    <p class="text-luxe-muted mt-4 text-sm leading-relaxed">Absolutely. We use enterprise-grade Supabase architecture with strict Row Level Security (RLS). You are the only one who can access your tenant's data.</p>
+                    <p class="text-luxe-muted mt-4 text-sm leading-relaxed">Since onboarding involves assigning phone numbers and configuring AI telephony specifically for your salon, we don't offer free trials. However, we offer full demos and easy cancellations if it isn't a fit.</p>
                 </details>
             </div>
         </div>
@@ -2518,33 +2510,95 @@
     <section class="py-24 px-6 relative overflow-hidden">
         <div class="absolute inset-0 bg-gradient-gold opacity-5"></div>
         <div class="max-w-4xl mx-auto text-center relative z-10 glass-card p-12 rounded-3xl border-luxe-gold/20 shadow-[0_0_50px_rgba(212,175,55,0.05)]">
-            <h2 class="text-3xl md:text-5xl font-black mb-6">Stop missing opportunities.</h2>
-            <p class="text-lg text-luxe-muted mb-10">Get the full suite of Voxali features today. Let Aria handle the phones while you focus on the art.</p>
-            <a href="/pricing" class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-gold text-black font-bold rounded-xl text-lg hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all hover:-translate-y-1">
-                View Plans & Pricing
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-            </a>
+            <h2 class="text-3xl md:text-5xl font-black mb-6">Stop overpaying. Start growing.</h2>
+            <p class="text-lg text-luxe-muted mb-10">Get the full suite of Voxali features today. Let Bella handle the phones while you focus on your clients.</p>
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="/pricing.html" class="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-gold text-black font-bold rounded-xl text-lg hover:shadow-[0_0_30px_rgba(212,175,55,0.4)] transition-all hover:-translate-y-1 w-full sm:w-auto">
+                    View Plans & Pricing
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                </a>
+                <a href="/contact.html" class="inline-flex items-center justify-center px-8 py-4 glass-card text-white font-bold rounded-xl text-lg hover:bg-white/5 transition-all w-full sm:w-auto">
+                    Book a Demo
+                </a>
+            </div>
+            
+            <p class="text-xs text-white/40 mt-8">
+                Currently supporting salons in the USA, UK, Canada, Australia, and select regions.
+            </p>
         </div>
     </section>
 
+    
     <!-- FOOTER -->
-    <footer class="border-t border-white/5 py-12 px-6 bg-luxe-charcoal mt-10">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-            <div class="flex items-center gap-2">
-                <span class="text-xl font-black tracking-wider text-gradient">VOXALI</span>
-                <span class="text-sm text-luxe-muted ml-4">&copy; 2026 Voxali Inc. All rights reserved.</span>
+    <!-- FOOTER -->
+    <!-- FOOTER -->
+    <footer class="border-t border-white/5 py-16 px-6 bg-luxe-charcoal mt-10">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10 lg:gap-6 mb-12">
+            <!-- Brand -->
+            <div class="lg:col-span-2">
+                <span class="text-2xl font-black tracking-wider text-gradient block mb-4">VOXALI</span>
+                <p class="text-sm text-luxe-muted w-3/4 leading-relaxed mb-6">Built to help salons book more clients with less front-desk stress. Your 24/7 AI Receptionist & CRM.</p>
+                <a href="/app/" class="inline-block text-sm font-bold text-white border border-white/20 hover:border-white/50 px-5 py-2.5 rounded-lg transition-all">Sign In to Dashboard</a>
             </div>
             
-            <div class="flex items-center gap-6 text-sm font-medium text-luxe-muted">
-                <a href="/terms" class="hover:text-luxe-gold transition-colors">Terms of Service</a>
-                <a href="/privacy" class="hover:text-luxe-gold transition-colors">Privacy Policy</a>
-                <a href="/app/" class="hover:text-white transition-colors border border-white/10 px-4 py-1.5 rounded-md">Log In</a>
+            <!-- Product -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Product</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/features.html" class="hover:text-luxe-gold transition-colors w-fit">Features</a>
+                    <a href="/how-it-works.html" class="hover:text-luxe-gold transition-colors w-fit">How It Works</a>
+                    <a href="/pricing.html" class="hover:text-luxe-gold transition-colors w-fit">Pricing</a>
+                    <a href="/demo.html" class="hover:text-luxe-gold transition-colors w-fit">Demo</a>
+                </div>
+            </div>
+
+            <!-- Company -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Company</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/about.html" class="hover:text-luxe-gold transition-colors w-fit">About</a>
+                    <a href="/contact.html" class="hover:text-luxe-gold transition-colors w-fit">Contact</a>
+                </div>
+            </div>
+
+            <!-- Resources -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Resources</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/faq.html" class="hover:text-luxe-gold transition-colors w-fit">FAQ</a>
+                    <a href="/markets.html" class="hover:text-luxe-gold transition-colors w-fit">Supported Markets</a>
+                    <a href="/setup-guide.html" class="hover:text-luxe-gold transition-colors w-fit">Setup Guide</a>
+                </div>
+            </div>
+
+            <!-- Legal & Contact -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Legal</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/privacy.html" class="hover:text-luxe-gold transition-colors w-fit">Privacy Policy</a>
+                    <a href="/terms.html" class="hover:text-luxe-gold transition-colors w-fit">Terms of Service</a>
+                    <a href="/security.html" class="hover:text-luxe-gold transition-colors w-fit">Security</a>
+                    <a href="/compliance.html" class="hover:text-luxe-gold transition-colors w-fit">Compliance</a>
+                </div>
+                <div class="mt-6">
+                    <a href="mailto:support@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block mb-1">support@voxali.net</a>
+                    <a href="mailto:sales@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block mb-1">sales@voxali.net</a>
+                    <a href="mailto:legal@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block">legal@voxali.net</a>
+                </div>
             </div>
         </div>
+        
+        <div class="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-sm text-luxe-muted">&copy; 2026 Voxali Inc. All rights reserved.</span>
+        </div>
     </footer>
-
-    <!-- Review Date Script -->
-    <script>
+</body>
+</html>
+</body>
+</html>
+</body>
+</html>
+\n<script>
         document.addEventListener('DOMContentLoaded', () => {
             const dateElements = document.querySelectorAll('.review-date');
             

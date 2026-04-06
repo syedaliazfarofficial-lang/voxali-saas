@@ -69,6 +69,22 @@ export const GiftCardsTab: React.FC = () => {
         });
 
         if (!error) {
+            if (newEmail) {
+                await supabase.from('notification_queue').insert({
+                    tenant_id: tenantId,
+                    event_type: 'gift_card_issued',
+                    client_email: newEmail,
+                    client_name: 'Valued Client', // Fallback name
+                    booking_details: {
+                        gift_card_code: code,
+                        gift_card_amount: value
+                    }
+                });
+                
+                // Instantly trigger edge function to email the digital code
+                await supabase.functions.invoke('send-notification', { body: {} }).catch(err => console.error(err));
+            }
+
             showToast('Gift Card Created Successfully!', 'success');
             setShowModal(false);
             setNewAmount('');

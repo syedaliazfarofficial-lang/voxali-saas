@@ -5,6 +5,7 @@ import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { Skeleton } from './ui/Skeleton';
 import { GiftCardsTab } from './GiftCardsTab';
+import { useAuth } from '../context/AuthContext';
 
 interface PackageTemplate {
     id: string;
@@ -28,6 +29,8 @@ interface ActivePackage {
 
 export const PackagesModule: React.FC = () => {
     const { tenantId } = useTenant();
+    const { isOwner, isSuperAdmin } = useAuth();
+    const isOwnerPrivilege = isOwner || isSuperAdmin;
     const [templates, setTemplates] = useState<PackageTemplate[]>([]);
     const [activePackages, setActivePackages] = useState<ActivePackage[]>([]);
     const [loading, setLoading] = useState(true);
@@ -128,12 +131,14 @@ export const PackagesModule: React.FC = () => {
                         <p className="text-sm text-white/40 uppercase tracking-widest mt-1">Sell bundles & track client redemptions</p>
                     </div>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="bg-gold-gradient text-luxe-obsidian px-6 py-3 rounded-xl font-bold shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                >
-                    <Plus className="w-5 h-5" /> NEW PACKAGE
-                </button>
+                {isOwnerPrivilege && (
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="bg-gold-gradient text-luxe-obsidian px-6 py-3 rounded-xl font-bold shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    >
+                        <Plus className="w-5 h-5" /> NEW PACKAGE
+                    </button>
+                )}
             </div>
 
             {/* Tabs */}

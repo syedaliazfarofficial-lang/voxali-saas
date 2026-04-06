@@ -22,6 +22,15 @@ export default defineConfig({
         terms: resolve(__dirname, 'terms.html'),
         privacy: resolve(__dirname, 'privacy.html'),
         paymentSuccess: resolve(__dirname, 'payment-success.html'),
+        // Trust & Info Pages
+        about: resolve(__dirname, 'about.html'),
+        contact: resolve(__dirname, 'contact.html'),
+        security: resolve(__dirname, 'security.html'),
+        compliance: resolve(__dirname, 'compliance.html'),
+        faq: resolve(__dirname, 'faq.html'),
+        demo: resolve(__dirname, 'demo.html'),
+        markets: resolve(__dirname, 'markets.html'),
+        setupGuide: resolve(__dirname, 'setup-guide.html'),
         
         // The React Dashboard Application
         app: resolve(__dirname, 'app/index.html')

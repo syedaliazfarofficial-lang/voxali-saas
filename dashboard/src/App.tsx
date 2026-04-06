@@ -133,7 +133,7 @@ function AppContent() {
   const ALLOWED_TABS: Record<string, string[]> = {
     super_admin: ['dashboard', 'pos', 'bookings', 'packages', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'reviews', 'bella', 'settings'],
     owner: ['dashboard', 'pos', 'bookings', 'packages', 'clients', 'stylists', 'analytics', 'calls', 'marketing', 'reviews', 'bella', 'settings'],
-    manager: ['dashboard', 'pos', 'bookings', 'packages', 'clients', 'stylists', 'analytics', 'calls', 'reviews', 'bella', 'my_profile'],
+    manager: ['dashboard', 'pos', 'bookings', 'packages', 'clients', 'stylists', 'calls', 'reviews', 'my_profile'],
     staff: ['bookings', 'my_profile'],
     receptionist: ['pos', 'bookings', 'packages', 'clients', 'calls', 'my_profile'],
   }
@@ -186,6 +186,15 @@ function AppContent() {
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }, [])
+
+  // ─── Handle Feature Lock Upgrade Requests ───
+  useEffect(() => {
+    const handleUpgradeRequest = () => {
+      safeSetActiveTab('settings')
+    }
+    window.addEventListener('voxali:request-upgrade', handleUpgradeRequest)
+    return () => window.removeEventListener('voxali:request-upgrade', handleUpgradeRequest)
+  }, [role]) // safeSetActiveTab dependency since it uses role
 
   const handleLogout = useCallback(async () => {
     // Nuclear clear all supabase localStorage

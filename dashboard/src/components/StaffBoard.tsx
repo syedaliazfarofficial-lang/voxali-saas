@@ -11,6 +11,7 @@ import { showToast } from './ui/ToastNotification';
 import { StaffSkeleton } from './ui/Skeleton';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { PayrollRunsView } from './PayrollRunsView';
+import { useAuth } from '../context/AuthContext';
 
 interface LeaveEntry { id: string; start_datetime: string; end_datetime: string; reason: string; }
 interface ConflictBooking { booking_id: string; client_name: string; service_name: string; start_time: string; status: string; }
@@ -23,6 +24,9 @@ interface StaffMember {
 }
 
 export const StaffBoard: React.FC = () => {
+    const { isOwner, isSuperAdmin } = useAuth();
+    const isOwnerPrivilege = isOwner || isSuperAdmin;
+
     const [activeTab, setActiveTab] = useState<'directory' | 'payroll'>('directory');
     const [staff, setStaff] = useState<StaffMember[]>([]);
     const { tenantId } = useTenant();
@@ -684,12 +688,14 @@ export const StaffBoard: React.FC = () => {
                             >
                                 {showInactive ? 'Hide Inactive' : `Show Inactive (${inactiveStaff.length})`}
                             </button>
-                            <button
-                                onClick={() => setShowAddModal(true)}
-                                className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                            >
-                                <Plus className="w-5 h-5" /> ADD STAFF
-                            </button>
+                            {isOwnerPrivilege && (
+                                <button
+                                    onClick={() => setShowAddModal(true)}
+                                    className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                >
+                                    <Plus className="w-5 h-5" /> ADD STAFF
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
@@ -717,9 +723,13 @@ export const StaffBoard: React.FC = () => {
                                 <th className="text-left px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Stylist</th>
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Bookings</th>
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Revenue</th>
-                                <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Salary</th>
-                                <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Commission %</th>
-                                <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Earned</th>
+                                {isOwnerPrivilege && (
+                                    <>
+                                        <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Salary</th>
+                                        <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Commission %</th>
+                                        <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Earned</th>
+                                    </>
+                                )}
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Status</th>
                                 <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Actions</th>
                             </tr>
@@ -742,20 +752,24 @@ export const StaffBoard: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-5 text-center font-bold text-sm">{s.bookings_count}</td>
                                         <td className="px-6 py-5 text-center font-bold text-sm text-green-400">${s.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                        <td className="px-6 py-5 text-center">
-                                            <button onClick={() => openCommModal(s)} className="font-bold text-sm text-white hover:underline cursor-pointer">
-                                                ${s.base_salary.toLocaleString()}
-                                            </button>
-                                        </td>
-                                        <td className="px-6 py-5 text-center">
-                                            <button
-                                                onClick={() => openCommModal(s)}
-                                                className="font-bold text-sm text-luxe-gold hover:underline cursor-pointer"
-                                            >
-                                                {s.commission_rate}%
-                                            </button>
-                                        </td>
-                                        <td className="px-6 py-5 text-center font-bold text-sm text-luxe-gold">${commission.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                        {isOwnerPrivilege && (
+                                            <>
+                                                <td className="px-6 py-5 text-center">
+                                                    <button onClick={() => openCommModal(s)} className="font-bold text-sm text-white hover:underline cursor-pointer">
+                                                        ${s.base_salary.toLocaleString()}
+                                                    </button>
+                                                </td>
+                                                <td className="px-6 py-5 text-center">
+                                                    <button
+                                                        onClick={() => openCommModal(s)}
+                                                        className="font-bold text-sm text-luxe-gold hover:underline cursor-pointer"
+                                                    >
+                                                        {s.commission_rate}%
+                                                    </button>
+                                                </td>
+                                                <td className="px-6 py-5 text-center font-bold text-sm text-luxe-gold">${commission.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                            </>
+                                        )}
                                         <td className="px-6 py-5 text-center">
                                             {s.is_blocked_today ? (
                                                 <span className="text-[9px] font-bold bg-red-500/10 text-red-400 px-3 py-1.5 rounded-full border border-red-500/20">BLOCKED</span>
@@ -765,10 +779,12 @@ export const StaffBoard: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-5 text-center">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button onClick={() => openLedgerModal(s)} title="Ledger / Payments"
-                                                    className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-emerald-400 hover:bg-emerald-400/10 transition-all">
-                                                    <Banknote className="w-4 h-4" />
-                                                </button>
+                                                {isOwnerPrivilege && (
+                                                    <button onClick={() => openLedgerModal(s)} title="Ledger / Payments"
+                                                        className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-emerald-400 hover:bg-emerald-400/10 transition-all">
+                                                        <Banknote className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                                 <button onClick={() => openLeaveModal(s)} title="Manage Leave"
                                                     className="p-2 rounded-lg bg-white/5 text-white/40 hover:text-orange-400 hover:bg-orange-400/10 transition-all">
                                                     <CalendarDays className="w-4 h-4" />
