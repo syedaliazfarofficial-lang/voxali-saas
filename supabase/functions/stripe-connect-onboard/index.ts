@@ -39,11 +39,19 @@ Deno.serve(async (req) => {
             });
             if (!acctRes.ok) return jsonResponse({ connected: false, message: 'Stripe account not found' });
             const acct = await acctRes.json();
+            const isCompleted = acct.details_submitted || (acct.charges_enabled && acct.payouts_enabled);
+            
+            // Auto sync to DB if completed
+            if (isCompleted && !tenant.stripe_onboarding_complete) {
+                await supabase.from('tenants').update({ stripe_onboarding_complete: true }).eq('id', tenantId);
+            }
+
             return jsonResponse({
                 connected: true,
                 charges_enabled: acct.charges_enabled,
                 payouts_enabled: acct.payouts_enabled,
-                onboarding_complete: acct.charges_enabled && acct.payouts_enabled,
+                details_submitted: acct.details_submitted,
+                onboarding_complete: isCompleted,
                 account_id: tenant.stripe_account_id,
             });
         }
