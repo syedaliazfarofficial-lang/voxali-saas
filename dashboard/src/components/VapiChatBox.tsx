@@ -11,7 +11,7 @@ interface VapiChatBoxProps {
 
 export const VapiChatBox: React.FC<VapiChatBoxProps> = ({ assistantId, isOpen, onClose, firstMessage }) => {
     const [messages, setMessages] = useState<{ role: string; content: string }[]>([
-        { role: 'assistant', content: firstMessage || 'Hi there! I am Aria, your AI receptionist. How can I help you today?' }
+        { role: 'assistant', content: firstMessage || 'Hi there! I am Bella, your AI receptionist. How can I help you today?' }
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);

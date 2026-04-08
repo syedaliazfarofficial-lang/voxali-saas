@@ -21,25 +21,71 @@ Deno.serve(async (req) => {
         // We only care about end of call reports for billing and logging
         if (eventType !== 'end-of-call-report') {
             // ============================================================
-            // CALL-START: Inject current date/time based on tenant timezone
+            // CALL-START / ASSISTANT-REQUEST: Quota Enforcment & System Prompts
             // ============================================================
             if (eventType === 'call-start' || eventType === 'assistant-request') {
                 const agentIdStart = message.call?.assistantId || message.assistant?.id || '';
+                const callerNumber = message.call?.customer?.number || message.call?.from || '';
                 const supabase = getSupabase();
 
                 // Find tenant by vapi_assistant_id
                 let tenantTz = 'UTC';
                 let tenantName = 'the salon';
                 let tenantId = '';
+                let clientName = '';
+                let tenantData: any = null;
+
                 if (agentIdStart) {
                     const { data: tenant } = await supabase
                         .from('tenants')
-                        .select('id, timezone, salon_name')
+                        .select('*')
                         .eq('vapi_assistant_id', agentIdStart)
                         .maybeSingle();
-                    if (tenant?.timezone) tenantTz = tenant.timezone;
-                    if (tenant?.salon_name) tenantName = tenant.salon_name;
-                    if (tenant?.id) tenantId = tenant.id;
+                        
+                    if (tenant) {
+                        tenantTz = tenant.timezone || 'UTC';
+                        tenantName = tenant.salon_name || 'the salon';
+                        tenantId = tenant.id;
+                        tenantData = tenant;
+                    }
+                }
+
+                // ============= PHASE 2: AI QUOTA ENFORCEMENT =============
+                if (tenantData) {
+                    const aiIncluded = tenantData.ai_minutes_included || 0;
+                    const aiTopup = tenantData.ai_minutes_topup_balance || 0;
+                    const aiUsed = tenantData.ai_minutes_used || 0;
+                    const effectiveMinutes = (aiIncluded + aiTopup) - aiUsed;
+                    
+                    const isPaused = tenantData.ai_access_paused || false;
+                    const subStatus = tenantData.subscription_status || 'active';
+                    
+                    // Allow grace period bypass if substatus is past_due but within grace
+                    const isAllowedStatus = ['active', 'trialing', 'past_due'].includes(subStatus);
+                    
+                    if (!isAllowedStatus || isPaused || effectiveMinutes <= 0) {
+                        console.log(`[QUOTA EXHAUSTED] Tenant ${tenantId} has ${effectiveMinutes} mins. Routing to fallback.`);
+                        const fallbackPhone = tenantData.fallback_number || tenantData.business_phone || tenantData.phone_number;
+                        
+                        const msg = fallbackPhone 
+                            ? `Thanks for calling ${tenantName}. Our AI receptionist is currently unavailable. Please hold while we route your call.`
+                            : `Thanks for calling ${tenantName}. Please leave a message or call back shortly.`;
+
+                        // Reconfigure VAPI agent on-the-fly to become a simple Transfer/Hangup bot
+                        return jsonResponse({
+                            assistantOverrides: {
+                                firstMessage: msg,
+                                model: {
+                                    messages: [{
+                                        role: 'system',
+                                        content: fallbackPhone 
+                                            ? `You must immediately execute the transfer tool to transfer the call to ${fallbackPhone} without saying anything else.` 
+                                            : `You must immediately end the call. Say nothing else.`
+                                    }]
+                                }
+                            }
+                        });
+                    }
                 }
 
                 // Get current date/time in the tenant's local timezone
@@ -59,7 +105,6 @@ Deno.serve(async (req) => {
                 const tomorrowISO = tomorrowLocal.toLocaleDateString('en-CA');
                 const yr = yr2;
 
-                // Determine greeting based on local time
                 const localHour = parseInt(now.toLocaleTimeString('en-US', { timeZone: tenantTz, hour: 'numeric', hour12: false }));
                 const greeting = localHour < 12 ? 'Good morning' : localHour < 17 ? 'Good afternoon' : 'Good evening';
 
@@ -74,53 +119,33 @@ Deno.serve(async (req) => {
                     `- "today" / "aaj" / "aj" → ${todayISO}`,
                     `- "tomorrow" / "tomaro" / "kal" / "next day" → ${tomorrowISO}`,
                     `- Always use YYYY-MM-DD format when calling check_availability.`,
-                    ``,
-                    `## TIME EXPRESSIONS → 24h slot to request`,
-                    `- morning / subah / صبح → 09:00`,
-                    `- mid-morning / late morning → 11:00`,
-                    `- afternoon / dopahar / after lunch → 13:00`,
-                    `- evening / shaam / شام → 17:00`,
-                    `- night → 19:00`,
-                    `- If exact slot unavailable, pick nearest available.`,
                 ].join('\n');
 
-                // --- Check for Returning Client ---
-                let clientName = '';
-                const callerPhone = message.call?.customer?.number || message.call?.from || '';
-                
-                if (callerPhone && tenantId) {
+                if (callerNumber && tenantId) {
                     const { data: clientObj } = await supabase
                         .from('clients')
                         .select('name')
                         .eq('tenant_id', tenantId)
-                        .eq('phone_number', callerPhone)
+                        .eq('phone_number', callerNumber)
                         .maybeSingle();
                         
-                    if (clientObj?.name) {
-                        clientName = clientObj.name;
-                    }
+                    if (clientObj?.name) clientName = clientObj.name;
                 }
 
-                // --- Generate Dynamic Greeting ---
                 const finalGreeting = clientName 
-                    ? `${greeting}, ${clientName}! Welcome back to ${tenantName}. This is Aria, your personal beauty concierge. How may I assist you today?`
-                    : `${greeting}, thank you for calling ${tenantName}! This is Aria, your personal beauty concierge. How may I assist you today?`;
+                    ? `${greeting}, ${clientName}! Welcome back to ${tenantName}. How may I assist you today?`
+                    : `${greeting}, thank you for calling ${tenantName}. How may I assist you today?`;
 
                 return jsonResponse({
                     assistantOverrides: {
                         firstMessage: finalGreeting,
                         model: {
                             messages: [
-                                {
-                                    role: 'system',
-                                    content: dateContext
-                                }
+                                { role: 'system', content: dateContext }
                             ]
                         }
                     }
                 });
-
-
             }
 
             return jsonResponse({ received: true, message: `Ignored event: ${eventType}` });
@@ -136,11 +161,8 @@ Deno.serve(async (req) => {
         const transcriptSummary = message.summary || '';
 
         const callerPhone = callData.customer?.number || callData.from || '';
-        // Vapi sends duration in seconds sometimes, or we calculate from cost/minutes.
-        // Usually `duration` is in seconds.
-        const callDuration = callData.duration || 0;
+        const callDuration = callData.duration || 0; // seconds
 
-        // Extract tenant_id: URL query param -> assistant_id lookup
         const tenantId = urlTenantId || '';
 
         if (!conversationId) {
@@ -150,7 +172,6 @@ Deno.serve(async (req) => {
         const supabase = getSupabase();
         const recordingUrl = callData.recordingUrl || '';
 
-        // Format transcript for readability
         let formattedTranscript = '';
         if (typeof transcript === 'string') {
             formattedTranscript = transcript;
@@ -160,37 +181,23 @@ Deno.serve(async (req) => {
                 .join('\n');
         }
 
-        // Determine which actions were taken during the call
         const actionsTaken: string[] = [];
         const lowerTranscript = formattedTranscript.toLowerCase();
-        if (lowerTranscript.includes('booking confirmed') || lowerTranscript.includes('booked')) {
-            actionsTaken.push('booking_created');
-        }
-        if (lowerTranscript.includes('cancelled')) {
-            actionsTaken.push('booking_cancelled');
-        }
-        if (lowerTranscript.includes('rescheduled')) {
-            actionsTaken.push('booking_rescheduled');
-        }
-        if (lowerTranscript.includes('waitlist')) {
-            actionsTaken.push('added_to_waitlist');
-        }
+        if (lowerTranscript.includes('booking confirmed') || lowerTranscript.includes('booked')) actionsTaken.push('booking_created');
+        if (lowerTranscript.includes('cancelled')) actionsTaken.push('booking_cancelled');
+        if (lowerTranscript.includes('rescheduled')) actionsTaken.push('booking_rescheduled');
 
-        // Resolve tenant_id: URL -> tenants.vapi_assistant_id -> error
         let finalTenantId = tenantId;
         if (!finalTenantId && agentId) {
-            // Look up tenant by their vapi_assistant_id in the tenants table
             const { data: tenantMatch } = await supabase
                 .from('tenants')
                 .select('id')
                 .eq('vapi_assistant_id', agentId)
-                .limit(1)
-                .single();
+                .maybeSingle();
             finalTenantId = tenantMatch?.id || '';
         }
 
         if (!finalTenantId) {
-            console.error('Could not resolve tenant_id for assistant_id:', agentId);
             return errorResponse('Could not resolve tenant for this agent', 400);
         }
 
@@ -213,50 +220,58 @@ Deno.serve(async (req) => {
             .select('id')
             .single();
 
-        if (error) {
-            return errorResponse(`Failed to save call log: ${error.message}`, 500);
-        }
-
         // ==========================================
-        // Usage Tracking: Coin System (10 Coins per Min)
+        // Usage Tracking: Phase 2 Granular Billing
         // ==========================================
         const minutesConsumed = Math.ceil(callDuration / 60);
+
         if (minutesConsumed > 0) {
-            const coinsToDeduct = minutesConsumed * 10; // 10 coins per AI minute
-
-            // Read current coin balance
-            const { data: tenantData } = await supabase
-                .from('tenants')
-                .select('ai_minutes_used, coin_balance')
-                .eq('id', finalTenantId)
-                .single();
-
-            const currentMinutes = tenantData?.ai_minutes_used || 0;
-            const currentCoins = tenantData?.coin_balance || 0;
-
-            const newMinutes = currentMinutes + minutesConsumed;
-            const newCoins = currentCoins - coinsToDeduct;
-
-            // Update usage and deduct coins in DB
-            await supabase
-                .from('tenants')
-                .update({
-                    ai_minutes_used: newMinutes,
-                    coin_balance: newCoins
-                })
-                .eq('id', finalTenantId);
-
-            // Create coin transaction log
-            await supabase
-                .from('coin_transactions')
+            // First, protect idempotency (Make sure we haven't billed this exact call yet)
+            const idempotencyKey = `call_${conversationId}_bill`;
+            
+            const { data: dbLog, error: logInsertErr } = await supabase
+                .from('ai_usage_logs')
                 .insert({
                     tenant_id: finalTenantId,
-                    amount: -coinsToDeduct,
-                    transaction_type: 'ai_call',
-                    description: `AI Call: ${minutesConsumed} min(s) @ 10 coins/min`
-                });
+                    call_id: conversationId,
+                    minutes_used: minutesConsumed,
+                    rounded_billable_minutes: minutesConsumed,
+                    event_type: 'inbound_call',
+                    idempotency_key: idempotencyKey,
+                    provider_call_id: callData.id
+                })
+                .select('id')
+                .maybeSingle();
 
-            console.log(`Billed ${minutesConsumed} AI mins. Deducted ${coinsToDeduct} coins. New balance: ${newCoins}. Tenant: ${finalTenantId}`);
+            if (!logInsertErr && dbLog) {
+                // Read current AI limits
+                const { data: tenantData } = await supabase
+                    .from('tenants')
+                    .select('ai_minutes_used, ai_minutes_included, ai_minutes_topup_balance')
+                    .eq('id', finalTenantId)
+                    .single();
+
+                if (tenantData) {
+                    const currentUsed = tenantData.ai_minutes_used || 0;
+                    const newUsed = currentUsed + minutesConsumed;
+
+                    const effectiveRemaining = (tenantData.ai_minutes_included + tenantData.ai_minutes_topup_balance) - newUsed;
+                    const shouldPause = effectiveRemaining <= 0;
+
+                    // Update usage in DB
+                    await supabase
+                        .from('tenants')
+                        .update({
+                            ai_minutes_used: newUsed,
+                            ai_access_paused: shouldPause
+                        })
+                        .eq('id', finalTenantId);
+                        
+                    console.log(`Billed ${minutesConsumed} AI mins. New Total Used: ${newUsed}. Paused: ${shouldPause}. Tenant: ${finalTenantId}`);
+                }
+            } else {
+                console.log(`Idempotency caught duplicate tracking for call: ${conversationId}`);
+            }
         }
 
         return jsonResponse({

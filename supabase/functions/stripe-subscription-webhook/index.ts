@@ -160,7 +160,11 @@ Deno.serve(async (req) => {
         if (eventType === 'invoice.payment_succeeded' && obj.subscription) {
             const customerEmail = obj.customer_email || '';
             const customerId = obj.customer;
-            const billingReason = obj.billing_reason; // e.g., 'subscription_cycle'
+            const billingReason = obj.billing_reason; 
+
+            // Extract period from the invoice lines
+            const periodStart = obj.lines?.data?.[0]?.period?.start;
+            const periodEnd = obj.lines?.data?.[0]?.period?.end;
 
             if (!customerEmail) {
                 return jsonResponse({ received: true, message: 'No customer email found, skipping.' });
@@ -171,44 +175,157 @@ Deno.serve(async (req) => {
             // Find the tenant by email
             const { data: tenant, error: fetchErr } = await supabaseAdmin
                 .from('tenants')
-                .select('id, plan_tier, coin_balance')
-                .eq('email', customerEmail)
+                .select('id, plan_tier')
+                .eq('stripe_customer_id', customerId)
                 .single();
 
             if (tenant) {
-                const tier = tenant.plan_tier || 'basic';
-                let monthlyCoins = 0;
-                if (tier === 'starter') monthlyCoins = 2000;
-                else if (tier === 'growth') monthlyCoins = 5000;
-                else if (tier === 'elite') monthlyCoins = 10000;
+                // If it's a new subscription or recurring cycle
+                if (billingReason === 'subscription_cycle' || billingReason === 'subscription_create') {
+                    const updatePayload: any = {
+                        ai_minutes_used: 0,
+                        sms_used: 0,
+                        ai_access_paused: false,
+                        sms_sending_paused: false,
+                        subscription_status: 'active'
+                    };
 
-                if (monthlyCoins > 0 && billingReason === 'subscription_cycle') {
-                    // Accumulate coins (Rollover Option 1)
-                    const currentBalance = tenant.coin_balance || 0;
-                    const newBalance = currentBalance + monthlyCoins;
+                    // Add proper billing cycles if stripe provided them
+                    if (periodStart) updatePayload.current_period_start = new Date(periodStart * 1000).toISOString();
+                    if (periodEnd) updatePayload.current_period_end = new Date(periodEnd * 1000).toISOString();
 
                     const { error: updateErr } = await supabaseAdmin
                         .from('tenants')
-                        .update({
-                            coin_balance: newBalance,
-                            ai_minutes_used: 0,
-                            sms_used: 0
-                        })
+                        .update(updatePayload)
                         .eq('id', tenant.id);
 
                     if (!updateErr) {
-                        await supabaseAdmin.from('coin_transactions').insert({
+                        console.log(`Successfully reset included monthly quota for ${tenant.id}. Unused balances expired, Top-ups preserved.`);
+                    } else {
+                        console.error("Failed to reset quota on payment success:", updateErr);
+                    }
+                }
+            } else {
+                 console.log("Tenant not found via stripe_customer_id, skipping quota reset.");
+            }
+
+            return jsonResponse({ received: true, message: 'Recurring payment processed & quotas reset.' });
+        }
+
+        // ===== SUBSCRIPTION UPDATED (Upgrade/Downgrade via Portal) =====
+        if (eventType === 'customer.subscription.updated') {
+            const customerId = obj.customer;
+            const status = obj.status; // 'active', 'past_due', etc.
+            const subscriptionId = obj.id;
+            
+            // Extract the new plan from metadata or the Stripe Product
+            // The product ID or metadata should tell us if it's starter, growth, elite.
+            // For simplicity, assuming metadata.plan is passed when portal modifies it,
+            // or we fall back to a default active status.
+            let newTier = obj.metadata?.plan || null;
+            
+            // If the portal didn't pass metadata to the sub, we might need to look at the product
+            if (!newTier && obj.plan && obj.plan.product) {
+                // In a real environment, you'd map the Stripe Product ID to your plans here.
+                // For now, we trust metadata or leave it as it was if missing.
+            }
+
+            console.log(`Processing subscription update for customer ${customerId}. Status: ${status}`);
+
+            const updateData: any = { 
+                subscription_status: status,
+                stripe_subscription_id: subscriptionId 
+            };
+            
+            if (newTier) {
+                updateData.plan_tier = newTier;
+                updateData.subscription_tier = newTier;
+                console.log(`Upgrading/Downgrading tenant to ${newTier}`);
+            }
+
+            const { error: updateErr } = await supabaseAdmin
+                .from('tenants')
+                .update(updateData)
+                .eq('stripe_customer_id', customerId);
+
+            if (updateErr) {
+                console.error("Failed to update tenant subscription status:", updateErr);
+                return errorResponse('Failed to update tenant', 500);
+            }
+
+            return jsonResponse({ received: true, message: 'Subscription update processed.' });
+        }
+
+        // ===== INVOICE PAYMENT FAILED (Grace Period Logic) =====
+        if (eventType === 'invoice.payment_failed') {
+            const customerId = obj.customer;
+            console.log(`Payment failed for customer ${customerId}. Entering Grace Period.`);
+
+            const graceUntil = new Date();
+            graceUntil.setDate(graceUntil.getDate() + 3); // 3 Days Grace Period
+
+            const { data: tenant, error: fetchErr } = await supabaseAdmin
+                .from('tenants')
+                .select('id')
+                .eq('stripe_customer_id', customerId)
+                .single();
+
+            if (tenant) {
+                await supabaseAdmin
+                    .from('tenants')
+                    .update({
+                        subscription_status: 'past_due',
+                        billing_grace_until: graceUntil.toISOString()
+                    })
+                    .eq('id', tenant.id);
+                console.log(`Set grace period for tenant ${tenant.id} until ${graceUntil.toISOString()}`);
+            }
+            return jsonResponse({ received: true, message: 'Grace period applied.' });
+        }
+
+        // ===== CHECKOUT SESSION COMPLETED (Top-Up Purchases) =====
+        if (eventType === 'checkout.session.completed') {
+            const mode = obj.mode;
+            const metadata = obj.metadata || {};
+            
+            // If this was a one-time payment for a top-up
+            if (mode === 'payment' && metadata.is_topup === 'true') {
+                const customerId = obj.customer;
+                const topupType = metadata.topup_type; // 'ai_minutes' or 'sms'
+                const amount = parseInt(metadata.amount || '0', 10);
+                
+                const { data: tenant } = await supabaseAdmin
+                    .from('tenants')
+                    .select('id, ai_minutes_topup_balance, sms_topup_balance, ai_access_paused, sms_sending_paused')
+                    .eq('stripe_customer_id', customerId)
+                    .single();
+                    
+                if (tenant && amount > 0) {
+                    const updates: any = {};
+                    
+                    if (topupType === 'ai_minutes') {
+                        updates.ai_minutes_topup_balance = (tenant.ai_minutes_topup_balance || 0) + amount;
+                        if (tenant.ai_access_paused) updates.ai_access_paused = false;
+                    } else if (topupType === 'sms') {
+                        updates.sms_topup_balance = (tenant.sms_topup_balance || 0) + amount;
+                        if (tenant.sms_sending_paused) updates.sms_sending_paused = false;
+                    }
+                    
+                    if (Object.keys(updates).length > 0) {
+                        await supabaseAdmin.from('tenants').update(updates).eq('id', tenant.id);
+                        
+                        await supabaseAdmin.from('topup_purchases').insert({
                             tenant_id: tenant.id,
-                            amount: monthlyCoins,
-                            transaction_type: 'monthly_reset',
-                            description: `Monthly Subscription Renewed. Added ${monthlyCoins} Coins. New Balance: ${newBalance}.`
+                            type: topupType,
+                            quantity: amount,
+                            amount_paid_cents: obj.amount_total,
+                            stripe_session_id: obj.id
                         });
-                        console.log(`Rollover: Added ${monthlyCoins} to ${tenant.id}. New Balance: ${newBalance}.`);
+                        console.log(`Topped up ${amount} ${topupType} for tenant ${tenant.id}`);
                     }
                 }
             }
-
-            return jsonResponse({ received: true, message: 'Recurring payment processed.' });
+            return jsonResponse({ received: true, message: 'Checkout session processed.' });
         }
 
         return jsonResponse({ received: true, message: `Unhandled event: ${eventType}` });

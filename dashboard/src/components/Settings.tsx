@@ -271,9 +271,12 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
 // ===== WALLET & BILLING TAB COMPONENT =====
 const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
     const { planTier } = useTenant();
-    const [coinBalance, setCoinBalance] = useState<number>(0);
-    const [usage, setUsage] = useState({ ai_minutes_used: 0, sms_used: 0 });
-    const [transactions, setTransactions] = useState<any[]>([]);
+    const [usage, setUsage] = useState({
+        ai_minutes_included: 0, ai_minutes_used: 0, ai_minutes_topup_balance: 0,
+        sms_included: 0, sms_used: 0, sms_topup_balance: 0,
+        subscription_status: 'active', billing_grace_until: null as string | null,
+        current_period_end: null as string | null
+    });
     const [loading, setLoading] = useState(true);
     const [upgradingTo, setUpgradingTo] = useState<string | null>(null);
 
@@ -309,55 +312,45 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
         }
     };
 
-    const limits = {
-        starter: { ai: 100, sms: 400 },
-        growth: { ai: 250, sms: 1000 },
-        elite: { ai: 500, sms: 2000 },
-        basic: { ai: 0, sms: 0 },
-        free: { ai: 50, sms: 50 }
-    }[planTier] || { ai: 150, sms: 200 };
-
     const fetchWalletProps = useCallback(async () => {
         setLoading(true);
-        // Fetch coin balance and usage
         const { data: tenantData } = await supabase
             .from('tenants')
-            .select('coin_balance, ai_minutes_used, sms_used')
+            .select(`
+                subscription_status, billing_grace_until, current_period_end, 
+                ai_minutes_included, ai_minutes_used, ai_minutes_topup_balance, 
+                sms_included, sms_used, sms_topup_balance
+            `)
             .eq('id', tenantId)
             .single();
 
         if (tenantData) {
-            setCoinBalance(tenantData.coin_balance || 0);
             setUsage({
+                ai_minutes_included: tenantData.ai_minutes_included || 0,
                 ai_minutes_used: tenantData.ai_minutes_used || 0,
-                sms_used: tenantData.sms_used || 0
+                ai_minutes_topup_balance: tenantData.ai_minutes_topup_balance || 0,
+                sms_included: tenantData.sms_included || 0,
+                sms_used: tenantData.sms_used || 0,
+                sms_topup_balance: tenantData.sms_topup_balance || 0,
+                subscription_status: tenantData.subscription_status || 'active',
+                billing_grace_until: tenantData.billing_grace_until,
+                current_period_end: tenantData.current_period_end
             });
         }
-
-        // Fetch recent transactions
-        const { data: txData } = await supabase
-            .from('coin_transactions')
-            .select('*')
-            .eq('tenant_id', tenantId)
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (txData) setTransactions(txData);
         setLoading(false);
     }, [tenantId]);
 
     useEffect(() => { fetchWalletProps(); }, [fetchWalletProps]);
 
-    const [charging, setCharging] = useState(false);
+    const [chargingType, setChargingType] = useState<string | null>(null);
 
-    const handleTopUp = async (amount: number) => {
+    const handleTopUp = async (type: 'ai_minutes' | 'sms', quantity: number) => {
         if (!tenantId) return;
-        setCharging(true);
+        setChargingType(`${type}_${quantity}`);
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Not authenticated');
 
-            // Find the VITE_SUPABASE_URL and build the correct Edge Function URL
             const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
             let functionUrl = 'https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/charge-coins';
             if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
@@ -365,7 +358,6 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
             } else if (envUrl.includes('supabase.co')) {
                 functionUrl = envUrl.replace('.supabase.co', '.supabase.co/functions/v1/charge-coins');
             }
-
             const toolsKey = 'LUXE-AUREA-SECRET-2026';
 
             const res = await fetch(functionUrl, {
@@ -375,12 +367,12 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                     'Authorization': `Bearer ${session.access_token}`,
                     'X-TOOLS-KEY': toolsKey
                 },
-                body: JSON.stringify({ tenant_id: tenantId, amount_coins: amount })
+                body: JSON.stringify({ tenant_id: tenantId, topup_type: type, quantity })
             });
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || err.message || 'Failed to create checkout session');
+                throw new Error(err.error || 'Failed to create checkout session');
             }
 
             const { url } = await res.json();
@@ -392,71 +384,56 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
         } catch (err: any) {
             console.error('Portal error:', err);
             showToast(err.message || 'Billing portal error', 'error');
-            setCharging(false);
+            setChargingType(null);
         }
     };
 
+    const aiTotal = usage.ai_minutes_included + usage.ai_minutes_topup_balance;
+    const aiRemaining = aiTotal - usage.ai_minutes_used;
+    const aiPercentUsed = aiTotal > 0 ? Math.min(100, (usage.ai_minutes_used / aiTotal) * 100) : 0;
+    
+    const smsTotal = usage.sms_included + usage.sms_topup_balance;
+    const smsRemaining = smsTotal - usage.sms_used;
+    const smsPercentUsed = smsTotal > 0 ? Math.min(100, (usage.sms_used / smsTotal) * 100) : 0;
+
     const plans = [
         {
-            id: 'basic',
-            name: 'SaaS Basic',
-            price: '$49',
-            subtitle: 'For salons that just need software',
+            id: 'basic', name: 'Essentials', price: '$49', subtitle: 'For salons that just need software',
             features: [
-                'Unlimited staff members',
-                'Online booking page',
-                'Payment & Deposits',
-                'Basic CRM & Calendar',
-                { text: 'No AI Receptionist', strike: true },
-                { text: 'No SMS Reminders', strike: true }
+                'Up to 2 staff members', 'Online booking page', 'Payment & Deposits', 'Basic CRM & Calendar',
+                { text: 'AI Receptionist not included', strike: true }, { text: 'SMS reminders not included', strike: true }
             ]
         },
         {
-            id: 'starter',
-            name: 'AI Starter',
-            price: '$99',
-            subtitle: 'Perfect for small shops',
-            badge: 'SMART START',
+            id: 'starter', name: 'AI Starter', price: '$99', subtitle: 'For small salons ready to automate calls and bookings', badge: 'SMART START',
             features: [
-                'Unlimited staff members',
-                { text: 'Aria AI Receptionist', highlight: true },
-                'Local Phone Number included',
-                { text: '2,000 AI Coins', highlight: true, subtext: '(~100 AI Mins or 400 SMS)' },
-                'Automated SMS Reminders'
+                'Up to 5 staff members', { text: 'Bella AI Receptionist', highlight: true },
+                'Local Phone Number included', { text: '100 AI minutes included', highlight: true }, { text: '400 SMS credits included', highlight: true }
             ]
         },
         {
-            id: 'growth',
-            name: 'AI Growth',
-            price: '$199',
-            subtitle: 'For growing salons & spas',
-            badge: 'MOST POPULAR',
-            highlighted: true,
+            id: 'growth', name: 'AI Growth', price: '$199', subtitle: 'For growing salons & spas', badge: 'MOST POPULAR', highlighted: true,
             features: [
-                'Unlimited staff members',
-                { text: 'Aria AI Receptionist', highlight: true },
-                { text: '5,000 AI Coins', highlight: true, subtext: '(~250 AI Mins or 1000 SMS)' },
-                'Loyalty Program & Advanced CRM',
-                'SMS & Email Campaigns',
-                'Revenue Analytics'
+                'Up to 15 staff members', { text: 'Bella AI Receptionist', highlight: true },
+                { text: '250 AI minutes included', highlight: true }, { text: '1,000 SMS credits included', highlight: true },
+                'Loyalty Program & Advanced CRM', 'SMS & Email Campaigns', 'Revenue Analytics'
             ]
         },
         {
-            id: 'elite',
-            name: 'AI Elite',
-            price: '$349',
-            subtitle: 'For large salons & chains',
-            badge: 'ENTERPRISE',
+            id: 'elite', name: 'Enterprise', price: '$349', subtitle: 'For large salons and high-volume teams', badge: 'ENTERPRISE',
             features: [
-                'Unlimited staff members',
-                { text: 'Aria AI Receptionist', highlight: true },
-                { text: '10,000 AI Coins', highlight: true, subtext: '(~500 AI Mins or 2000 SMS)' },
-                'Custom Branding',
-                'Advanced Security & Roles',
-                'Dedicated Account Manager'
+                'Unlimited staff members', { text: 'Bella AI Receptionist', highlight: true },
+                { text: '500 AI minutes included', highlight: true }, { text: '2,000 SMS credits included', highlight: true },
+                'Custom Branding', 'Advanced Security', 'Dedicated Account Manager'
             ]
         }
     ];
+
+    const getBarColor = (pct: number) => {
+        if (pct >= 100) return 'bg-red-500';
+        if (pct >= 85) return 'bg-orange-400';
+        return 'bg-[#D4AF37]';
+    };
 
     return (
         <div className="space-y-12 animate-in fade-in duration-500 pb-20">
@@ -467,92 +444,155 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                         <BillingIcon className="w-6 h-6 text-luxe-gold" />
                     </div>
                     <div>
-                        <h3 className="text-2xl font-black uppercase tracking-widest text-[#D4AF37]">Subscription & Billing</h3>
-                        <p className="text-xs text-white/40 uppercase tracking-widest">Manage your plan and prepaid AI coins</p>
+                        <h3 className="text-2xl font-black uppercase tracking-widest text-[#D4AF37]">Billing & Usage</h3>
+                        <p className="text-xs text-white/40 uppercase tracking-widest">Manage your plan and prepaid AI limits</p>
                     </div>
                 </div>
             </div>
 
-            {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="glass-panel border border-white/5 p-6 h-[500px]">
-                            <Skeleton variant="text" width="60%" height={36} className="mb-8" />
-                            <Skeleton variant="rect" height={300} />
+            {/* Warnings */}
+            {!loading && usage.subscription_status === 'past_due' && (
+                <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="w-6 h-6 text-red-500" />
+                        <div>
+                            <p className="text-red-400 font-bold">Payment Failed — Grace Period Active</p>
+                            <p className="text-xs text-red-400/80 mt-1">
+                                Please update your payment method. Access will be paused after {usage.billing_grace_until ? new Date(usage.billing_grace_until).toLocaleDateString() : '3 days'}.
+                            </p>
                         </div>
-                    ))}
+                    </div>
+                </div>
+            )}
+
+            {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="glass-panel border border-white/5 p-6 h-[400px]"><Skeleton variant="rect" height={300} /></div>
+                    <div className="glass-panel border border-white/5 p-6 h-[400px]"><Skeleton variant="rect" height={300} /></div>
                 </div>
             ) : (
                 <>
-                    {/* ===== WALLET SECTION ===== */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                        {/* Coin Balance Card */}
-                        <div className="glass-panel p-6 border border-white/10 rounded-2xl bg-gradient-to-br from-[#1A1A1A] to-[#121212]">
+                    {/* ===== USAGE QUOTAS & TOPUPS ===== */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                        {/* AI Minutes Card */}
+                        <div className="glass-panel p-6 border border-white/10 rounded-2xl bg-gradient-to-br from-[#121212] to-[#1A1A1A]">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
-                                    <div className="p-2 bg-[#D4AF37]/10 rounded-lg">
-                                        <Coins className="w-5 h-5 text-[#D4AF37]" />
-                                    </div>
-                                    <span className="text-white/50 text-sm font-bold uppercase tracking-wider">AI Coin Balance</span>
+                                    <div className="p-2 bg-[#D4AF37]/10 rounded-lg"><Zap className="w-5 h-5 text-[#D4AF37]" /></div>
+                                    <span className="text-white/50 text-sm font-bold uppercase tracking-wider">AI Voice Minutes</span>
                                 </div>
-                                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-green-500/10 text-green-400 rounded">Available</span>
-                            </div>
-                            <div className="text-4xl font-black text-white mb-6">
-                                {coinBalance.toLocaleString()} <span className="text-sm text-white/30 font-medium">Coins</span>
+                                {aiRemaining <= 0 ? 
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-red-500/20 text-red-400 rounded">Paused / Needs Top-Up</span> :
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-green-500/10 text-green-400 rounded">Active</span>
+                                }
                             </div>
                             
-                            <div className="space-y-3 pt-4 border-t border-white/5">
-                                <p className="text-xs text-white/40 mb-3 font-bold uppercase tracking-wider">Top Up Balance</p>
-                                <div className="flex gap-2">
-                                    <button onClick={() => handleTopUp(1000)} disabled={charging} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white/80">
-                                        {charging ? '...' : '+1K ($10)'}
+                            <div className="flex items-end gap-2 mb-2">
+                                <div className="text-5xl font-black text-white">{aiRemaining}</div>
+                                <div className="text-sm text-white/40 mb-1 font-medium">MINS REMAINING</div>
+                            </div>
+                            
+                            <div className="flex justify-between text-xs text-white/50 mb-2 mt-6">
+                                <span>Used: <span className="text-white font-bold">{usage.ai_minutes_used}</span></span>
+                                <span>Total: <span className="text-white font-bold">{aiTotal}</span></span>
+                            </div>
+                            <div className="w-full bg-white/5 h-2 rounded-full mb-3">
+                                <div className={`${getBarColor(aiPercentUsed)} h-2 rounded-full transition-all duration-1000`} style={{ width: `${aiPercentUsed}%` }} />
+                            </div>
+                            <p className="text-[10px] text-white/40 uppercase tracking-wider text-right mb-6">
+                                {Number(aiPercentUsed).toFixed(1)}% Usage
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-4 text-xs mt-4 bg-white/5 p-4 rounded-xl border border-white/5">
+                                <div><p className="text-white/40 font-bold mb-1">Monthly Plan</p><p className="text-lg font-bold">+{usage.ai_minutes_included}</p></div>
+                                <div><p className="text-white/40 font-bold mb-1">Rollover Top-Ups</p><p className="text-lg font-bold text-[#D4AF37]">+{usage.ai_minutes_topup_balance}</p></div>
+                            </div>
+
+                            <div className="space-y-3 pt-6 border-t border-white/5 mt-6">
+                                <p className="text-xs text-white/40 mb-3 font-bold uppercase tracking-wider text-center">Buy Additional Minutes (Never Expire)</p>
+                                <div className="flex gap-2 mb-2">
+                                    <button onClick={() => handleTopUp('ai_minutes', 50)} disabled={!!chargingType} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white">
+                                        {chargingType === 'ai_minutes_50' ? '...' : 'Quick Refill (50 Min) - $35'}
                                     </button>
-                                    <button onClick={() => handleTopUp(5000)} disabled={charging} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white/80">
-                                        {charging ? '...' : '+5K ($40)'}
+                                    <button onClick={() => handleTopUp('ai_minutes', 100)} disabled={!!chargingType} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white">
+                                        {chargingType === 'ai_minutes_100' ? '...' : 'Standard (100 Min) - $65'}
                                     </button>
                                 </div>
-                                <button onClick={() => handleTopUp(10000)} disabled={charging} className="w-full bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 py-3 rounded-xl text-xs font-bold transition-all text-[#D4AF37]">
-                                    {charging ? 'REDIRECTING...' : '+10,000 COINS ($75)'}
+                                <button onClick={() => handleTopUp('ai_minutes', 250)} disabled={!!chargingType} className="w-full bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 py-3 rounded-xl text-xs font-bold transition-all text-[#D4AF37]">
+                                    {chargingType === 'ai_minutes_250' ? 'REDIRECTING...' : 'High Volume (250 Min) - $150'}
                                 </button>
                             </div>
                         </div>
 
-                        {/* AI Mins Usage */}
-                        <div className="glass-panel p-6 border border-white/10 rounded-2xl bg-[#121212]">
+                        {/* SMS Credits Card */}
+                        <div className="glass-panel p-6 border border-white/10 rounded-2xl bg-gradient-to-br from-[#121212] to-[#1A1A1A]">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
-                                    <Zap className="w-5 h-5 text-blue-400" />
-                                    <span className="text-white/50 text-sm font-bold uppercase tracking-wider">AI Voice Mins Used</span>
+                                    <div className="p-2 bg-blue-500/10 rounded-lg"><MessageSquare className="w-5 h-5 text-blue-400" /></div>
+                                    <span className="text-white/50 text-sm font-bold uppercase tracking-wider">SMS Credits</span>
                                 </div>
+                                {smsRemaining <= 0 ? 
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-red-500/20 text-red-400 rounded">Paused / Needs Top-Up</span> :
+                                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-green-500/10 text-green-400 rounded">Active</span>
+                                }
                             </div>
-                            <div className="text-4xl font-black text-white mb-2 mt-4">
-                                {usage.ai_minutes_used} <span className="text-sm text-white/30">/ {limits.ai === -1 ? '∞' : limits.ai} LIMIT</span>
+                            
+                            <div className="flex items-end gap-2 mb-2">
+                                <div className="text-5xl font-black text-white">{smsRemaining}</div>
+                                <div className="text-sm text-white/40 mb-1 font-medium">CREDITS REMAINING</div>
                             </div>
-                            <div className="w-full bg-white/5 h-2 rounded-full mt-8 mb-3">
-                                <div className="bg-blue-400 h-2 rounded-full" style={{ width: `${limits.ai === -1 ? 0 : Math.min(100, (usage.ai_minutes_used / limits.ai) * 100)}%` }} />
+                            
+                            <div className="flex justify-between text-xs text-white/50 mb-2 mt-6">
+                                <span>Used: <span className="text-white font-bold">{usage.sms_used}</span></span>
+                                <span>Total: <span className="text-white font-bold">{smsTotal}</span></span>
                             </div>
-                            <p className="text-xs text-white/40">Resets next billing cycle</p>
-                        </div>
+                            <div className="w-full bg-white/5 h-2 rounded-full mb-3">
+                                <div className={`${getBarColor(smsPercentUsed)} h-2 rounded-full transition-all duration-1000`} style={{ width: `${smsPercentUsed}%` }} />
+                            </div>
+                            <p className="text-[10px] text-white/40 uppercase tracking-wider text-right mb-6">
+                                {Number(smsPercentUsed).toFixed(1)}% Usage
+                            </p>
 
-                        {/* SMS Usage */}
-                        <div className="glass-panel p-6 border border-white/10 rounded-2xl bg-[#121212]">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
-                                    <MessageSquare className="w-5 h-5 text-green-400" />
-                                    <span className="text-white/50 text-sm font-bold uppercase tracking-wider">SMS Sent</span>
+                            <div className="grid grid-cols-2 gap-4 text-xs mt-4 bg-white/5 p-4 rounded-xl border border-white/5">
+                                <div><p className="text-white/40 font-bold mb-1">Monthly Plan</p><p className="text-lg font-bold">+{usage.sms_included}</p></div>
+                                <div><p className="text-white/40 font-bold mb-1">Rollover Top-Ups</p><p className="text-lg font-bold text-blue-400">+{usage.sms_topup_balance}</p></div>
+                            </div>
+
+                            <div className="space-y-3 pt-6 border-t border-white/5 mt-6">
+                                <p className="text-xs text-white/40 mb-3 font-bold uppercase tracking-wider text-center">Buy Additional SMS (Never Expire)</p>
+                                <div className="flex gap-2 mb-2">
+                                    <button onClick={() => handleTopUp('sms', 500)} disabled={!!chargingType} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white">
+                                        {chargingType === 'sms_500' ? '...' : 'Quick Refill (500) - $15'}
+                                    </button>
+                                    <button onClick={() => handleTopUp('sms', 1000)} disabled={!!chargingType} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white">
+                                        {chargingType === 'sms_1000' ? '...' : 'Top Value (1,000) - $25'}
+                                    </button>
                                 </div>
+                                <button onClick={() => handleTopUp('sms', 2000)} disabled={!!chargingType} className="w-full bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 py-3 rounded-xl text-xs font-bold transition-all text-blue-400">
+                                    {chargingType === 'sms_2000' ? 'REDIRECTING...' : 'High Volume (2,000) - $40'}
+                                </button>
                             </div>
-                            <div className="text-4xl font-black text-white mb-2 mt-4">
-                                {usage.sms_used} <span className="text-sm text-white/30">/ {limits.sms === -1 ? '∞' : limits.sms} LIMIT</span>
-                            </div>
-                            <div className="w-full bg-white/5 h-2 rounded-full mt-8 mb-3">
-                                <div className="bg-green-400 h-2 rounded-full" style={{ width: `${limits.sms === -1 ? 0 : Math.min(100, (usage.sms_used / limits.sms) * 100)}%` }} />
-                            </div>
-                            <p className="text-xs text-white/40">Resets next billing cycle</p>
                         </div>
                     </div>
 
-                    <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent mb-12"></div>
+                    <div className="text-center mb-12">
+                        <p className="text-xs text-white/50 bg-[#121212] px-6 py-3 rounded-full border border-white/5 inline-block">
+                            <span className="text-[#D4AF37] font-bold">Note:</span> Top-up packs are separate from your monthly plan allowance and never expire until used.
+                        </p>
+                    </div>
+
+                    <div className="flex justify-between items-end mb-6">
+                        <div>
+                            <h4 className="text-xl font-bold">Subscription Tier</h4>
+                            <p className="text-xs text-white/40 mt-1">Upgrade or modify your base subscription</p>
+                        </div>
+                        {usage.current_period_end && (
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-1">Next Billing / Quota Reset</p>
+                                <p className="text-sm font-bold text-white/80">{new Date(usage.current_period_end).toLocaleDateString()}</p>
+                            </div>
+                        )}
+                    </div>
 
                     {/* ===== SUBSCRIPTION PLANS GRID ===== */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
@@ -593,7 +633,6 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                                                     </div>
                                                 );
                                             }
-                                            
                                             if (f.strike) {
                                                 return (
                                                     <div key={i} className="flex items-start gap-3 opacity-40">
@@ -602,7 +641,6 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                                                     </div>
                                                 );
                                             }
-
                                             return (
                                                 <div key={i} className="flex items-start gap-3">
                                                     {f.highlight ? <Zap className="w-5 h-5 text-[#D4AF37] mt-0.5 flex-shrink-0" /> : <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />}

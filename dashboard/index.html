@@ -1426,7 +1426,7 @@
                                             <div class="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/5 blur-[30px] rounded-full"></div>
                                             <p class="text-[10px] font-bold text-white/50 uppercase tracking-widest mb-1 relative z-10">Current Plan</p>
                                             <div class="flex items-center gap-3 mb-4 relative z-10">
-                                                <h2 class="text-3xl font-black text-white uppercase tracking-wide">AI Elite</h2>
+                                                <h2 class="text-3xl font-black text-white uppercase tracking-wide">Enterprise</h2>
                                                 <div class="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-[9px] font-bold flex items-center gap-1">
                                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ACTIVE
                                                 </div>
@@ -1617,7 +1617,7 @@
                                 /* Interactive Call Demo Logic */
                                 const demoScenarios = {
                                     booking: [
-                                        { type: 'ai', text: "Thank you for calling The Grand Salon. I'm Aria, your virtual receptionist. How can I help you today?" },
+                                        { type: 'ai', text: "Thank you for calling The Grand Salon. I'm Bella, your virtual receptionist. How can I help you today?" },
                                         { type: 'user', text: "Hi, I need a haircut this Friday afternoon around 3 PM." },
                                         { type: 'ai', text: "I can definitely help with that! Are you looking for a men's or women's haircut, and do you have a preferred stylist?" },
                                         { type: 'user', text: "Women's haircut please. Any stylist is fine." },
@@ -1626,7 +1626,7 @@
                                         { type: 'ai', text: "Wonderful! You're all set. I've just sent a confirmation text to your number. See you Friday and have a great day!" }
                                     ],
                                     reschedule: [
-                                        { type: 'ai', text: "Hello! You've reached The Grand Salon. I'm Aria. How may I assist you?" },
+                                        { type: 'ai', text: "Hello! You've reached The Grand Salon. I'm Bella. How may I assist you?" },
                                         { type: 'user', text: "Hi, I have an appointment tomorrow at 10 AM, but I need to reschedule it to next week." },
                                         { type: 'ai', text: "No problem at all. I see your appointment for tomorrow. When would you like to reschedule it for next week?" },
                                         { type: 'user', text: "Do you have anything on Tuesday morning?" },
@@ -1635,7 +1635,7 @@
                                         { type: 'ai', text: "Done. Your appointment has been successfully rescheduled to Tuesday at 11:00 AM. I've sent you an updated confirmation schedule." }
                                     ],
                                     cancel: [
-                                        { type: 'ai', text: "Thank you for calling The Grand Salon. I'm Aria. How can I help you?" },
+                                        { type: 'ai', text: "Thank you for calling The Grand Salon. I'm Bella. How can I help you?" },
                                         { type: 'user', text: "Hi, I need to cancel my appointment for Saturday." },
                                         { type: 'ai', text: "I can take care of that. I see your appointment for a Balayage this Saturday at 1 PM. Are you sure you'd like to cancel?" },
                                         { type: 'user', text: "Yes, please cancel it." },
@@ -1704,7 +1704,7 @@
                                         playBtn.classList.add('bg-red-500/10', 'hover:bg-red-500/20', 'text-red-400', 'border', 'border-red-500/30');
                                         
                                         // Clear "Press play" placeholder on first run
-                                        if(chatArea.innerHTML.includes('Press play to start') || chatArea.innerHTML.includes('Aria in action')) {
+                                        if(chatArea.innerHTML.includes('Press play to start') || chatArea.innerHTML.includes('Bella in action')) {
                                             chatArea.innerHTML = '';
                                         }
                                         
@@ -1755,7 +1755,7 @@
                                             ? `
                                             <div class="chat-bubble-wrapper flex justify-start mb-2 animate-[slideUp_0.3s_ease-out]">
                                                <div class="bg-[#1e1e1e] border border-luxe-gold/20 text-white rounded-2xl rounded-tl-sm px-3.5 py-2.5 shadow-lg max-w-[85%] text-left">
-                                                 <span class="text-[9px] text-luxe-gold font-bold block mb-1 uppercase tracking-widest">Aria</span>
+                                                 <span class="text-[9px] text-luxe-gold font-bold block mb-1 uppercase tracking-widest">Bella</span>
                                                  ${nextMsg.text}
                                                </div>
                                             </div>`
@@ -1812,7 +1812,7 @@
             <!-- Left: Text content -->
             <div class="flex-1 text-center lg:text-left z-10 w-full">
                 <h2 class="text-xs sm:text-sm font-bold tracking-widest text-[#D4AF37] uppercase mb-3 sm:mb-4">Live AI Demo</h2>
-                <h3 class="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black mb-4 sm:mb-6 leading-[1.1]">Hear Aria handle real salon calls.</h3>
+                <h3 class="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black mb-4 sm:mb-6 leading-[1.1]">Hear Bella handle real salon calls.</h3>
                 <p class="text-[#A1A1AA] leading-relaxed text-base sm:text-lg mb-6 sm:mb-8 max-w-xl mx-auto lg:mx-0">
                     Press play to see how our AI receptionist seamlessly handles complex bookings, reschedules, and cancellations natively over the phone. No robotic menus—just fluid, human-like conversation.
                 </p>
@@ -1846,7 +1846,7 @@
                         <div class="px-5 pb-4 border-b border-white/10 flex items-center justify-between shrink-0 bg-[#0a0a0a]/80 backdrop-blur-md">
                             <div>
                                 <p class="text-[10px] text-[#D4AF37] font-bold uppercase tracking-wider flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>Live Agent Demo</p>
-                                <h4 class="text-base font-bold text-white leading-tight mt-1">Aria AI</h4>
+                                <h4 class="text-base font-bold text-white leading-tight mt-1">Bella AI</h4>
                             </div>
                             <div class="w-10 h-10 rounded-full bg-[#D4AF37]/10 flex items-center justify-center border border-[#D4AF37]/30">
                                 <svg class="w-5 h-5 text-[#D4AF37]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
@@ -1860,7 +1860,7 @@
                                 <div class="w-14 h-14 rounded-full bg-white/5 flex items-center justify-center">
                                     <svg class="w-7 h-7 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 </div>
-                                <p class="text-xs max-w-[80%] mx-auto leading-relaxed">Select a scenario below and press play to see Aria in action.</p>
+                                <p class="text-xs max-w-[80%] mx-auto leading-relaxed">Select a scenario below and press play to see Bella in action.</p>
                             </div>
                         </div>
 
@@ -1923,7 +1923,7 @@
                     </div>
                     <h4 class="text-xl font-bold text-white mb-3">AI Voice Receptionist</h4>
                     <p class="text-luxe-muted leading-relaxed">
-                        Aria, your AI receptionist, answers every call perfectly. She checks availability, books appointments, and speaks with a natural, human voice.
+                        Bella, your AI receptionist, answers every call perfectly. She checks availability, books appointments, and speaks with a natural, human voice.
                     </p>
                 </div>
 
@@ -1969,7 +1969,7 @@
                     </div>
                     <div class="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] glass-card p-6 rounded-2xl hover:border-luxe-gold/30 transition-all">
                         <h4 class="text-xl font-bold mb-2">A client calls your salon</h4>
-                        <p class="text-luxe-muted text-sm leading-relaxed">Whether it's 2 PM or 2 AM, Aria picks up instantly. No hold music, no missed calls, no lost revenue.</p>
+                        <p class="text-luxe-muted text-sm leading-relaxed">Whether it's 2 PM or 2 AM, Bella picks up instantly. No hold music, no missed calls, no lost revenue.</p>
                     </div>
                 </div>
 
@@ -1979,7 +1979,7 @@
                         2
                     </div>
                     <div class="w-[calc(100%-4rem)] md:w-[calc(50%-3rem)] glass-card p-6 rounded-2xl hover:border-luxe-gold/30 transition-all">
-                        <h4 class="text-xl font-bold mb-2">Aria negotiates the booking</h4>
+                        <h4 class="text-xl font-bold mb-2">Bella negotiates the booking</h4>
                         <p class="text-luxe-muted text-sm leading-relaxed">She checks your real-time availability, offers time slots, and takes the client's details securely over the phone.</p>
                     </div>
                 </div>
@@ -2028,7 +2028,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"Before Voxali, I missed about 5-6 calls a day while doing hair. Now, Aria books them all. My revenue went up 20% in the first month. It's like having a receptionist who never sleeps."</p>
+                            <p class="text-luxe-muted italic mb-6">"Before Voxali, I missed about 5-6 calls a day while doing hair. Now, Bella books them all. My revenue went up 20% in the first month. It's like having a receptionist who never sleeps."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=1" alt="Sarah J" class="w-10 h-10 rounded-full border border-white/20">
@@ -2058,7 +2058,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"The dashboard is so clean. I can see every call Aria took, listen to the recordings, and manage my staff calendar all in one place. Truly world-class."</p>
+                            <p class="text-luxe-muted italic mb-6">"The dashboard is so clean. I can see every call Bella took, listen to the recordings, and manage my staff calendar all in one place. Truly world-class."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=3" alt="Elena D" class="w-10 h-10 rounded-full border border-white/20">
@@ -2073,7 +2073,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"I was skeptical about AI, but Aria actually sounds human. Clients don't even realize they aren't talking to a person. It handles complex bookings flawlessly."</p>
+                            <p class="text-luxe-muted italic mb-6">"I was skeptical about AI, but Bella actually sounds human. Clients don't even realize they aren't talking to a person. It handles complex bookings flawlessly."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=4" alt="David L" class="w-10 h-10 rounded-full border border-white/20">
@@ -2133,7 +2133,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"My salon is finally peaceful. No phones ringing off the hook. Aria handles it all quietly in the background while we focus on the art."</p>
+                            <p class="text-luxe-muted italic mb-6">"My salon is finally peaceful. No phones ringing off the hook. Bella handles it all quietly in the background while we focus on the art."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=8" alt="Nadia K" class="w-10 h-10 rounded-full border border-white/20">
@@ -2148,7 +2148,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"The client memory is incredible. Aria remembered a client was allergic to sulfate from a call 6 months ago. Our clients feel so valued."</p>
+                            <p class="text-luxe-muted italic mb-6">"The client memory is incredible. Bella remembered a client was allergic to sulfate from a call 6 months ago. Our clients feel so valued."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=9" alt="Tom H" class="w-10 h-10 rounded-full border border-white/20">
@@ -2208,7 +2208,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"What impressed me most is Aria's ability to handle objections. If a slot is full, she offers alternatives like a seasoned pro."</p>
+                            <p class="text-luxe-muted italic mb-6">"What impressed me most is Bella's ability to handle objections. If a slot is full, she offers alternatives like a seasoned pro."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=13" alt="James S" class="w-10 h-10 rounded-full border border-white/20">
@@ -2243,7 +2243,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"Before Voxali, I missed about 5-6 calls a day while doing hair. Now, Aria books them all. My revenue went up 20% in the first month. It's like having a receptionist who never sleeps."</p>
+                            <p class="text-luxe-muted italic mb-6">"Before Voxali, I missed about 5-6 calls a day while doing hair. Now, Bella books them all. My revenue went up 20% in the first month. It's like having a receptionist who never sleeps."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=1" alt="Sarah J" class="w-10 h-10 rounded-full border border-white/20">
@@ -2273,7 +2273,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"The dashboard is so clean. I can see every call Aria took, listen to the recordings, and manage my staff calendar all in one place. Truly world-class."</p>
+                            <p class="text-luxe-muted italic mb-6">"The dashboard is so clean. I can see every call Bella took, listen to the recordings, and manage my staff calendar all in one place. Truly world-class."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=3" alt="Elena D" class="w-10 h-10 rounded-full border border-white/20">
@@ -2288,7 +2288,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"I was skeptical about AI, but Aria actually sounds human. Clients don't even realize they aren't talking to a person. It handles complex bookings flawlessly."</p>
+                            <p class="text-luxe-muted italic mb-6">"I was skeptical about AI, but Bella actually sounds human. Clients don't even realize they aren't talking to a person. It handles complex bookings flawlessly."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=4" alt="David L" class="w-10 h-10 rounded-full border border-white/20">
@@ -2348,7 +2348,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"My salon is finally peaceful. No phones ringing off the hook. Aria handles it all quietly in the background while we focus on the art."</p>
+                            <p class="text-luxe-muted italic mb-6">"My salon is finally peaceful. No phones ringing off the hook. Bella handles it all quietly in the background while we focus on the art."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=8" alt="Nadia K" class="w-10 h-10 rounded-full border border-white/20">
@@ -2363,7 +2363,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"The client memory is incredible. Aria remembered a client was allergic to sulfate from a call 6 months ago. Our clients feel so valued."</p>
+                            <p class="text-luxe-muted italic mb-6">"The client memory is incredible. Bella remembered a client was allergic to sulfate from a call 6 months ago. Our clients feel so valued."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=9" alt="Tom H" class="w-10 h-10 rounded-full border border-white/20">
@@ -2423,7 +2423,7 @@
                     <div class="glass-card p-8 rounded-2xl flex flex-col justify-between w-[400px] shrink-0 whitespace-normal">
                         <div>
                             <div class="flex text-luxe-gold mb-4">★★★★★</div>
-                            <p class="text-luxe-muted italic mb-6">"What impressed me most is Aria's ability to handle objections. If a slot is full, she offers alternatives like a seasoned pro."</p>
+                            <p class="text-luxe-muted italic mb-6">"What impressed me most is Bella's ability to handle objections. If a slot is full, she offers alternatives like a seasoned pro."</p>
                         </div>
                         <div class="flex items-center gap-3 mt-4">
                             <img src="https://i.pravatar.cc/150?u=13" alt="James S" class="w-10 h-10 rounded-full border border-white/20">

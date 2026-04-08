@@ -1,7 +1,7 @@
 
 [functions.setup-account]
 enabled = true
-verify_jwt = true
+verify_jwt = false
 import_map = "./functions/setup-account/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
@@ -58,3 +58,9 @@ entrypoint = "./functions/sync-vapi-agent/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/sync-vapi-agent/*.html" ]
+
+[functions.create-checkout-session]
+verify_jwt = false
+
+[functions.stripe-subscription-webhook]
+verify_jwt = false

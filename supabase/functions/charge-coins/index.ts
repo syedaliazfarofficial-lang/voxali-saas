@@ -1,6 +1,5 @@
-// Edge Function: charge-coins
-// Handles: Creating a Stripe Checkout session to purchase prepaid coins
-// Rate: 1 Coin = $0.01 USD
+// Edge Function: charge-coins (Top-up logic)
+// Handles: Creating a Stripe Checkout session to purchase AI Minutes or SMS Credits
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { validateAuth, jsonResponse, errorResponse, corsHeaders } from '../_shared/utils.ts';
@@ -16,7 +15,6 @@ Deno.serve(async (req: Request) => {
         return new Response('ok', { headers: corsHeaders });
     }
 
-    // 1. Authenticate Request
     const auth = validateAuth(req);
     if (!auth.valid) return errorResponse(auth.error!, 401);
 
@@ -29,33 +27,66 @@ Deno.serve(async (req: Request) => {
             console.warn("Could not parse JSON body", e);
         }
 
-        const amountCoins = Number(body.amount_coins);
         const tenantId = body.tenantId || body.tenant_id;
+        const topupType = body.topup_type; // 'ai_minutes' or 'sms'
+        const quantity = Number(body.quantity || body.amount_coins); // Fallback for amount_coins during transition
 
         if (!tenantId) {
-            console.error("No tenant_id available in request.");
             return errorResponse('Tenant ID required', 400);
         }
 
-        if (!amountCoins || isNaN(amountCoins) || amountCoins < 500) {
-            return errorResponse('Minimum purchase is 500 coins ($5.00).', 400);
+        if (!topupType || !['ai_minutes', 'sms'].includes(topupType)) {
+            // Temporary fallback handler for legacy usage
+            if (body.amount_coins && !topupType) {
+                 return errorResponse('Missing topup_type (' + body.amount_coins + '), please refresh Dashboard to use new Top-up System.', 400);
+            }
+            return errorResponse('Invalid or missing topup_type. Must be ai_minutes or sms.', 400);
         }
 
-        // Initialize Supabase Admin to get tenant info
-        const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-            auth: { autoRefreshToken: false, persistSession: false }
-        });
+        if (!quantity || isNaN(quantity) || quantity <= 0) {
+            return errorResponse('Invalid purchase quantity.', 400);
+        }
 
-        // 1 Coin = 1 Cent. So amount_coins is exactly the unit_amount in cents.
-        const unitAmountCents = Math.floor(amountCoins);
+        let unitAmountCents = 0;
+        let productName = '';
+        let productDesc = '';
+
+        if (topupType === 'ai_minutes') {
+            // New Rates based on COGS (Vapi + ElevenLabs + Twilio + LLM + Stripe + Margin)
+            // ~$0.15-0.20 raw cost -> retail at ~$0.60 to $0.70 per minute.
+            if (quantity < 50) return errorResponse('Minimum purchase is 50 AI Minutes', 400);
+
+            if (quantity === 50) {
+                unitAmountCents = 3500; // $35.00 ($0.70 / min)
+            } else if (quantity === 100) {
+                unitAmountCents = 6500; // $65.00 ($0.65 / min)
+            } else if (quantity >= 250) {
+                unitAmountCents = quantity * 60; // 60 cents ($0.60) / min for bulk (e.g. 250 = $150)
+            } else {
+                unitAmountCents = quantity * 65; // fallback 65 cents
+            }
+
+            productName = `${quantity} Prepaid AI Voice Minutes`;
+            productDesc = 'Rollover credits for the Aria AI Receptionist to answer and route inbound calls.';
+        } else if (topupType === 'sms') {
+            // Rates: Twilio ~$0.008 + Stripe -> retail at $0.02 to $0.03
+             if (quantity < 500) return errorResponse('Minimum purchase is 500 SMS Credits', 400);
+             
+             if (quantity === 500) {
+                 unitAmountCents = 1500; // $15.00 ($0.03 / SMS)
+             } else if (quantity >= 1000) {
+                 unitAmountCents = quantity * 2.5; // 2.5 cents ($0.025 / SMS)
+             } else {
+                 unitAmountCents = quantity * 3; // fallback 3 cents
+             }
+
+             productName = `${quantity} Prepaid SMS Credits`;
+             productDesc = 'Rollover credits for sending automated booking reminders and SMS alerts.';
+        }
 
         const origin = req.headers.get('origin') || 'https://app.voxali.ai';
         const successUrl = `${origin}/settings?tab=billing`;
         const cancelUrl = `${origin}/settings?tab=billing`;
-
-        console.log(`Creating Stripe Checkout Session for ${amountCoins} coins for tenant ${tenantId}.`);
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
@@ -64,19 +95,17 @@ Deno.serve(async (req: Request) => {
                 {
                     price_data: {
                         currency: 'usd',
-                        product_data: {
-                            name: `${amountCoins} Prepaid Voxali Coins`,
-                            description: 'Prepaid credits for handling AI Receptionist calls and SMS.',
-                        },
+                        product_data: { name: productName, description: productDesc },
                         unit_amount: unitAmountCents,
                     },
                     quantity: 1,
                 },
             ],
             metadata: {
-                payment_type: 'coin_topup',
+                is_topup: 'true',
+                topup_type: topupType,
                 tenant_id: tenantId,
-                amount_coins: amountCoins.toString(),
+                amount: quantity.toString(),
             },
             success_url: successUrl,
             cancel_url: cancelUrl,
@@ -89,7 +118,7 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ url: session.url });
 
     } catch (err: any) {
-        console.error('Error creating coin charge session:', err);
+        console.error('Error creating charge session:', err);
         return errorResponse(err.message, 500);
     }
 });

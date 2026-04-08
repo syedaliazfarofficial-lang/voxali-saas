@@ -126,7 +126,7 @@ function AppContent() {
     return () => window.removeEventListener('voxali:impersonation-changed', handler)
   }, [])
   const [isDarkMode, setIsDarkMode] = useState(true)
-  const { salonName, ownerName, loading: tenantLoading } = useTenant()
+  const { salonName, ownerName, loading: tenantLoading, aiStatus } = useTenant()
   const { user, role, profile, isStaff, staffRecord, loading: authLoading, timedOut, forceLogout } = useAuth()
 
   // ─── RBAC: Allowed tabs per role ───
@@ -304,9 +304,13 @@ function AppContent() {
 
                 {/* AI status pill - generic */}
                 {!isStaff && (
-                  <div className="h-9 px-3 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-md">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-bold text-emerald-400 tracking-wide">AI Receptionist: Active</span>
+                  <div className={`h-9 px-3 flex items-center gap-2 border rounded-md ${
+                    aiStatus === 'paused' ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${aiStatus === 'paused' ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`} />
+                    <span className={`text-xs font-bold tracking-wide ${aiStatus === 'paused' ? 'text-red-400' : 'text-emerald-400'}`}>
+                      Bella AI Receptionist: {aiStatus === 'paused' ? 'Paused' : 'Active'}
+                    </span>
                   </div>
                 )}
 

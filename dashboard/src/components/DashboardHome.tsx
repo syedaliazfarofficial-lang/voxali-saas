@@ -354,7 +354,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                 Resource Usage & Wallet
                             </h3>
                             <div className="space-y-5">
-                                <UsageBar label="Available AI Coins" used={stats?.coin_balance ?? 0} limit={stats?.coin_balance ?? 0} color="bg-luxe-gold" hideBar />
+                                <UsageBar label="Available AI Minutes" used={stats?.coin_balance ?? 0} limit={stats?.coin_balance ?? 0} color="bg-luxe-gold" hideBar />
                                 <UsageBar label="AI Call Minutes (Equivalent)" used={stats?.ai_used ?? 0} limit={Math.max(stats?.ai_used ?? 0, Math.floor((stats?.coin_balance ?? 0) / 20))} color="bg-emerald-500" />
                                 <UsageBar label="SMS Credits (Equivalent)" used={stats?.sms_used ?? 0} limit={Math.max(stats?.sms_used ?? 0, Math.floor((stats?.coin_balance ?? 0) / 5))} color="bg-blue-500" />
                             </div>

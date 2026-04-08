@@ -17,6 +17,7 @@ interface TenantBranding {
     timezone: string;
     planTier: 'basic' | 'pro' | 'elite' | string;
     slug: string | null;
+    aiStatus: 'active' | 'paused';
 }
 
 interface TenantContextType extends TenantBranding {
@@ -37,6 +38,7 @@ const defaults: TenantBranding = {
     timezone: 'America/New_York',
     planTier: 'basic',
     slug: null,
+    aiStatus: 'active',
 };
 
 const TenantContext = createContext<TenantContextType>({
@@ -109,11 +111,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
             const { data, error } = await supabaseAdmin
                 .from('tenants')
-                .select('slug, salon_name, salon_tagline, logo_url, owner_name, name, timezone, plan_tier')
+                .select('slug, salon_name, salon_tagline, logo_url, owner_name, name, timezone, plan_tier, ai_minutes_included, ai_minutes_used, ai_minutes_topup_balance')
                 .eq('id', tenantId)
                 .single();
 
             if (!error && data) {
+                const totalMins = (data.ai_minutes_included || 0) + (data.ai_minutes_topup_balance || 0);
+                const isPaused = totalMins <= (data.ai_minutes_used || 0);
+
                 setBranding({
                     salonName: data.salon_name || data.name || defaults.salonName,
                     salonTagline: data.salon_tagline || defaults.salonTagline,
@@ -122,6 +127,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     timezone: data.timezone || defaults.timezone,
                     planTier: data.plan_tier || defaults.planTier,
                     slug: data.slug || null,
+                    aiStatus: isPaused ? 'paused' : 'active',
                 });
             }
         } catch (err) {

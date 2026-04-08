@@ -86,7 +86,7 @@ export const BellaAI: React.FC = () => {
     const { tenantId, salonName: tenantSalonName } = useTenant();
 
     // Editable fields
-    const [editAiName, setEditAiName] = useState('Aria');
+    const [editAiName, setEditAiName] = useState('Bella');
     const [editFirstMessage, setEditFirstMessage] = useState('');
     const [editVoiceId, setEditVoiceId] = useState('');
     const [editLanguage, setEditLanguage] = useState('en');
@@ -137,7 +137,7 @@ export const BellaAI: React.FC = () => {
                     first_message: `Hi, welcome to ${tenantData?.salon_name || 'our salon'}! How may I assist you today?`,
                     voice_id: 'jBpfuIE2acCO8z3wKNLl',
                     language: 'en',
-                    ai_name: 'Aria',
+                    ai_name: 'Bella',
                     custom_knowledge: '',
                     knowledge_base: '',
                     announcements: '',
@@ -153,7 +153,7 @@ export const BellaAI: React.FC = () => {
         if (activeConfig) {
             const c = activeConfig as AgentConfig;
             setConfig(c);
-            setEditAiName(c.ai_name || 'Aria');
+            setEditAiName(c.ai_name || 'Bella');
             setEditFirstMessage(c.first_message || '');
             setEditVoiceId(c.voice_id || 'jBpfuIE2acCO8z3wKNLl');
             setEditLanguage(c.language_override || c.language || 'en');
@@ -174,7 +174,7 @@ export const BellaAI: React.FC = () => {
     useEffect(() => {
         if (!config) return;
         setHasChanges(
-            editAiName !== (config.ai_name || 'Aria') ||
+            editAiName !== (config.ai_name || 'Bella') ||
             editFirstMessage !== (config.first_message || '') ||
             editVoiceId !== (config.voice_id || 'jBpfuIE2acCO8z3wKNLl') ||
             editLanguage !== (config.language_override || config.language || 'en') ||
@@ -235,7 +235,7 @@ export const BellaAI: React.FC = () => {
 
 
         const dbPayload = {
-            ai_name: editAiName.trim() || 'Aria',
+            ai_name: editAiName.trim() || 'Bella',
             first_message: editFirstMessage.trim() || null,
             voice_id: editVoiceId,
             language: editLanguage,
@@ -274,7 +274,7 @@ export const BellaAI: React.FC = () => {
                     tenantId,
                     assistantId,
                     config: {
-                        ai_name: editAiName.trim() || 'Aria',
+                        ai_name: editAiName.trim() || 'Bella',
                         salon_name: tenantSalonName || 'the salon',
                         language: editLanguage,
                         language_override: editLanguage,
@@ -294,7 +294,7 @@ export const BellaAI: React.FC = () => {
                 setConfig(prev => prev ? ({ ...prev, ...dbPayload } as AgentConfig) : prev);
                 setHasChanges(false);
                 const transferNote = result.transfer_phone_configured ? ' | Call Transfer: Active ✅' : '';
-                showToast(`✅ ${editAiName || 'Aria'} saved & synced!${transferNote}`);
+                showToast(`✅ ${editAiName || 'Bella'} saved & synced!${transferNote}`);
             } else {
                 showToast(`Saved to DB, but sync failed: ${result.error}`, 'error');
             }
@@ -314,13 +314,13 @@ export const BellaAI: React.FC = () => {
             .eq('id', config.id);
         if (!error) {
             setConfig(prev => prev ? { ...prev, is_active: newVal } : prev);
-            showToast(newVal ? `${editAiName || 'Aria'} is now ONLINE` : `${editAiName || 'Aria'} is now OFFLINE`);
+            showToast(newVal ? `${editAiName || 'Bella'} is now ONLINE` : `${editAiName || 'Bella'} is now OFFLINE`);
         }
     };
 
     const handleReset = () => {
         if (!config) return;
-        setEditAiName(config.ai_name || 'Aria');
+        setEditAiName(config.ai_name || 'Bella');
         setEditFirstMessage(config.first_message || '');
         setEditVoiceId(config.voice_id || 'jBpfuIE2acCO8z3wKNLl');
         setEditLanguage(config.language_override || config.language || 'en');
@@ -376,12 +376,12 @@ export const BellaAI: React.FC = () => {
     if (loading) return <PageSkeleton />;
     if (!config) return null;
 
-    const displayName = editAiName || 'Aria';
+    const displayName = editAiName || 'Bella';
 
     return (
         <FeatureLock 
             requiredTier="starter" 
-            featureName={`${editAiName || 'Aria'} AI Receptionist`} 
+            featureName={`${editAiName || 'Bella'} AI Receptionist`} 
             description="Automate your front desk 24/7 with a human-like voice AI. Capture missed calls, answer FAQs, and book appointments automatically while you focus on your clients."
         >
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -465,7 +465,7 @@ export const BellaAI: React.FC = () => {
                             type="text"
                             value={editAiName}
                             onChange={e => setEditAiName(e.target.value)}
-                            placeholder="Aria"
+                            placeholder="Bella"
                             title="AI Receptionist Name"
                             aria-label="AI Receptionist Name"
                             className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"

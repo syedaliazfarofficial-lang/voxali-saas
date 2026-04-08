@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pricing | Voxali AI Receptionist & Salon Software</title>
-    <meta name="description"
-        content="Compare Voxali pricing plans. Get a 24/7 AI Receptionist, booking software, reminders, and CRM starting at just $99/mo.">
+    <title>Pricing - Voxali AI Receptionist & Salon Dashboard</title>
+    <meta name="description" content="View pricing and plans for Voxali's AI salon receptionist and full-suite management dashboard. From basic booking to enterprise AI automation.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -97,19 +95,6 @@
         #mobile-menu.open {
             display: flex;
         }
-        #checkout-loader { display: none; }
-        #checkout-loader.active { display: flex; }
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border-left-color: #D4AF37;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
     </style>
 
     <script type="application/ld+json">
@@ -135,21 +120,23 @@
       "logo": "https://voxali.net/logo.png"
     }
     </script>
+
+    <style>
+        #checkout-loader {
+            display: none;
+        }
+        #checkout-loader.active {
+            display: flex;
+        }
+    </style>
 </head>
-
-<body class="antialiased overflow-x-hidden selection:bg-luxe-gold selection:text-black">
-
+<body class="antialiased overflow-x-hidden selection:bg-luxe-gold selection:text-black bg-luxe-obsidian text-white">
     <!-- CHECKOUT LOADER -->
-    <div id="checkout-loader" class="fixed inset-0 z-[9999] bg-luxe-obsidian/90 backdrop-blur-md items-center justify-center flex-col gap-4">
-        <div class="spinner"></div>
-        <p class="text-luxe-muted font-medium">Setting up your secure checkout...</p>
+    <div id="checkout-loader" class="fixed inset-0 z-[9999] bg-luxe-obsidian/90 backdrop-blur-sm items-center justify-center flex-col gap-4">
+        <div class="w-10 h-10 border-4 border-white/10 border-t-luxe-gold rounded-full animate-spin"></div>
+        <p class="text-white/80 font-medium tracking-wide">Connecting to secure gateway...</p>
     </div>
 
-    <!-- HERO GLOW -->
-    <div class="hero-glow animate-pulse-glow"></div>
-
-    <!-- NAVBAR -->
-    <!-- NAVBAR -->
     <!-- NAVBAR -->
     <nav class="fixed top-0 w-full z-50 glass-nav transition-all duration-300 py-4 px-6 md:px-12">
         <div class="max-w-7xl mx-auto flex items-center justify-between">
@@ -171,9 +158,7 @@
                 <a href="/app/" class="hidden md:block text-sm font-semibold text-white border border-white/10 hover:border-white/30 px-5 py-2.5 rounded-lg transition-all">
                     Sign In
                 </a>
-                <a href="/pricing.html" class="text-sm font-bold text-black bg-gradient-gold px-5 py-2.5 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all">
-                    Get Started
-                </a>
+                <a href="/pricing.html" class="text-sm font-bold text-black bg-gradient-gold px-5 py-2.5 rounded-lg hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all">Talk to Sales</a>
                 <!-- Mobile Hamburger -->
                 <button id="hamburger-btn" onclick="toggleMobileMenu()" class="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-white/10 transition-all" aria-label="Open Menu">
                     <span class="w-6 h-0.5 bg-white rounded-full transition-all" id="ham-1"></span>
@@ -193,13 +178,12 @@
             <a href="/contact.html" class="block py-3 px-4 text-sm font-medium text-luxe-muted hover:text-white rounded-lg hover:bg-white/5 transition-all">Contact</a>
             <div class="mt-3 pt-3 border-t border-white/10 flex gap-3 px-4">
                 <a href="/app/" class="flex-1 text-center text-sm font-semibold text-white border border-white/10 px-4 py-2.5 rounded-lg">Sign In</a>
-                <a href="/pricing.html" class="flex-1 text-center text-sm font-bold text-black bg-gradient-gold px-4 py-2.5 rounded-lg">Get Started</a>
+                <a href="/pricing.html" class="flex-1 text-center text-sm font-bold text-black bg-gradient-gold px-4 py-2.5 rounded-lg">Talk to Sales</a>
             </div>
         </div>
     </nav>
 
-    <!-- HEADER SECTION -->
-        <!-- CHECKOUT LOADER -->
+    <!-- CHECKOUT LOADER -->
     <div id="checkout-loader" class="fixed inset-0 z-[9999] bg-luxe-obsidian/90 backdrop-blur-md items-center justify-center flex-col gap-4">
         <div class="spinner"></div>
         <p class="text-luxe-muted font-medium">Setting up your secure checkout...</p>
@@ -209,182 +193,239 @@
     <div class="hero-glow animate-pulse-glow"></div>
 
     <!-- HEADER SECTION -->
-    <main class="relative pt-40 pb-6 px-6 text-center z-10">
-        <div class="max-w-4xl mx-auto animate-[slideUp_0.8s_ease-out]">
+    <main class="relative pt-48 pb-6 px-6 text-center z-10">
+        <div class="max-w-5xl mx-auto animate-[slideUp_0.8s_ease-out]">
             <span class="inline-block text-luxe-gold font-bold tracking-widest text-sm uppercase mb-4">
-                Simple pricing for modern salons
+                Built for salons in Stripe-supported markets
             </span>
-            <h1 class="text-4xl md:text-5xl lg:text-7xl font-black tracking-tight mb-8">
+            <h1 class="text-5xl md:text-6xl lg:text-7xl font-black leading-tight mb-6 max-w-4xl mx-auto">
                 Choose the plan that fits <br /> <span class="text-gradient">your salon</span>
             </h1>
             <p class="text-lg text-luxe-muted font-medium max-w-3xl mx-auto mb-10 leading-relaxed">
-                Every Voxali plan includes a custom online booking page, client CRM, email reminders, and Stripe payments. AI plans add Bella, your 24/7 AI receptionist, plus SMS reminders and automation.
+                Every Voxali plan includes a custom online booking page, basic CRM, email reminders, and Stripe payments. AI plans add Bella, your 24/7 AI receptionist, plus SMS reminders and automation.
             </p>
         </div>
     </main>
 
     <!-- TRUST STRIP -->
     <div class="max-w-6xl mx-auto px-6 mb-16 relative z-10 animate-[slideUp_0.8s_ease-out_0.2s_both]">
-        <div class="flex flex-wrap justify-center gap-x-8 gap-y-4 text-sm font-semibold text-white/70 bg-white/5 py-4 px-8 rounded-2xl border border-white/10 backdrop-blur-md">
+        <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-xs md:text-sm font-semibold text-white/70 bg-white/5 py-3 px-8 rounded-full border border-white/10 backdrop-blur-md w-fit mx-auto">
             <span class="flex items-center gap-2"><svg class="w-4 h-4 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Booking page included</span>
             <span class="flex items-center gap-2"><svg class="w-4 h-4 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Email reminders in every plan</span>
             <span class="flex items-center gap-2"><svg class="w-4 h-4 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> SMS reminders in AI plans</span>
-            <span class="flex items-center gap-2"><svg class="w-4 h-4 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Secure payments via Stripe</span>
             <span class="flex items-center gap-2"><svg class="w-4 h-4 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Cancel anytime</span>
         </div>
     </div>
 
     <!-- PRICING CARDS -->
-    <section class="max-w-7xl mx-auto px-6 pb-20 relative z-10 animate-[slideUp_0.8s_ease-out_0.4s_both]">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+    <section class="max-w-[1400px] mx-auto px-6 pb-24 relative z-10 animate-[slideUp_0.8s_ease-out_0.4s_both]">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
             
             <!-- PLAN 1: ESSENTIALS -->
-            <div class="glass-card rounded-2xl p-8 flex flex-col hover:-translate-y-2 transition-transform duration-300 border-t-2 border-t-white/10 group">
-                <div class="mb-6">
+            <div class="glass-card rounded-2xl p-8 flex flex-col hover:-translate-y-2 transition-transform duration-300 border-t-2 border-t-white/10 group h-full">
+                <div class="mb-6 h-20">
                     <h3 class="text-xl font-bold text-white mb-2">ESSENTIALS</h3>
-                    <p class="text-sm text-luxe-muted h-10">For salons that need booking software without AI</p>
+                    <p class="text-sm text-luxe-muted leading-snug">For salons that need booking software without AI</p>
                 </div>
-                <div class="mb-8">
-                    <span class="text-4xl font-black text-white">$49</span><span class="text-luxe-muted">/mo</span>
+                <div class="mb-8 font-black flex items-baseline gap-1">
+                    <span class="text-4xl text-white">$49</span><span class="text-lg text-luxe-muted font-normal">/mo</span>
                 </div>
                 <ul class="space-y-4 mb-8 flex-1 text-sm text-white/90">
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Up to 2 staff members</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Custom online booking page</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Clients can choose services and stylist</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Client CRM and calendar</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Clients can choose stylist</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Stripe payments and deposits</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Email reminders</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Basic reporting</li>
-                    <li class="flex items-start gap-3 text-white/40"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> No AI receptionist</li>
-                    <li class="flex items-start gap-3 text-white/40"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> No SMS reminders</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Basic CRM and reporting</li>
+                    <li class="flex items-start gap-3 text-white/30"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> AI Receptionist not included</li>
+                    <li class="flex items-start gap-3 text-white/30"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> No SMS reminders</li>
                 </ul>
-                <button onclick="startCheckout('price_basic')" class="w-full py-3 px-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all mb-4">
-                    Start with Essentials
-                </button>
-                <p class="text-[10px] text-luxe-muted text-center italic">Share your booking page on Instagram, Google Maps, or your website so clients can book anytime.</p>
+                <div class="mt-auto">
+                    <div class="mb-5 p-3 bg-transparent rounded-lg border border-transparent invisible">
+                        <p class="text-xs text-white/80 font-medium whitespace-nowrap">Monthly AI & messaging credits</p>
+                        <p class="text-[11px] text-luxe-muted mt-1">(Approx. 100 AI minutes or 400 SMS)</p>
+                    </div>
+                    <button onclick="startCheckout('basic')" class="w-full py-3.5 px-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all mb-4 outline-none border border-white/20">
+                        Start with Essentials
+                    </button>
+                    <div class="pt-4 mt-2 border-t border-white/5 flex gap-2 items-start justify-center text-center">
+                        <p class="text-[11px] text-luxe-muted font-medium px-2 leading-relaxed">Link this plan's booking page on your Instagram or Maps.</p>
+                    </div>
+                </div>
             </div>
 
             <!-- PLAN 2: AI STARTER -->
-            <div class="glass-card rounded-2xl p-8 flex flex-col hover:-translate-y-2 transition-transform duration-300 border-t-2 border-t-luxe-gold/50 shadow-[0_0_30px_rgba(212,175,55,0.05)] relative group">
-                <div class="absolute -top-3 right-6 bg-luxe-gold text-black text-[10px] font-black tracking-widest uppercase px-3 py-1 rounded-full shadow-lg">
-                    AI Enabled
-                </div>
-                <div class="mb-6">
+            <div class="glass-card rounded-2xl p-8 flex flex-col hover:-translate-y-2 transition-transform duration-300 border-t-2 border-t-luxe-gold/40 shadow-[0_4px_30px_rgba(212,175,55,0.03)] group h-full">
+                <div class="mb-6 h-20">
                     <h3 class="text-xl font-bold text-white mb-2 flex items-center gap-2">AI STARTER</h3>
-                    <p class="text-sm text-luxe-muted h-10">For small salons ready to automate incoming calls</p>
+                    <p class="text-sm text-luxe-muted leading-snug">For salons ready to automate missed calls</p>
                 </div>
-                <div class="mb-8">
-                    <span class="text-4xl font-black text-white">$99</span><span class="text-luxe-muted">/mo</span>
+                <div class="mb-8 font-black flex items-baseline gap-1">
+                    <span class="text-4xl text-white">$99</span><span class="text-lg text-luxe-muted font-normal">/mo</span>
                 </div>
                 <ul class="space-y-4 mb-8 flex-1 text-sm text-white/90">
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Up to 5 staff members</li>
                     <li class="flex items-start gap-3 font-semibold text-luxe-gold"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Bella AI Receptionist</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Dedicated local phone number</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Call forwarding from your existing number</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Call forwarding support</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Custom online booking page</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Clients can choose services and stylist</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Stripe payments and deposits</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Stripe payments & deposits</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Email & SMS reminders</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Client CRM and calendar</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Basic CRM and calendar</li>
                 </ul>
-                <div class="mb-6 p-3 bg-white/5 rounded-lg border border-white/10">
-                    <p class="text-xs text-white/80 font-medium">Monthly AI & messaging credits</p>
-                    <p class="text-[11px] text-luxe-muted mt-1">(Approx. 100 AI minutes or 400 SMS)</p>
+                <div class="mt-auto">
+                    <div class="mb-5 p-3 bg-white/[0.03] rounded-lg border border-white/5">
+                        <p class="text-xs text-white/80 font-medium whitespace-nowrap">Monthly AI & messaging credits</p>
+                        <p class="text-[11px] text-luxe-muted mt-1">(Approx. 100 AI minutes or 400 SMS)</p>
+                    </div>
+                    <button onclick="startCheckout('starter')" class="w-full py-3.5 px-4 bg-gradient-gold hover:opacity-90 hover:shadow-[0_0_20px_rgba(212,175,55,0.3)] text-black font-bold rounded-xl transition-all mb-4 outline-none">
+                        Start AI Starter
+                    </button>
+                    <div class="pt-4 mt-2 border-t border-white/5 flex gap-2 items-start justify-center text-center">
+                        <p class="text-[11px] text-luxe-muted font-medium px-2 leading-relaxed">Let Bella answer calls and book directly on your calendar.</p>
+                    </div>
                 </div>
-                <button onclick="startCheckout('price_ai_starter')" class="w-full py-3 px-4 bg-gradient-gold hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] text-black font-bold rounded-xl transition-all">
-                    Start AI Starter
-                </button>
             </div>
 
             <!-- PLAN 3: AI GROWTH (POPULAR) -->
-            <div class="glass-card rounded-2xl p-8 flex flex-col hover:-translate-y-2 transition-transform duration-300 border-2 border-luxe-gold shadow-[0_0_40px_rgba(212,175,55,0.15)] relative scale-105 z-10 group">
-                <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-gold text-black text-[10px] font-black tracking-widest uppercase px-4 py-1.5 rounded-full shadow-lg">
+            <div class="glass-card rounded-2xl p-8 flex flex-col hover:-translate-y-2 transition-transform duration-300 border border-luxe-gold shadow-[0_0_50px_rgba(212,175,55,0.15)] relative h-full bg-luxe-gold/[0.02]">
+                <div class="absolute -top-[14px] inset-x-0 mx-auto w-max bg-gradient-gold text-black text-[10px] font-black tracking-widest uppercase px-5 py-1.5 rounded-full shadow-lg">
                     MOST POPULAR
                 </div>
-                <div class="mb-6 mt-2">
-                    <h3 class="text-xl font-bold text-white mb-2">AI GROWTH</h3>
-                    <p class="text-sm text-luxe-muted h-10">For busy salons and spas that want stronger automation</p>
+                <div class="mb-6 h-20">
+                    <h3 class="text-xl font-bold text-white mb-2 pt-1">AI GROWTH</h3>
+                    <p class="text-sm text-luxe-gold/70 leading-snug">For salons accelerating their revenue</p>
                 </div>
-                <div class="mb-8">
-                    <span class="text-4xl font-black text-luxe-gold">$199</span><span class="text-luxe-muted">/mo</span>
+                <div class="mb-8 font-black flex items-baseline gap-1">
+                    <span class="text-4xl text-luxe-gold">$199</span><span class="text-lg text-luxe-muted font-normal">/mo</span>
                 </div>
                 <ul class="space-y-4 mb-8 flex-1 text-sm text-white/90">
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Up to 15 staff members</li>
                     <li class="flex items-start gap-3 font-semibold text-luxe-gold"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Bella AI Receptionist</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Dedicated local phone number</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Call forwarding from existing number</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Custom online booking page</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Clients can choose services and stylist</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Stripe payments and deposits</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Stripe payments & deposits</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Email & SMS reminders</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Advanced CRM & Loyalty program</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> SMS and email campaigns</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Revenue analytics and reports</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Waitlist automation</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> White-glove onboarding included</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Revenue analytics & Waitlist</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> White-glove onboarding</li>
                 </ul>
-                <div class="mb-6 p-3 bg-luxe-gold/10 rounded-lg border border-luxe-gold/20">
-                    <p class="text-xs text-white  font-medium">Monthly AI & messaging credits</p>
-                    <p class="text-[11px] text-luxe-gold mt-1">(Approx. 250 AI minutes or 1,000 SMS)</p>
+                <div class="mt-auto">
+                    <div class="mb-5 p-3 bg-luxe-gold/10 rounded-lg border border-luxe-gold/20">
+                        <p class="text-xs text-white font-medium whitespace-nowrap">Monthly AI & messaging credits</p>
+                        <p class="text-[11px] text-luxe-gold mt-1">(Approx. 250 AI minutes or 1,000 SMS)</p>
+                    </div>
+                    <button onclick="startCheckout('growth')" class="w-full py-3.5 px-4 bg-gradient-gold hover:opacity-90 hover:shadow-[0_0_25px_rgba(212,175,55,0.4)] text-black font-black rounded-xl transition-all mb-4 shadow-lg outline-none">
+                        Choose Growth
+                    </button>
+                    <div class="pt-4 mt-2 border-t border-luxe-gold/20 flex gap-2 items-start justify-center text-center">
+                        <p class="text-[11px] text-luxe-gold/80 font-medium px-2 leading-relaxed">Full automation designed to multiply your revenue.</p>
+                    </div>
                 </div>
-                <button onclick="startCheckout('price_ai_growth')" class="w-full py-4 px-4 bg-gradient-gold hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] text-black font-black rounded-xl transition-all">
-                    Choose Growth
-                </button>
             </div>
 
             <!-- PLAN 4: ENTERPRISE -->
-            <div class="glass-card rounded-2xl p-8 flex flex-col hover:-translate-y-2 transition-transform duration-300 border-t-2 border-t-purple-500/50 group">
-                <div class="mb-6">
+            <div class="glass-card rounded-2xl p-8 flex flex-col hover:-translate-y-2 transition-transform duration-300 border-t-2 border-t-purple-500/50 group h-full">
+                <div class="mb-6 h-20">
                     <h3 class="text-xl font-bold text-white mb-2">ENTERPRISE</h3>
-                    <p class="text-sm text-luxe-muted h-10">For larger salon teams that need advanced support</p>
+                    <p class="text-sm text-luxe-muted leading-snug">For large teams needing advanced permissions</p>
                 </div>
-                <div class="mb-8 flex items-baseline gap-1">
-                    <span class="text-lg text-luxe-muted">From</span><span class="text-4xl font-black text-white">$349</span><span class="text-luxe-muted">/mo</span>
+                <div class="mb-8">
+                    <span class="block text-[10px] uppercase tracking-widest text-luxe-muted mb-[3px] font-bold">Starting from</span>
+                    <div class="font-black flex items-baseline gap-1 leading-none">
+                        <span class="text-4xl text-white">$349</span><span class="text-lg text-luxe-muted font-normal">/mo</span>
+                    </div>
                 </div>
                 <ul class="space-y-4 mb-8 flex-1 text-sm text-white/90">
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Unlimited staff members</li>
                     <li class="flex items-start gap-3 font-semibold text-luxe-gold"><svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Bella AI Receptionist</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Dedicated local phone number</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Call forwarding support</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Custom online booking page</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Advanced CRM and analytics</li>
                     <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> SMS and email campaigns</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Custom branding</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Advanced roles and permissions</li>
-                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-luxe-gold shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Priority support & White-glove onboarding</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Custom branding</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Advanced roles and permissions</li>
+                    <li class="flex items-start gap-3"><svg class="w-5 h-5 text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Priority support & Onboarding</li>
                 </ul>
-                <div class="mb-6 p-3 bg-white/5 rounded-lg border border-white/10">
-                    <p class="text-xs text-white/80 font-medium">Monthly AI & messaging credits</p>
-                    <p class="text-[11px] text-luxe-muted mt-1">(Approx. 500 AI minutes or 2,000 SMS)</p>
+                <div class="mt-auto">
+                    <div class="mb-5 p-3 bg-white/[0.03] rounded-lg border border-white/5">
+                        <p class="text-xs text-white/80 font-medium whitespace-nowrap">Monthly AI & messaging credits</p>
+                        <p class="text-[11px] text-luxe-muted mt-1">(Custom volume or ~500 AI mins)</p>
+                    </div>
+                    <a href="/contact.html" class="w-full text-center block py-3.5 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/20 font-bold rounded-xl transition-all mb-4 outline-none">
+                        Talk to Sales
+                    </a>
+                    <div class="pt-4 mt-2 border-t border-white/5 flex gap-2 items-start justify-center text-center">
+                        <p class="text-[11px] text-luxe-muted font-medium px-2 leading-relaxed">Need higher AI volume or a tailored setup? Contact sales.</p>
+                    </div>
                 </div>
-                <a href="/contact.html" class="w-full text-center block py-3 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/20 font-bold rounded-xl transition-all">
-                    Talk to Sales
-                </a>
             </div>
 
         </div>
     </section>
 
     <!-- INCLUDED IN EVERY PLAN -->
-    <section class="max-w-5xl mx-auto px-6 py-20 relative z-10 border-t border-white/5">
-        <div class="glass-card p-10 md:p-14 rounded-3xl grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div>
-                <h2 class="text-3xl md:text-4xl font-black text-white mb-6">Every Voxali plan includes your salon's online booking page</h2>
-                <p class="text-luxe-muted text-lg mb-6">Each Voxali plan comes with a custom online booking page your clients can use to:</p>
-                <ul class="space-y-3 text-white/80 font-medium mb-8">
-                    <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-luxe-gold"></span> View your services and pricing</li>
-                    <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-luxe-gold"></span> Choose their preferred stylist</li>
-                    <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-luxe-gold"></span> Pick an available date and time</li>
-                    <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-luxe-gold"></span> Pay deposits online through Stripe</li>
-                    <li class="flex items-center gap-3"><span class="w-2 h-2 rounded-full bg-luxe-gold"></span> Receive instant booking confirmation by email</li>
-                </ul>
-                <div class="p-4 bg-luxe-gold/10 border-l-4 border-luxe-gold rounded-r-xl">
-                    <p class="text-sm text-luxe-gold">Share your booking page link on Instagram, Google Maps, TikTok bio, or your website so clients can book without calling.</p>
+    <section class="max-w-6xl mx-auto px-6 py-24 relative z-10 border-t border-white/5">
+        <div class="glass-card p-10 md:p-16 rounded-[2.5rem] text-center relative overflow-hidden border border-luxe-gold/20 shadow-[0_0_50px_rgba(212,175,55,0.05)]">
+            
+            <!-- Background Glow -->
+            <div class="absolute inset-x-0 top-0 h-full bg-gradient-gold opacity-[0.03] blur-3xl pointer-events-none"></div>
+            
+            <span class="inline-block px-5 py-2 rounded-full bg-luxe-gold/10 border border-luxe-gold/20 text-luxe-gold text-[10px] uppercase tracking-widest font-black mb-8 relative z-10 shadow-lg">
+                INCLUDED STANDARD
+            </span>
+            
+            <h2 class="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-6 relative z-10 max-w-4xl mx-auto leading-tight">
+                Every Voxali plan includes a <br class="hidden md:block" /> <span class="text-gradient">custom booking page</span>
+            </h2>
+            
+            <p class="text-luxe-muted text-lg mb-12 max-w-2xl mx-auto relative z-10 leading-relaxed font-medium">
+                Stop paying for third-party booking tools. Your custom Voxali booking link handles services, staff selection, and Stripe deposits effortlessly.
+            </p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 relative z-10 text-left">
+                
+                <div class="bg-black/40 border border-white/5 hover:border-luxe-gold/30 rounded-2xl p-6 hover:-translate-y-1 transition-all duration-300 group">
+                    <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:bg-luxe-gold/10 transition-colors">
+                        <svg class="w-5 h-5 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </div>
+                    <h4 class="text-white font-bold text-base mb-2">Service Menus</h4>
+                    <p class="text-xs text-luxe-muted leading-relaxed">Display your salon's services with transparent pricing and exact durations.</p>
                 </div>
+                
+                <div class="bg-black/40 border border-white/5 hover:border-luxe-gold/30 rounded-2xl p-6 hover:-translate-y-1 transition-all duration-300 group">
+                    <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:bg-luxe-gold/10 transition-colors">
+                        <svg class="w-5 h-5 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </div>
+                    <h4 class="text-white font-bold text-base mb-2">Stylist Selection</h4>
+                    <p class="text-xs text-luxe-muted leading-relaxed">Clients can seamlessly choose their preferred staff member based on live schedules.</p>
+                </div>
+                
+                <div class="bg-black/40 border border-white/5 hover:border-luxe-gold/30 rounded-2xl p-6 hover:-translate-y-1 transition-all duration-300 group">
+                    <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:bg-luxe-gold/10 transition-colors">
+                        <svg class="w-5 h-5 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2z"></path></svg>
+                    </div>
+                    <h4 class="text-white font-bold text-base mb-2">Live Calendar</h4>
+                    <p class="text-xs text-luxe-muted leading-relaxed">Say goodbye to double bookings. Real-time availability sync directly with your dashboard.</p>
+                </div>
+                
+                <div class="bg-black/40 border border-white/5 hover:border-luxe-gold/30 rounded-2xl p-6 hover:-translate-y-1 transition-all duration-300 group">
+                    <div class="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:bg-luxe-gold/10 transition-colors">
+                        <svg class="w-5 h-5 text-luxe-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                    </div>
+                    <h4 class="text-white font-bold text-base mb-2">Stripe Deposits</h4>
+                    <p class="text-xs text-luxe-muted leading-relaxed">Protect your revenue. Automatically collect secure card deposits for every appointment booked.</p>
+                </div>
+
             </div>
-            <div class="relative">
-                <div class="absolute inset-0 bg-gradient-gold opacity-10 blur-3xl rounded-full"></div>
-                <img src="/booking-preview.png" alt="Voxali Booking Page" class="w-full h-auto rounded-xl border border-white/10 shadow-2xl relative z-10" onerror="this.style.display='none'" />
+            
+            <div class="mt-12 inline-block relative z-10 px-8 py-3 bg-white/5 border border-white/10 rounded-full">
+                <p class="text-xs font-medium text-white/70">
+                    <strong class="text-white">Pro Tip:</strong> Link your Voxali booking page directly on your Instagram bio, Google Maps, or TikTok so clients book instantly. 
+                </p>
             </div>
+
         </div>
     </section>
 
@@ -397,8 +438,8 @@
 
         <div class="overflow-x-auto pb-8">
             <table class="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                    <tr class="border-b border-white/10">
+                <thead class="sticky top-[80px] z-20 bg-luxe-charcoal/95 backdrop-blur-md shadow-md border-b border-white/10">
+                    <tr>
                         <th class="py-6 px-4 font-bold text-white uppercase tracking-wider w-1/3">Features</th>
                         <th class="py-6 px-4 font-bold text-white text-center">Essentials<br/><span class="text-sm font-normal text-luxe-muted">$49/mo</span></th>
                         <th class="py-6 px-4 font-bold text-white text-center">AI Starter<br/><span class="text-sm font-normal text-luxe-muted">$99/mo</span></th>
@@ -408,44 +449,44 @@
                 </thead>
                 <tbody class="text-sm">
                     <!-- Heading -->
-                    <tr class="bg-black/50"><td colspan="5" class="py-4 px-4 font-bold text-luxe-gold text-xs uppercase tracking-widest border-b border-white/5">Booking & Client Management</td></tr>
+                    <tr><td colspan="5" class="py-6 px-4 font-bold text-luxe-gold text-xs uppercase tracking-widest border-b border-white/5 mt-4">Booking & Client Management</td></tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Online booking page</td>
+                        <td class="py-5 px-4 text-white/90">Online booking page</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Clients choose stylist</td>
+                        <td class="py-5 px-4 text-white/90">Clients choose stylist</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Client CRM</td>
-                        <td class="text-center text-white">✓</td>
-                        <td class="text-center text-white">✓</td>
-                        <td class="text-center text-white bg-white/[0.02]">Advanced</td>
-                        <td class="text-center text-white">Advanced</td>
+                        <td class="py-5 px-4 text-white/90">Client CRM</td>
+                        <td class="text-center text-white">Basic CRM</td>
+                        <td class="text-center text-white">Basic CRM</td>
+                        <td class="text-center text-white bg-white/[0.02]">Advanced CRM</td>
+                        <td class="text-center text-white">Advanced CRM</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Email reminders</td>
+                        <td class="py-5 px-4 text-white/90">Email reminders</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">SMS reminders</td>
+                        <td class="py-5 px-4 text-white/90">SMS reminders</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Stripe payments & deposits</td>
+                        <td class="py-5 px-4 text-white/90">Stripe payments & deposits</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
@@ -453,61 +494,61 @@
                     </tr>
 
                     <!-- Heading -->
-                    <tr class="bg-black/50"><td colspan="5" class="py-4 px-4 font-bold text-luxe-gold text-xs uppercase tracking-widest border-b border-white/5">AI Reception</td></tr>
+                    <tr><td colspan="5" class="py-6 px-4 font-bold text-luxe-gold text-xs uppercase tracking-widest border-b border-white/5 mt-4">AI Reception</td></tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Bella AI Receptionist</td>
-                        <td class="text-center text-white/20">—</td>
-                        <td class="text-center text-white">✓</td>
-                        <td class="text-center text-white bg-white/[0.02]">✓</td>
-                        <td class="text-center text-white">Custom limits</td>
-                    </tr>
-                    <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Dedicated local number</td>
+                        <td class="py-5 px-4 text-white/90">Bella AI Receptionist</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Call forwarding support</td>
+                        <td class="py-5 px-4 text-white/90">Dedicated local number</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white">✓</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Monthly AI & messaging credits</td>
+                        <td class="py-5 px-4 text-white/90">Call forwarding support</td>
+                        <td class="text-center text-white/20">—</td>
+                        <td class="text-center text-white">✓</td>
+                        <td class="text-center text-white bg-white/[0.02]">✓</td>
+                        <td class="text-center text-white">✓</td>
+                    </tr>
+                    <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td class="py-5 px-4 text-white/90">Monthly AI & messaging credits</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-luxe-muted">~ 100 AI mins</td>
                         <td class="text-center text-luxe-gold bg-white/[0.02]">~ 250 AI mins</td>
-                        <td class="text-center text-luxe-muted">~ 500 AI mins</td>
+                        <td class="text-center text-luxe-muted">Custom volume available</td>
                     </tr>
 
                     <!-- Heading -->
-                    <tr class="bg-black/50"><td colspan="5" class="py-4 px-4 font-bold text-luxe-gold text-xs uppercase tracking-widest border-b border-white/5">Growth Tools</td></tr>
+                    <tr><td colspan="5" class="py-6 px-4 font-bold text-luxe-gold text-xs uppercase tracking-widest border-b border-white/5 mt-4">Growth Tools</td></tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Campaigns</td>
+                        <td class="py-5 px-4 text-white/90">Campaigns</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Revenue analytics</td>
+                        <td class="py-5 px-4 text-white/90">Revenue analytics</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Loyalty program</td>
+                        <td class="py-5 px-4 text-white/90">Loyalty program</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Waitlist automation</td>
+                        <td class="py-5 px-4 text-white/90">Waitlist automation</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
@@ -515,27 +556,34 @@
                     </tr>
 
                     <!-- Heading -->
-                    <tr class="bg-black/50"><td colspan="5" class="py-4 px-4 font-bold text-luxe-gold text-xs uppercase tracking-widest border-b border-white/5">Support</td></tr>
+                    <tr><td colspan="5" class="py-6 px-4 font-bold text-luxe-gold text-xs uppercase tracking-widest border-b border-white/5 mt-4">Support & Branding</td></tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">White-glove onboarding</td>
+                        <td class="py-5 px-4 text-white/90">White-glove onboarding</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Priority support</td>
+                        <td class="py-5 px-4 text-white/90">Priority support</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white bg-white/[0.02]">✓</td>
                         <td class="text-center text-white">✓</td>
                     </tr>
                     <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <td class="py-4 px-4 text-white/90">Custom branding</td>
+                        <td class="py-5 px-4 text-white/90">Custom branding</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white/20">—</td>
                         <td class="text-center text-white/20 bg-white/[0.02]">—</td>
-                        <td class="text-center text-white">✓</td>
+                        <td class="text-center text-white text-purple-400">✓</td>
+                    </tr>
+                    <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td class="py-5 px-4 text-white/90">Advanced roles and permissions</td>
+                        <td class="text-center text-white/20">—</td>
+                        <td class="text-center text-white/20">—</td>
+                        <td class="text-center text-white/20 bg-white/[0.02]">—</td>
+                        <td class="text-center text-white text-purple-400">✓</td>
                     </tr>
                 </tbody>
             </table>
@@ -543,47 +591,226 @@
     </section>
 
     <!-- PRICING FAQ -->
-    <section class="max-w-4xl mx-auto px-6 py-20 relative z-10">
-        <h2 class="text-3xl font-black text-white mb-10 text-center">Frequently Asked Questions</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="glass-card p-6 rounded-xl border border-white/5">
-                <h4 class="text-lg font-bold text-white mb-2">Do all plans include an online booking page?</h4>
-                <p class="text-sm text-luxe-muted">Yes. Every Voxali plan includes a custom booking page where clients can view services, choose a stylist, pick an available time, and book online.</p>
-            </div>
-            <div class="glass-card p-6 rounded-xl border border-white/5">
-                <h4 class="text-lg font-bold text-white mb-2">Can clients choose different stylists from the booking page?</h4>
-                <p class="text-sm text-luxe-muted">Yes. Clients can choose their preferred stylist based on availability.</p>
-            </div>
-            <div class="glass-card p-6 rounded-xl border border-white/5">
-                <h4 class="text-lg font-bold text-white mb-2">Are reminders included?</h4>
-                <p class="text-sm text-luxe-muted">Email reminders are included in all plans. SMS reminders are included in AI plans.</p>
-            </div>
-            <div class="glass-card p-6 rounded-xl border border-white/5">
-                <h4 class="text-lg font-bold text-white mb-2">Can I keep my current salon phone number?</h4>
-                <p class="text-sm text-luxe-muted">Voxali supports call forwarding from your existing salon number so Bella can start answering calls without changing how clients reach you.</p>
-            </div>
-            <div class="glass-card p-6 rounded-xl border border-white/5">
-                <h4 class="text-lg font-bold text-white mb-2">What are AI and messaging credits?</h4>
-                <p class="text-sm text-luxe-muted">These credits are used for Bella's AI call minutes and SMS messaging. Each AI plan includes a monthly allowance.</p>
-            </div>
-            <div class="glass-card p-6 rounded-xl border border-white/5">
-                <h4 class="text-lg font-bold text-white mb-2">What happens if I exceed my credits?</h4>
-                <p class="text-sm text-luxe-muted">Additional usage is billed at simple overage rates shown on the pricing page.</p>
-            </div>
-            <div class="glass-card p-6 rounded-xl border border-white/5">
-                <h4 class="text-lg font-bold text-white mb-2">Is there a free trial?</h4>
-                <p class="text-sm text-luxe-muted">Not currently. You can book a demo to hear Bella in action and see how Voxali works.</p>
-            </div>
-            <div class="glass-card p-6 rounded-xl border border-white/5">
-                <h4 class="text-lg font-bold text-white mb-2">Does Voxali support multiple locations?</h4>
-                <p class="text-sm text-luxe-muted">Not yet. Multi-location support is planned for a future release.</p>
-            </div>
+    <section class="max-w-3xl mx-auto px-6 py-24 relative z-10 border-t border-white/5 mt-10">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl md:text-4xl font-black text-white mb-4">Frequently Asked Questions</h2>
+            <p class="text-luxe-muted text-lg">Everything you need to know about the product and billing.</p>
+        </div>
+        
+        <div class="space-y-4">
+            
+            <details class="group bg-black/40 hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 cursor-pointer open:bg-white/[0.04] open:border-white/10 overflow-hidden shadow-sm">
+                <summary class="flex justify-between items-center font-bold text-white px-6 py-5 outline-none select-none">
+                    <span class="pr-6">Do all plans include an online booking page?</span>
+                    <span class="text-luxe-gold transition-transform duration-300 group-open:-rotate-180 shrink-0">
+                        <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M19 9l-7 7-7-7"></path></svg>
+                    </span>
+                </summary>
+                <div class="px-6 pb-6 text-luxe-muted text-sm leading-relaxed border-t border-white/5 pt-4">
+                    Yes. Every Voxali plan includes a custom booking page where clients can view services, choose a stylist, pick an available time, and book online.
+                </div>
+            </details>
+
+            <details class="group bg-black/40 hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 cursor-pointer open:bg-white/[0.04] open:border-white/10 overflow-hidden shadow-sm">
+                <summary class="flex justify-between items-center font-bold text-white px-6 py-5 outline-none select-none">
+                    <span class="pr-6">Can clients choose different stylists?</span>
+                    <span class="text-luxe-gold transition-transform duration-300 group-open:-rotate-180 shrink-0">
+                        <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M19 9l-7 7-7-7"></path></svg>
+                    </span>
+                </summary>
+                <div class="px-6 pb-6 text-luxe-muted text-sm leading-relaxed border-t border-white/5 pt-4">
+                    Yes. Clients can choose their preferred stylist based on live availability directly from your booking page.
+                </div>
+            </details>
+
+            <details class="group bg-black/40 hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 cursor-pointer open:bg-white/[0.04] open:border-white/10 overflow-hidden shadow-sm">
+                <summary class="flex justify-between items-center font-bold text-white px-6 py-5 outline-none select-none">
+                    <span class="pr-6">Are reminders included?</span>
+                    <span class="text-luxe-gold transition-transform duration-300 group-open:-rotate-180 shrink-0">
+                        <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M19 9l-7 7-7-7"></path></svg>
+                    </span>
+                </summary>
+                <div class="px-6 pb-6 text-luxe-muted text-sm leading-relaxed border-t border-white/5 pt-4">
+                    Email reminders are included in all plans. SMS reminders are instantly available starting with our AI plans.
+                </div>
+            </details>
+
+            <details class="group bg-black/40 hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 cursor-pointer open:bg-white/[0.04] open:border-white/10 overflow-hidden shadow-sm">
+                <summary class="flex justify-between items-center font-bold text-white px-6 py-5 outline-none select-none">
+                    <span class="pr-6">Can I keep my current salon phone number?</span>
+                    <span class="text-luxe-gold transition-transform duration-300 group-open:-rotate-180 shrink-0">
+                        <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M19 9l-7 7-7-7"></path></svg>
+                    </span>
+                </summary>
+                <div class="px-6 pb-6 text-luxe-muted text-sm leading-relaxed border-t border-white/5 pt-4">
+                    Absolutely. Voxali supports full call forwarding from your existing salon number, so Bella can start answering calls without changing how clients naturally reach you.
+                </div>
+            </details>
+
+            <details class="group bg-black/40 hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 cursor-pointer open:bg-white/[0.04] open:border-white/10 overflow-hidden shadow-sm">
+                <summary class="flex justify-between items-center font-bold text-white px-6 py-5 outline-none select-none">
+                    <span class="pr-6">What are AI & Messaging credits?</span>
+                    <span class="text-luxe-gold transition-transform duration-300 group-open:-rotate-180 shrink-0">
+                        <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M19 9l-7 7-7-7"></path></svg>
+                    </span>
+                </summary>
+                <div class="px-6 pb-6 text-luxe-muted text-sm leading-relaxed border-t border-white/5 pt-4">
+                    These credits are exclusively used for Bella's AI call minutes and SMS messaging fees. Each AI plan automatically includes a generous monthly allowance.
+                </div>
+            </details>
+            
+            <details class="group bg-black/40 hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 cursor-pointer open:bg-white/[0.04] open:border-white/10 overflow-hidden shadow-sm">
+                <summary class="flex justify-between items-center font-bold text-white px-6 py-5 outline-none select-none">
+                    <span class="pr-6">What happens if I exceed my credits?</span>
+                    <span class="text-luxe-gold transition-transform duration-300 group-open:-rotate-180 shrink-0">
+                        <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M19 9l-7 7-7-7"></path></svg>
+                    </span>
+                </summary>
+                <div class="px-6 pb-6 text-luxe-muted text-sm leading-relaxed border-t border-white/5 pt-4">
+                    Additional usage is cleanly billed at simple, transparent overage rates shown natively on the pricing page. There are no sudden service cutoffs.
+                </div>
+            </details>
+
+            <details class="group bg-black/40 hover:bg-white/[0.04] border border-white/5 hover:border-white/10 rounded-2xl transition-all duration-300 cursor-pointer open:bg-white/[0.04] open:border-white/10 overflow-hidden shadow-sm">
+                <summary class="flex justify-between items-center font-bold text-white px-6 py-5 outline-none select-none">
+                    <span class="pr-6">Does Voxali support multiple locations?</span>
+                    <span class="text-luxe-gold transition-transform duration-300 group-open:-rotate-180 shrink-0">
+                        <svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="20"><path d="M19 9l-7 7-7-7"></path></svg>
+                    </span>
+                </summary>
+                <div class="px-6 pb-6 text-luxe-muted text-sm leading-relaxed border-t border-white/5 pt-4">
+                    This feature is planned for a future release, but is not currently available fully automated in the system.
+                </div>
+            </details>
+
+        </div>
+
+        <div class="mt-8 text-center bg-white/[0.02] border border-white/5 py-4 px-6 rounded-xl font-medium text-white/50 text-xs tracking-wide">
+            No hidden fees. Upgrade anytime. Overage billing only applies if you exceed included usage.
         </div>
     </section>
 
-    <div class="text-center relative z-10 py-12">
-        <p class="text-luxe-muted mb-6">Need a custom plan for a multi-location franchise?</p>
-        <a href="/contact.html" class="inline-block border border-white/20 hover:border-white/50 text-white font-semibold py-3 px-8 rounded-xl transition-all">Talk to Sales</a>
+    <!-- FINAL CTA -->
+    <div class="text-center relative z-10 py-16 mb-10">
+        <h3 class="text-2xl font-bold text-white mb-4">Need help choosing a plan?</h3>
+        <p class="text-luxe-muted mb-8 text-lg">Talk to our team and we'll help you find the right fit for your salon.</p>
+        <a href="/contact.html" class="inline-block border border-white/20 hover:bg-white/10 text-white font-bold py-4 px-10 rounded-xl transition-all shadow-lg hover:shadow-white/5">
+            Talk to Sales
+        </a>
     </div>
 
-    
+
+    <!-- FOOTER -->
+    <footer class="border-t border-white/5 py-16 px-6 bg-luxe-charcoal mt-10">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-10 lg:gap-6 mb-12">
+            <!-- Brand -->
+            <div class="lg:col-span-2">
+                <span class="text-2xl font-black tracking-wider text-gradient block mb-4">VOXALI</span>
+                <p class="text-sm text-luxe-muted w-3/4 leading-relaxed mb-6">Built to help salons book more clients with less front-desk stress. Your 24/7 AI Receptionist & CRM.</p>
+                <a href="/app/" class="inline-block text-sm font-bold text-white border border-white/20 hover:border-white/50 px-5 py-2.5 rounded-lg transition-all">Sign In to Dashboard</a>
+            </div>
+            
+            <!-- Product -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Product</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/features.html" class="hover:text-luxe-gold transition-colors w-fit">Features</a>
+                    <a href="/how-it-works.html" class="hover:text-luxe-gold transition-colors w-fit">How It Works</a>
+                    <a href="/pricing.html" class="hover:text-luxe-gold transition-colors w-fit">Pricing</a>
+                    <a href="/demo.html" class="hover:text-luxe-gold transition-colors w-fit">Demo</a>
+                </div>
+            </div>
+
+            <!-- Company -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Company</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/about.html" class="hover:text-luxe-gold transition-colors w-fit">About</a>
+                    <a href="/contact.html" class="hover:text-luxe-gold transition-colors w-fit">Contact</a>
+                </div>
+            </div>
+
+            <!-- Resources -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Resources</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/faq.html" class="hover:text-luxe-gold transition-colors w-fit">FAQ</a>
+                    <a href="/markets.html" class="hover:text-luxe-gold transition-colors w-fit">Supported Markets</a>
+                    <a href="/setup-guide.html" class="hover:text-luxe-gold transition-colors w-fit">Setup Guide</a>
+                </div>
+            </div>
+
+            <!-- Legal & Contact -->
+            <div>
+                <h4 class="text-white font-bold mb-4 uppercase text-xs tracking-wider">Legal</h4>
+                <div class="flex flex-col gap-3 text-sm text-luxe-muted font-medium">
+                    <a href="/privacy.html" class="hover:text-luxe-gold transition-colors w-fit">Privacy Policy</a>
+                    <a href="/terms.html" class="hover:text-luxe-gold transition-colors w-fit">Terms of Service</a>
+                    <a href="/security.html" class="hover:text-luxe-gold transition-colors w-fit">Security</a>
+                    <a href="/compliance.html" class="hover:text-luxe-gold transition-colors w-fit">Compliance</a>
+                </div>
+                <div class="mt-6">
+                    <a href="mailto:support@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block mb-1">support@voxali.net</a>
+                    <a href="mailto:sales@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block mb-1">sales@voxali.net</a>
+                    <a href="mailto:legal@voxali.net" class="text-sm text-luxe-gold hover:text-white transition-colors block">legal@voxali.net</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+            <span class="text-sm text-luxe-muted">&copy; 2026 Voxali Inc. All rights reserved.</span>
+        </div>
+    </footer>
+
+    <!-- CHECKOUT SCRIPT -->
+    <script>
+        async function startCheckout(planCode) {
+            const loader = document.getElementById('checkout-loader');
+            loader.classList.add('active');
+
+            try {
+                // Call Supabase Edge Function to generate Stripe Checkout Session
+                const res = await fetch('https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/create-checkout-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ plan: planCode })
+                });
+
+                if (!res.ok) {
+                    const errorResponse = await res.json().catch(() => ({}));
+                    throw new Error(errorResponse.error || 'Failed to initialize payment gateway');
+                }
+
+                const data = await res.json();
+                
+                if (data.checkout_url) {
+                    // Take the user straight to Stripe Checkout securely
+                    window.location.href = data.checkout_url;
+                } else {
+                    throw new Error('No checkout URL from gateway');
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert('Stripe error: ' + err.message);
+                loader.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>
+
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            const h1 = document.getElementById('ham-1');
+            const h3 = document.getElementById('ham-3');
+            menu.classList.toggle('hidden');
+            menu.classList.toggle('flex');
+            h1.classList.toggle('rotate-45');
+            h1.classList.toggle('translate-y-2');
+            h3.classList.toggle('opacity-0');
+        }
+    </script>
+</body>
+</html>

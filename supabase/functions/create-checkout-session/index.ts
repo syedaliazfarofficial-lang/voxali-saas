@@ -5,24 +5,24 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
 const PLAN_CONFIG: Record<string, { name: string; priceAmount: number; limits: any }> = {
     basic: {
-        name: 'SaaS Basic',
+        name: 'Essentials',
         priceAmount: 4900, // $49
-        limits: { staff: 2, ai_minutes: 0, sms: 0, emails: 500, coins: 0 },
+        limits: { staff: 2, ai_minutes_included: 0, sms_included: 0, emails: 500 },
     },
     starter: {
         name: 'AI Starter',
         priceAmount: 9900, // $99
-        limits: { staff: 5, ai_minutes: 0, sms: 0, emails: 1000, coins: 1500 }, // Coins act as the combined limit now
+        limits: { staff: 5, ai_minutes_included: 100, sms_included: 400, emails: 1000 },
     },
     growth: {
         name: 'AI Growth',
         priceAmount: 19900, // $199
-        limits: { staff: 15, ai_minutes: 0, sms: 0, emails: 5000, coins: 4000 },
+        limits: { staff: 15, ai_minutes_included: 250, sms_included: 1000, emails: 5000 },
     },
     elite: {
-        name: 'AI Elite',
+        name: 'Enterprise',
         priceAmount: 34900, // $349
-        limits: { staff: -1, ai_minutes: 0, sms: 0, emails: -1, coins: 10000 }, // -1 = unlimited
+        limits: { staff: -1, ai_minutes_included: 500, sms_included: 2000, emails: -1 }, // -1 = unlimited
     },
 };
 
@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
 
     try {
         const body = await req.json();
-        const { plan, email, salon_name } = body;
+        const { plan, email, salon_name, flow } = body;
 
         if (!plan || !PLAN_CONFIG[plan]) {
             return new Response(JSON.stringify({ error: 'Invalid plan. Choose: basic, starter, growth, or elite' }), {
@@ -61,8 +61,14 @@ Deno.serve(async (req) => {
         }
 
         const config = PLAN_CONFIG[plan];
-        const successUrl = `https://voxali.net/signup.html?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`;
-        const cancelUrl = `https://voxali.net/pricing.html`;
+        
+        let successUrl = `https://voxali.net/signup.html?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`;
+        let cancelUrl = `https://voxali.net/pricing.html`;
+
+        if (flow === 'upgrade') {
+            successUrl = `https://voxali.net/app/`;
+            cancelUrl = `https://voxali.net/app/`;
+        }
 
         // Step 1: Create a Stripe Price (ad-hoc) for the subscription
         const priceRes = await fetch('https://api.stripe.com/v1/prices', {

@@ -40,6 +40,10 @@ const SMS_TEMPLATES: Record<string, (d: any) => string> = {
         `🔔 Hi ${d.client_name}! A slot has opened up at ${d.salon_name} for ${d.service} on ${d.date} at ${d.time}. Reply YES to book it before it's gone!`,
     payment_expired: (d) =>
         `⚠️ Hi ${d.client_name}, your hold for ${d.salon_name} on ${d.date} expired because the deposit wasn't paid. Please visit our website to rebook!`,
+    gift_card_issued: (d) =>
+        `🎁 Hello! You've received a ${d.salon_name} Gift Card worth $${d.gift_card_amount}. Use code: ${d.gift_card_code} at checkout. Enjoy!`,
+    low_stock_alert: (d) =>
+        `⚠️ Retail Alert: ${d.product_name} is running low (Remaining: ${d.remaining_stock}) at ${d.salon_name}. Please restock soon.`,
 };
 
 // ===== EMAIL SUBJECTS =====
@@ -55,6 +59,8 @@ const EMAIL_SUBJECTS: Record<string, (d: any) => string> = {
     appointment_reminder: (d) => `⏰ Reminder: Your appointment tomorrow — ${d.salon_name}`,
     waitlist_slot_available: (d) => `🔔 Slot Available! — ${d.salon_name}`,
     payment_expired: (d) => `⏳ Hold Expired — ${d.salon_name}`,
+    gift_card_issued: (d) => `🎁 You received a Gift Card! — ${d.salon_name}`,
+    low_stock_alert: (d) => `⚠️ Low Stock Alert: ${d.product_name} — ${d.salon_name}`,
 };
 
 // ===== SEND SMS VIA TWILIO =====
@@ -106,11 +112,10 @@ async function sendEmail(
     }
 }
 
-// ===== PREMIUM EMAIL TEMPLATE =====
 function buildEmailHTML(eventType: string, d: any): string {
     const salonName = d.salon_name || 'Salon';
     const salonTagline = d.salon_tagline || 'Premium Salon & Spa';
-    const clientName = d.client_name || 'Valued Client';
+    const clientName = eventType === 'low_stock_alert' ? 'Store Manager' : (d.client_name || (eventType === 'gift_card_issued' ? 'Valued Client' : 'Valued Client'));
 
     const badges: Record<string, { label: string; color: string; bg: string; icon: string }> = {
         booking_created: { label: 'Booking Confirmed', color: '#10B981', bg: '#10B98120', icon: '✓' },
@@ -124,6 +129,8 @@ function buildEmailHTML(eventType: string, d: any): string {
         appointment_reminder: { label: 'Appointment Reminder', color: '#F59E0B', bg: '#F59E0B20', icon: '⏰' },
         waitlist_slot_available: { label: 'Slot Now Available!', color: '#8B5CF6', bg: '#8B5CF620', icon: '🔔' },
         payment_expired: { label: 'Hold Expired', color: '#EF4444', bg: '#EF444420', icon: '⏳' },
+        gift_card_issued: { label: 'Gift Card Enclosed', color: '#D8B4FE', bg: '#D8B4FE20', icon: '🎁' },
+        low_stock_alert: { label: 'Inventory Alert', color: '#F59E0B', bg: '#F59E0B20', icon: '⚠️' },
     };
     const badge = badges[eventType] || badges.booking_created;
 
@@ -140,6 +147,8 @@ function buildEmailHTML(eventType: string, d: any): string {
         appointment_reminder: `This is a friendly reminder that your appointment at ${salonName} is <strong style="color:#F59E0B;">tomorrow</strong>! We look forward to seeing you.`,
         waitlist_slot_available: d.waitlist_message || `Great news! A slot has opened up for ${d.service || 'your requested service'} on ${d.date} at ${d.time}. Please call us or book online to secure your spot!`,
         payment_expired: `Your temporary hold for ${d.date} at ${d.time} has expired because the <strong style="color:#D4AF37;">$${d.deposit_amount || '15'}</strong> deposit was not completed within the ${d.payment_hold_minutes || '30'}-minute window.`,
+        gift_card_issued: `Surprise! You have been issued a digital Gift Card for ${salonName}. You can use this balance towards any of our premium services or retail products.`,
+        low_stock_alert: `This is an automated alert from your Point of Sale system. The retail product <strong style="color:#EF4444;">${d.product_name || 'Product'}</strong> has reached critical low stock levels. Remaining: <strong style="color:#F59E0B;font-size:16px;">${d.remaining_stock || '0'}</strong> units.`,
     };
 
     // ===== INFO SECTION PER EVENT =====
@@ -175,6 +184,16 @@ function buildEmailHTML(eventType: string, d: any): string {
             'Appointments are only confirmed after the deposit is paid',
             'You can still rebook if the slot is currently available',
             'If you need assistance, please reply to this email',
+        ],
+        gift_card_issued: [
+            'Present your Gift Card Code at the checkout desk',
+            'Balance can be used across multiple visits',
+            'Gift Cards are non-refundable and cannot be exchanged for cash',
+        ],
+        low_stock_alert: [
+            'Alerts are triggered once when stock drops to 5 units or below.',
+            'Restock your inventory in the Dashboard to pause these alerts.',
+            'Verify physical stock matches the system inventory.'
         ],
     };
 
@@ -220,6 +239,49 @@ function buildEmailHTML(eventType: string, d: any): string {
             <div style="color:#F4E285;font-size:14px;">We hope you loved your experience at ${salonName}</div>
         </div>` : '';
 
+    // ===== DIGITAL GIFT CARD UI =====
+    const giftCardBanner = (eventType === 'gift_card_issued') ? `
+        <div style="margin:30px 0;padding:32px;background:linear-gradient(135deg, #111111 0%, #1a1a1a 100%);border-radius:20px;border:1px solid #D4AF37;box-shadow:0 20px 40px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.05);position:relative;overflow:hidden;">
+            <!-- Metallic Sheen -->
+            <div style="position:absolute;top:0;left:10%;width:40%;height:100%;background:linear-gradient(90deg, transparent, rgba(212,175,55,0.08), transparent);transform:skewX(-20deg);"></div>
+            
+            <!-- Header -->
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 30px; position: relative;">
+                <div>
+                    <div style="color:#D4AF37;font-size:12px;letter-spacing:3px;text-transform:uppercase;font-weight:800;font-family:sans-serif;">Exclusive Value</div>
+                    <div style="color:#FFF;font-size:10px;letter-spacing:1px;text-transform:uppercase;opacity:0.5;margin-top:4px;">Digital Gift Card</div>
+                </div>
+                <div style="font-size:24px;">✨</div>
+            </div>
+            
+            <!-- Balance -->
+            <div style="color:#D4AF37;font-size:54px;font-weight:900;letter-spacing:-2px;margin-bottom:30px;font-family:'Times New Roman', Times, serif; text-shadow: 0 2px 10px rgba(212,175,55,0.2); position: relative;">
+                $${d.gift_card_amount || '0'}
+            </div>
+            
+            <!-- Code Section -->
+            <div style="background:rgba(0,0,0,0.6);padding:20px;border-radius:12px;border:1px solid rgba(212,175,55,0.3);position:relative;overflow:hidden;">
+                <!-- Faux Barcode -->
+                <div style="position:absolute; right: 20px; top: 15px; display:flex; gap: 3px; opacity: 0.15;">
+                    <div style="width:2px; height: 35px; background:#fff"></div>
+                    <div style="width:4px; height: 35px; background:#fff"></div>
+                    <div style="width:1px; height: 35px; background:#fff"></div>
+                    <div style="width:3px; height: 35px; background:#fff"></div>
+                    <div style="width:2px; height: 35px; background:#fff"></div>
+                    <div style="width:5px; height: 35px; background:#fff"></div>
+                    <div style="width:1px; height: 35px; background:#fff"></div>
+                    <div style="width:3px; height: 35px; background:#fff"></div>
+                </div>
+                
+                <div style="color:#A0A0A0;font-size:10px;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px;font-family:sans-serif;">Redemption Code</div>
+                <div style="color:#FFF;font-size:22px;font-family:monospace;letter-spacing:6px;font-weight:700;">${d.gift_card_code || 'XXXX-XXXX-XXXX'}</div>
+            </div>
+            
+            <div style="color:#888;font-size:11px;margin-top:20px;line-height:1.6;font-family:sans-serif;text-align:center; position: relative;">
+                This premium gift card is securely linked to ${salonName}.<br>Present the code above at reception for redemption.
+            </div>
+        </div>` : '';
+
     // ===== PAYMENT SUMMARY (for deposit_received and completed) =====
     const paymentSummary = (eventType === 'deposit_received' || eventType === 'booking_completed') ? `
         <div style="background:#1E1E1E;border-left:3px solid #22C55E;padding:20px;border-radius:8px;margin:20px 0;">
@@ -253,46 +315,50 @@ function buildEmailHTML(eventType: string, d: any): string {
         <p style="color:#A0A0A0;line-height:1.6;margin-bottom:24px;">${messages[eventType] || ''}</p>
         ${thankYouBanner}
         ${depositSuccessBanner}
+        ${giftCardBanner}
+        ${eventType !== 'gift_card_issued' ? `
         <div style="background:#1E1E1E;border-left:3px solid #D4AF37;padding:24px;border-radius:8px;margin:24px 0;">
-${ d.bookings_list && d.bookings_list.length > 0 ? 
-    `           <div style="color:#A0A0A0;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">Appointments</div>
-` + d.bookings_list.map((b: any, idx: number) => `
-            <div style="background:#2A2A2A;padding:12px 16px;border-radius:6px;margin-bottom:8px;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                    <strong style="color:#EAEAEA;font-size:15px;">${b.service}</strong>
-                    <span style="color:#F4E285;font-size:14px;font-weight:600;">$${b.price}</span>
+            ${(d.bookings_list && d.bookings_list.length > 0) ? `
+                <div style="color:#A0A0A0;font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;">Appointments</div>
+                ${d.bookings_list.map((b: any) => `
+                <div style="background:#2A2A2A;padding:12px 16px;border-radius:6px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                        <strong style="color:#EAEAEA;font-size:15px;">${b.service}</strong>
+                        <span style="color:#F4E285;font-size:14px;font-weight:600;">$${b.price}</span>
+                    </div>
+                    <div style="color:#A0A0A0;font-size:13px;display:flex;justify-content:space-between;">
+                        <span>👤 ${b.stylist}</span>
+                        <span>🕐 ${b.time}</span>
+                    </div>
+                </div>`).join('')}
+                <div style="display:flex;justify-content:space-between;padding:12px 0 0;margin-top:12px;border-top:1px solid #333;">
+                    <span style="color:#A0A0A0;font-weight:600;font-size:14px;">📅 Date</span>
+                    <span style="color:#F4E285;font-size:14px;font-weight:600;">${d.date || 'N/A'}</span>
                 </div>
-                <div style="color:#A0A0A0;font-size:13px;display:flex;justify-content:space-between;">
-                    <span>👤 ${b.stylist}</span>
-                    <span>🕐 ${b.time}</span>
+                <div style="display:flex;justify-content:space-between;padding:12px 0 0;">
+                    <span style="color:#A0A0A0;font-weight:600;font-size:14px;">💰 Total</span>
+                    <span style="color:#D4AF37;font-size:18px;font-weight:700;">$${d.price || '0'}</span>
                 </div>
-            </div>`).join('') + `
-            <div style="display:flex;justify-content:space-between;padding:12px 0 0;margin-top:12px;border-top:1px solid #333;">
-                <span style="color:#A0A0A0;font-weight:600;font-size:14px;">📅 Date</span>
-                <span style="color:#F4E285;font-size:14px;font-weight:600;">${d.date || 'N/A'}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:12px 0 0;">
-                <span style="color:#A0A0A0;font-weight:600;font-size:14px;">💰 Total</span>
-                <span style="color:#D4AF37;font-size:18px;font-weight:700;">$${d.price || '0'}</span>
-            </div>`
-: `
-            <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #333;">
-                <span style="color:#A0A0A0;font-weight:600;font-size:14px;">📅 Date & Time</span>
-                <span style="color:#F4E285;font-size:14px;font-weight:600;">${d.date || 'N/A'} at ${d.time || 'N/A'}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #333;">
-                <span style="color:#A0A0A0;font-weight:600;font-size:14px;">💇 Service</span>
-                <span style="color:#EAEAEA;font-size:14px;">${d.service || 'N/A'}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #333;">
-                <span style="color:#A0A0A0;font-weight:600;font-size:14px;">👤 Stylist</span>
-                <span style="color:#EAEAEA;font-size:14px;">${d.stylist || 'N/A'}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:12px 0;">
-                <span style="color:#A0A0A0;font-weight:600;font-size:14px;">💰 Total</span>
-                <span style="color:#D4AF37;font-size:18px;font-weight:700;">$${d.price || '0'}</span>
-            </div>`}
+            ` : `
+                <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #333;">
+                    <span style="color:#A0A0A0;font-weight:600;font-size:14px;">📅 Date & Time</span>
+                    <span style="color:#F4E285;font-size:14px;font-weight:600;">${d.date || 'N/A'} at ${d.time || 'N/A'}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #333;">
+                    <span style="color:#A0A0A0;font-weight:600;font-size:14px;">💇 Service</span>
+                    <span style="color:#EAEAEA;font-size:14px;">${d.service || 'N/A'}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #333;">
+                    <span style="color:#A0A0A0;font-weight:600;font-size:14px;">👤 Stylist</span>
+                    <span style="color:#EAEAEA;font-size:14px;">${d.stylist || 'N/A'}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:12px 0;">
+                    <span style="color:#A0A0A0;font-weight:600;font-size:14px;">💰 Total</span>
+                    <span style="color:#D4AF37;font-size:18px;font-weight:700;">$${d.price || '0'}</span>
+                </div>
+            `}
         </div>
+        ` : ''}
         ${paymentSummary}
         ${payNowButton}
         ${reviewButton}
@@ -347,7 +413,11 @@ serve(async (_req) => {
 
             const { data: tenant, error: tErr } = await supabase
                 .from('tenants')
-                .select('twilio_phone_number, notification_email_from, salon_name, salon_tagline, salon_email, salon_website, salon_phone_owner, google_review_url, coin_balance, notifications_enabled')
+                .select(`
+                    twilio_phone_number, notification_email_from, salon_name, salon_tagline, 
+                    salon_email, salon_website, salon_phone_owner, google_review_url, 
+                    notifications_enabled, sms_included, sms_topup_balance, sms_used, sms_sending_paused, subscription_status
+                `)
                 .eq('id', item.tenant_id)
                 .single();
 
@@ -423,10 +493,13 @@ serve(async (_req) => {
                 if (TWILIO_SID && TWILIO_TOKEN && tenant.twilio_phone_number && item.client_phone) {
                     const tmpl = SMS_TEMPLATES[item.event_type];
                     if (tmpl) {
-                        // Pre-check Coin Balance (Need at least 2 coins for 1 SMS)
-                        const currentCoins = tenant.coin_balance || 0;
-                        if (currentCoins < 2) {
-                            errors.push(`SMS Skipped: Insufficient Coins (${currentCoins} available, 2 required)`);
+                        const smsIncluded = tenant.sms_included || 0;
+                        const smsTopup = tenant.sms_topup_balance || 0;
+                        const smsUsed = tenant.sms_used || 0;
+                        const effectiveSms = (smsIncluded + smsTopup) - smsUsed;
+
+                        if (tenant.sms_sending_paused || effectiveSms <= 0) {
+                            errors.push(`SMS Skipped: Quota Exhausted (${effectiveSms} available)`);
                         } else {
                             const smsResult = await sendSMS(
                                 item.client_phone, tmpl(details), tenant.twilio_phone_number
@@ -441,12 +514,15 @@ serve(async (_req) => {
                 }
 
                 // Email
-                if (RESEND_API_KEY && item.client_email) {
+                let targetEmail = item.client_email;
+                if (item.event_type === 'low_stock_alert') targetEmail = tenant.salon_email || tenant.notification_email_from;
+
+                if (RESEND_API_KEY && targetEmail) {
                     const subjectFn = EMAIL_SUBJECTS[item.event_type];
                     if (subjectFn) {
                         const fromAddr = `${tenant.salon_name || 'Voxali'} <noreply@voxali.net>`;
                         const emailResult = await sendEmail(
-                            fromAddr, item.client_email,
+                            fromAddr, targetEmail,
                             subjectFn(details), buildEmailHTML(item.event_type, details)
                         );
                         if (!emailResult.success) errors.push(`Email: ${emailResult.error}`);
@@ -458,31 +534,30 @@ serve(async (_req) => {
             }
 
             // Usage Tracking Increment
-            // Usage Tracking & Coin Deduction Increment
             if (smsSent > 0 || emailsSent > 0) {
                 const { data: usageData } = await supabase
                     .from('tenants')
-                    .select('sms_used, emails_used, coin_balance')
+                    .select('sms_used, emails_used, sms_included, sms_topup_balance')
                     .eq('id', item.tenant_id)
                     .single();
 
                 if (usageData) {
-                    const smsCoinsToDeduct = smsSent * 2; // 2 coins per SMS
-                    const newBalance = (usageData.coin_balance || 0) - smsCoinsToDeduct;
+                    const newSmsUsed = (usageData.sms_used || 0) + smsSent;
+                    const effectiveSms = (usageData.sms_included + usageData.sms_topup_balance) - newSmsUsed;
 
                     await supabase.from('tenants').update({
-                        sms_used: (usageData.sms_used || 0) + smsSent,
+                        sms_used: newSmsUsed,
                         emails_used: (usageData.emails_used || 0) + emailsSent,
-                        coin_balance: newBalance
+                        sms_sending_paused: effectiveSms <= 0
                     }).eq('id', item.tenant_id);
 
-                    // Add coin transaction log if SMS was sent
                     if (smsSent > 0) {
-                        await supabase.from('coin_transactions').insert({
+                        await supabase.from('sms_usage_logs').insert({
                             tenant_id: item.tenant_id,
-                            amount: -smsCoinsToDeduct,
-                            transaction_type: 'sms',
-                            description: `Sent ${smsSent} SMS @ 2 coins/SMS`
+                            message_id: item.id,
+                            sms_count: smsSent,
+                            event_type: item.event_type,
+                            idempotency_key: `sms_send_${item.id}`
                         });
                     }
                 }

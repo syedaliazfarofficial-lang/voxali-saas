@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     const customerId = session.customer as string;
     const subscriptionId = session.subscription as string;
     const plan = session.metadata?.plan || 'starter';
-    let limits = { staff: 3, ai_minutes: 150, sms: 200, emails: 500 };
+    let limits = { staff: 3, ai_minutes: 150, sms: 200, emails: 500, coins: 0 };
 
     try {
       if (session.metadata?.limits) {
@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
         plan_ai_minutes_limit: limits.ai_minutes,
         plan_sms_limit: limits.sms,
         plan_email_limit: limits.emails,
+        coin_balance: limits.coins || 0,
         subscription_status: 'active',
         currency: currencyStr,
         timezone: timezoneStr
