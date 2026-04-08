@@ -62,9 +62,7 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
     notifEnabled, setNotifEnabled, integSaving, setIntegSaving,
     integLoaded, setIntegLoaded,
 }) => {
-    const [salonEmail, setSalonEmail] = useState('');
-    const [salonWebsite, setSalonWebsite] = useState('');
-    const [googleReviewUrl, setGoogleReviewUrl] = useState('');
+    
     const [copied, setCopied] = useState(false);
 
     // Fetch on mount
@@ -80,9 +78,7 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
                 setTwilioPhone(data.twilio_phone_number || '');
                 setNotifEmail(data.notification_email_from || '');
                 setNotifEnabled(data.notifications_enabled || false);
-                setSalonEmail(data.salon_email || '');
-                setSalonWebsite(data.salon_website || '');
-                setGoogleReviewUrl(data.google_review_url || '');
+                
             }
             setIntegLoaded(true);
         })();
@@ -95,9 +91,7 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
             .update({
                 notification_email_from: notifEmail || null,
                 notifications_enabled: notifEnabled,
-                salon_email: salonEmail || null,
-                salon_website: salonWebsite || null,
-                google_review_url: googleReviewUrl || null,
+                
             })
             .eq('id', tenantId);
         if (!error) {
@@ -186,73 +180,6 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
                     {twilioPhone || 'Not assigned yet — Contact Super Admin'}
                 </div>
                 <p className="text-xs text-white/30 mt-2">This number is used for sending booking SMS to clients. Contact admin to change.</p>
-            </div>
-
-            {/* Salon Contact Info */}
-            <div className="glass-panel border border-white/5 p-6 mb-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <Mail className="w-5 h-5 text-luxe-gold" />
-                    <h4 className="font-bold">Salon Contact Info</h4>
-                    <span className="text-xs text-white/30 ml-auto">Shown in emails & notifications</span>
-                </div>
-                <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Salon Email</label>
-                        <input
-                            value={salonEmail} onChange={e => setSalonEmail(e.target.value)}
-                            placeholder="info@yoursalon.com"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Website</label>
-                        <input
-                            value={salonWebsite} onChange={e => setSalonWebsite(e.target.value)}
-                            placeholder="https://www.yoursalon.com"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Google Review Link</label>
-                        <input
-                            value={googleReviewUrl} onChange={e => setGoogleReviewUrl(e.target.value)}
-                            placeholder="https://g.page/r/your-salon/review"
-                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
-                        />
-                        <p className="text-xs text-white/30 mt-2">Shown in "Thank You" emails — clients can rate your salon on Google.</p>
-                    </div>
-                </div>
-            </div>
-
-            {/* Voxali Public Review Link */}
-            <div className="glass-panel border border-white/5 p-6 mb-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <Link className="w-5 h-5 text-luxe-gold" />
-                    <div>
-                        <h4 className="font-bold">Voxali Public Review Link</h4>
-                        <p className="text-xs text-white/40 mt-1">Share this link directly on WhatsApp or Instagram to get unrestricted public reviews.</p>
-                    </div>
-                </div>
-                <div className="bg-luxe-obsidian/50 border border-white/10 rounded-xl p-4 flex items-center justify-between gap-4">
-                    <div className="flex-1 overflow-hidden">
-                        <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Shareable Review Link</p>
-                        <p className="text-sm font-mono text-white/80 truncate select-all px-3 py-2 bg-white/5 rounded-lg border border-white/5">
-                            https://voxali.net/app/?salon_review={tenantId}
-                        </p>
-                    </div>
-                    <button
-                        onClick={() => {
-                            navigator.clipboard.writeText(`https://voxali.net/app/?salon_review=${tenantId}`);
-                            setCopied(true);
-                            setTimeout(() => setCopied(false), 2000);
-                            showToast('Review link copied! Share it with your clients.', 'success');
-                        }}
-                        className="bg-gold-gradient text-luxe-obsidian px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                    >
-                        {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                        {copied ? 'COPIED' : 'COPY'}
-                    </button>
-                </div>
             </div>
 
             {/* Save Button */}
@@ -975,6 +902,10 @@ export const Settings: React.FC = () => {
     // Loyalty state
     const [loyaltyMultiplier, setLoyaltyMultiplier] = useState<number>(1.0);
     const [loyaltySaving, setLoyaltySaving] = useState(false);
+
+    const [salonEmail, setSalonEmail] = useState('');
+    const [salonWebsite, setSalonWebsite] = useState('');
+    const [googleReviewUrl, setGoogleReviewUrl] = useState('');
     // Tab navigation
     const [activeSettingsTab, setActiveSettingsTab] = useState('general');
 
@@ -1098,12 +1029,17 @@ export const Settings: React.FC = () => {
             .eq('tenant_id', tenantId).order('day_of_week');
 
         const { data: tenantData } = await supabaseAdmin
-            .from('tenants').select('loyalty_points_multiplier')
+            .from('tenants').select('loyalty_points_multiplier, salon_email, salon_website, google_review_url')
             .eq('id', tenantId).single();
 
         if (svcData) setServices(svcData);
         if (hourData) setHours(hourData);
-        if (tenantData?.loyalty_points_multiplier !== undefined) setLoyaltyMultiplier(tenantData.loyalty_points_multiplier);
+        if (tenantData) {
+            if (tenantData.loyalty_points_multiplier !== undefined) setLoyaltyMultiplier(tenantData.loyalty_points_multiplier);
+            setSalonEmail(tenantData.salon_email || '');
+            setSalonWebsite(tenantData.salon_website || '');
+            setGoogleReviewUrl(tenantData.google_review_url || '');
+        }
         
         setLoading(false);
     }, [tenantId]);
@@ -1160,6 +1096,8 @@ export const Settings: React.FC = () => {
         if (bLogoPreview !== logoUrl) {
             updates.logoUrl = bLogoPreview || '';
         }
+
+        await supabaseAdmin.from('tenants').update({ salon_email: salonEmail || null, salon_website: salonWebsite || null, google_review_url: googleReviewUrl || null }).eq('id', tenantId);
 
         const ok = await updateBranding(updates);
         if (ok) {
@@ -1465,7 +1403,57 @@ export const Settings: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* ============ LOYALTY PROGRAM SETTINGS ============ */}
+                    
+                    {/* ============ SALON CONTACT INFO ============ */}
+                    <div className="flex items-center gap-3 mt-10 mb-6">
+                        <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
+                            <Mail className="w-6 h-6 text-luxe-gold" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold">Salon Contact Info</h3>
+                            <p className="text-xs text-white/40 uppercase tracking-widest">Shown in emails & notifications</p>
+                        </div>
+                    </div>
+
+                    <div className="glass-panel border border-white/5 p-6 mb-6">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Salon Email</label>
+                                <input
+                                    value={salonEmail} onChange={e => setSalonEmail(e.target.value)}
+                                    placeholder="info@yoursalon.com"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Website</label>
+                                <input
+                                    value={salonWebsite} onChange={e => setSalonWebsite(e.target.value)}
+                                    placeholder="https://www.yoursalon.com"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Google Review Link</label>
+                                <input
+                                    value={googleReviewUrl} onChange={e => setGoogleReviewUrl(e.target.value)}
+                                    placeholder="https://g.page/r/your-salon/review"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
+                                />
+                                <p className="text-xs text-white/30 mt-2">Shown in \"Thank You\" emails — clients can rate your salon on Google.</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleSaveBranding}
+                            disabled={brandingSaving}
+                            className="bg-gold-gradient text-luxe-obsidian px-8 py-3 w-full rounded-xl font-bold shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-6 disabled:opacity-50"
+                        >
+                            {brandingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {brandingSaving ? 'SAVING...' : 'SAVE SETTINGS'}
+                        </button>
+                    </div>
+
+{/* ============ LOYALTY PROGRAM SETTINGS ============ */}
                     <div className="flex items-center gap-3 mt-10 mb-6">
                         <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
                             <Zap className="w-6 h-6 text-luxe-gold" />
