@@ -628,9 +628,14 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
             if (tenant.stripe_account_id) {
                 // Check live status from Stripe
                 try {
+                    const { data: { session } } = await supabase.auth.getSession();
                     const r = await fetch('https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/stripe-connect-onboard', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026' },
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026',
+                            'Authorization': `Bearer ${session?.access_token}`
+                        },
                         body: JSON.stringify({ tenant_id: tenantId, action: 'status' }),
                     });
                     const data = await r.json();
@@ -648,9 +653,14 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
     const handleConnect = async () => {
         setConnecting(true);
         try {
+            const { data: { session } } = await supabase.auth.getSession();
             const r = await fetch('https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/stripe-connect-onboard', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026' },
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify({ tenant_id: tenantId, action: 'create' }),
             });
             const data = await r.json();
