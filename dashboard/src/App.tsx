@@ -126,7 +126,7 @@ function AppContent() {
     return () => window.removeEventListener('voxali:impersonation-changed', handler)
   }, [])
   const [isDarkMode, setIsDarkMode] = useState(true)
-  const { salonName, ownerName, loading: tenantLoading, aiStatus } = useTenant()
+  const { salonName, ownerName, loading: tenantLoading, aiStatus, planTier } = useTenant()
   const { user, role, profile, isStaff, staffRecord, loading: authLoading, timedOut, forceLogout } = useAuth()
 
   // ─── RBAC: Allowed tabs per role ───
@@ -303,7 +303,7 @@ function AppContent() {
                 <DigitalClock />
 
                 {/* AI status pill - generic */}
-                {!isStaff && (
+                {(!isStaff && planTier !== 'basic' && planTier !== 'Essentials') && (
                   <div className={`h-9 px-3 flex items-center gap-2 border rounded-md ${
                     aiStatus === 'paused' ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'
                   }`}>

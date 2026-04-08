@@ -29,7 +29,7 @@ export const StaffBoard: React.FC = () => {
 
     const [activeTab, setActiveTab] = useState<'directory' | 'payroll'>('directory');
     const [staff, setStaff] = useState<StaffMember[]>([]);
-    const { tenantId } = useTenant();
+    const { tenantId, planTier } = useTenant();
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showCommModal, setShowCommModal] = useState(false);
@@ -169,6 +169,23 @@ export const StaffBoard: React.FC = () => {
     const handleUnblock = async (staffId: string, staffName: string) => {
         const { error } = await supabase.rpc('rpc_unblock_staff_today', { p_tenant_id: tenantId, p_staff_id: staffId });
         if (!error) { showToast(`${staffName} unblocked`); fetchStaff(); }
+    };
+
+    const handleAddStaffClick = () => {
+        const planLimits: Record<string, number> = {
+            'basic': 2, 'Essentials': 2,
+            'starter': 5, 'AI Starter': 5,
+            'growth': 15, 'AI Growth': 15,
+            'elite': 9999, 'Enterprise': 9999
+        };
+        const activeCount = staff.filter(s => s.is_active).length;
+        const limit = planTier ? (planLimits[planTier] || 2) : 2;
+
+        if (activeCount >= limit) {
+            showToast(`Your plan is limited to ${limit} staff members. Please upgrade to add more.`, 'error');
+            return;
+        }
+        setShowAddModal(true);
     };
 
     const handleAddStaff = async () => {
@@ -690,7 +707,7 @@ export const StaffBoard: React.FC = () => {
                             </button>
                             {isOwnerPrivilege && (
                                 <button
-                                    onClick={() => setShowAddModal(true)}
+                                    onClick={handleAddStaffClick}
                                     className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                                 >
                                     <Plus className="w-5 h-5" /> ADD STAFF

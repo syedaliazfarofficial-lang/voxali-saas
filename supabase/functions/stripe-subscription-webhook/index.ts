@@ -243,14 +243,36 @@ Deno.serve(async (req) => {
                 console.log(`Upgrading/Downgrading tenant to ${newTier}`);
             }
 
-            const { error: updateErr } = await supabaseAdmin
+            const { data: updatedTenant, error: updateErr } = await supabaseAdmin
                 .from('tenants')
                 .update(updateData)
-                .eq('stripe_customer_id', customerId);
+                .eq('stripe_customer_id', customerId)
+                .select('id, twilio_number, vapi_assistant_id')
+                .single();
 
             if (updateErr) {
                 console.error("Failed to update tenant subscription status:", updateErr);
                 return errorResponse('Failed to update tenant', 500);
+            }
+
+            // Auto-provision Twilio number if upgrading from basic
+            if (newTier && newTier !== 'basic' && newTier !== 'Essentials' && updatedTenant && !updatedTenant.twilio_number && updatedTenant.vapi_assistant_id) {
+                try {
+                    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+                    const functionUrl = supabaseUrl.replace('.supabase.co', '.supabase.co/functions/v1/provision-twilio-number');
+                    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+                    const toolsKey = Deno.env.get('TOOLS_KEY') || 'LUXE-AUREA-SECRET-2026';
+                    
+                    console.log(`Auto-provisioning Twilio number for upgraded tenant: ${updatedTenant.id}`);
+                    fetch(functionUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': toolsKey, 'Authorization': `Bearer ${anonKey}` },
+                        body: JSON.stringify({ tenant_id: updatedTenant.id, country_code: 'US', vapi_assistant_id: updatedTenant.vapi_assistant_id })
+                    }).catch(err => console.error("Twilio Init background error on upgrade: ", err));
+
+                } catch(e) {
+                    console.error("Failed to trigger twilio provisioning:", e);
+                }
             }
 
             return jsonResponse({ received: true, message: 'Subscription update processed.' });

@@ -174,14 +174,18 @@ Deno.serve(async (req) => {
 
     // Step B: Provision Twilio Number and link it to the new Vapi Assistant ID
     // IMPORTANT: Always pass 'US' to bypass Twilio KYC restrictions globally
-    try {
-      await fetch(`${supabaseUrl}/functions/v1/provision-twilio-number`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
-        body: JSON.stringify({ tenant_id: tenantId, country_code: 'US', vapi_assistant_id: createdAssistantId })
-      });
-    } catch (err) {
-      console.error("Twilio Init background error: ", err);
+    if (plan !== 'basic' && plan !== 'Essentials') {
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/provision-twilio-number`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
+          body: JSON.stringify({ tenant_id: tenantId, country_code: 'US', vapi_assistant_id: createdAssistantId })
+        });
+      } catch (err) {
+        console.error("Twilio Init background error: ", err);
+      }
+    } else {
+      console.log(`Skipping Twilio Number Provisioning for ${plan} plan tenant ${tenantId}`);
     }
 
     console.log(`Auto-provisioning completed for tenant ${tenantId}.`);

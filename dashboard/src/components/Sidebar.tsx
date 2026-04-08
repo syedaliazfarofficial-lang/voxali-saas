@@ -35,11 +35,11 @@ const navItems = [
     { icon: Users, label: 'Clients', id: 'clients', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
     { icon: UsersRound, label: 'Stylists', id: 'stylists', roles: ['super_admin', 'owner', 'manager'] },
     { icon: BarChart3, label: 'Analytics', id: 'analytics', roles: ['super_admin', 'owner'] },
-    { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'], minTier: 'pro' },
+    { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'], minTier: 'starter' },
     { icon: Package, label: 'Packages', id: 'packages', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
-    { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner'], minTier: 'pro' },
+    { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner'], minTier: 'starter' },
     { icon: Star, label: 'Reviews', id: 'reviews', roles: ['super_admin', 'owner', 'manager'] },
-    { icon: Bot, label: 'AI Assistant', id: 'bella', roles: ['super_admin', 'owner'] },
+    { icon: Bot, label: 'AI Assistant', id: 'bella', roles: ['super_admin', 'owner'], minTier: 'starter' },
     { icon: Settings, label: 'Settings', id: 'settings', roles: ['super_admin', 'owner'] },
     { icon: UserCircle, label: 'My Profile', id: 'my_profile', roles: ['staff', 'manager', 'receptionist'] },
 ];
@@ -140,9 +140,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Standard Nav Items */}
                 {filteredItems.map((item) => {
                     // Check tier access
-                    const tierWeight = { basic: 0, starter: 1, growth: 2, elite: 3 };
-                    const currentWeight = tierWeight[(planTier as keyof typeof tierWeight)] || 0;
-                    const requiredWeight = item.minTier ? tierWeight[item.minTier as keyof typeof tierWeight] : 0;
+                    const tierWeight: Record<string, number> = { basic: 0, Essentials: 0, starter: 1, 'AI Starter': 1, growth: 2, 'AI Growth': 2, elite: 3, Enterprise: 3 };
+                    const currentWeight = tierWeight[planTier] || 0;
+                    const requiredWeight = item.minTier ? tierWeight[item.minTier] : 0;
                     const isLocked = currentWeight < requiredWeight;
 
                     return (

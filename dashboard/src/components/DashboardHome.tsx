@@ -62,7 +62,7 @@ interface DashboardHomeProps {
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) => {
-    const { tenantId } = useTenant();
+    const { tenantId, planTier } = useTenant();
     const { isOwner, isSuperAdmin } = useAuth();
     const isOwnerPrivilege = isOwner || isSuperAdmin;
     const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -278,7 +278,17 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             {/* AI Control Center & Plan Usage - Owner Only */}
             {isOwnerPrivilege && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="glass-panel p-6 border-l-4 border-l-luxe-gold">
+                 {(planTier === 'basic' || planTier === 'Essentials') ? (
+                    <div className="glass-panel p-6 border-l-4 border-l-white/20 flex flex-col items-center justify-center text-center">
+                        <Bot className="w-12 h-12 text-white/20 mb-4" />
+                        <h3 className="font-bold text-lg text-white/70">AI Receptionist Not Included</h3>
+                        <p className="text-sm text-white/40 mt-2 mb-6">Upgrade your plan to automate your bookings, miss calls, and CRM seamlessly with Bella AI.</p>
+                        <button onClick={() => setActiveTab?.('settings')} className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold transition-all text-sm border border-white/10">
+                            View Plans
+                        </button>
+                    </div>
+                 ) : (
+                  <div className="glass-panel p-6 border-l-4 border-l-luxe-gold">
                     {/* ... Bella Content ... */}
                     {stats?.twilio_number && (
                         <div className="mb-6 p-4 rounded-xl bg-luxe-gold/10 border border-luxe-gold/20 flex flex-col gap-2">
@@ -345,7 +355,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                             {announceSaving ? 'SAVING...' : "UPDATE BELLA'S KNOWLEDGE"}
                         </button>
                     </div>
-                </div>
+                 </div>
+                 )}
 
                     <div className="glass-panel p-6 border-t-4 border-t-blue-500/50 flex flex-col justify-between">
                         <div>
