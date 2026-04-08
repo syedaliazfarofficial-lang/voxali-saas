@@ -661,7 +661,7 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                     'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026',
                     'Authorization': `Bearer ${session?.access_token}`
                 },
-                body: JSON.stringify({ tenant_id: tenantId, action: 'create' }),
+                body: JSON.stringify({ tenant_id: tenantId, action: 'create', return_url: window.location.href + '?stripe=success', refresh_url: window.location.href + '?stripe=refresh' }),
             });
             const data = await r.json();
             if (data.onboarding_url) {
