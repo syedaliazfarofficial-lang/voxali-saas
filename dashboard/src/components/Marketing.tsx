@@ -219,12 +219,7 @@ export const Marketing: React.FC = () => {
     if (loading) return <PageSkeleton />;
 
     return (
-        <FeatureLock 
-            requiredTier="growth" 
-            featureName="Marketing Campaigns" 
-            description="Launch SMS & Email campaigns, blast promos, and recover inactive clients with automated marketing tools."
-        >
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-3">
@@ -318,7 +313,13 @@ export const Marketing: React.FC = () => {
                 </div>
             )}
 
-            {/* Create Form */}
+            {/* Create Form & Campaign Lists */}
+            <FeatureLock 
+                requiredTier="growth" 
+                featureName="Marketing Campaigns" 
+                description="Launch SMS & Email campaigns, blast promos, and recover inactive clients with automated marketing tools."
+            >
+            <div className="space-y-6">
             {showForm && (
                 <div className="glass-panel p-6 border border-luxe-gold/20 space-y-5 animate-in slide-in-from-top-2 duration-300">
                     {/* Template Cards */}
@@ -569,7 +570,8 @@ export const Marketing: React.FC = () => {
                     </div>
                 </div>
             )}
+            </div>
+            </FeatureLock>
         </div>
-        </FeatureLock>
     );
 };
