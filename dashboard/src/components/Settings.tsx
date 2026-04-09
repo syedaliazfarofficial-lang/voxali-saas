@@ -522,9 +522,9 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                     </div>
 
                     {/* ===== SUBSCRIPTION PLANS GRID ===== */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start max-w-6xl mx-auto">
                         {plans.map((p) => {
-                            const isActive = (planTier || 'basic').toLowerCase() === p.id;
+                            const isActive = (planTier || 'starter').toLowerCase() === p.id;
                             const isChanging = upgradingTo === p.id;
                             
                             return (

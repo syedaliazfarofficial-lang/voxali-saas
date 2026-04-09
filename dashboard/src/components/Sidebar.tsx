@@ -36,7 +36,7 @@ const navItems = [
     { icon: UsersRound, label: 'Stylists', id: 'stylists', roles: ['super_admin', 'owner', 'manager'] },
     { icon: BarChart3, label: 'Analytics', id: 'analytics', roles: ['super_admin', 'owner'] },
     { icon: PhoneCall, label: 'Call Logs', id: 'calls', roles: ['super_admin', 'owner', 'manager', 'receptionist'], minTier: 'starter' },
-    { icon: Package, label: 'Packages', id: 'packages', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
+    // { icon: Package, label: 'Packages', id: 'packages', roles: ['super_admin', 'owner', 'manager', 'receptionist'] },
     { icon: Megaphone, label: 'Marketing', id: 'marketing', roles: ['super_admin', 'owner'] },
     { icon: Star, label: 'Reviews', id: 'reviews', roles: ['super_admin', 'owner', 'manager'] },
     { icon: Bot, label: 'AI Assistant', id: 'bella', roles: ['super_admin', 'owner'], minTier: 'starter' },

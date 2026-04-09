@@ -6,6 +6,7 @@ import { showToast } from './ui/ToastNotification';
 import { Skeleton } from './ui/Skeleton';
 import { GiftCardsTab } from './GiftCardsTab';
 import { useAuth } from '../context/AuthContext';
+import { FeatureLock } from './ui/FeatureLock';
 
 interface PackageTemplate {
     id: string;
@@ -119,6 +120,11 @@ export const PackagesModule: React.FC = () => {
     };
 
     return (
+        <FeatureLock 
+            requiredTier="starter" 
+            featureName="Packages & Bundles" 
+            description="Create custom service bundles, track client remaining uses, and sell gift cards to increase customer loyalty."
+        >
         <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -318,5 +324,6 @@ export const PackagesModule: React.FC = () => {
                 </div>
             )}
         </div>
+        </FeatureLock>
     );
 };
