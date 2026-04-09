@@ -534,7 +534,7 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                             const isChanging = upgradingTo === p.id;
                             
                             return (
-                                <div key={p.id} className={`relative flex flex-col h-[650px] p-8 rounded-3xl transition-all duration-300 ${p.highlighted ? 'bg-[#18181A] border-2 border-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.15)] scale-[1.02] z-10' : 'bg-[#121212] border border-white/10 hover:border-white/30'}`}>
+                                <div key={p.id} className={`relative flex flex-col h-full p-8 rounded-3xl transition-all duration-300 ${p.highlighted ? 'bg-[#18181A] border-2 border-[#D4AF37] shadow-[0_0_30px_rgba(212,175,55,0.15)] scale-[1.02] z-10' : 'bg-[#121212] border border-white/10 hover:border-white/30'}`}>
                                     {p.badge && (
                                         <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 text-[10px] font-black tracking-widest uppercase rounded-full ${p.highlighted ? 'bg-[#D4AF37] text-black' : 'bg-white text-black'}`}>
                                             {p.badge}
