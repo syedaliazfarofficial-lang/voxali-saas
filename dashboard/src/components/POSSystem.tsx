@@ -864,18 +864,18 @@ export function POSSystem() {
           >
             <ShoppingBag className="w-4 h-4" /> Retail
           </button>
-          <button 
+          {/* <button 
             onClick={() => setActiveTab('packages')}
             className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'packages' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
           >
             <PackageIcon className="w-4 h-4" /> Packages
-          </button>
-          <button 
+          </button> */}
+          {/* <button 
             onClick={() => setActiveTab('giftcards')}
             className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'giftcards' ? 'text-VXL-purple border-b-2 border-purple-500 bg-purple-500/5' : 'text-white/40 hover:bg-white/5'}`}
           >
             <Gift className="w-4 h-4 text-purple-400" /> Gift Cards
-          </button>
+          </button> */}
         </div>
 
         {/* Search Bar */}

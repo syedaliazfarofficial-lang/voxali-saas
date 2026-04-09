@@ -325,13 +325,6 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
 
     const plans = [
         {
-            id: 'basic', name: 'Essentials', price: '$49', subtitle: 'For salons that just need software',
-            features: [
-                'Up to 2 staff members', 'Online booking page', 'Payment & Deposits', 'Basic CRM & Calendar',
-                { text: 'AI Receptionist not included', strike: true }, { text: 'SMS reminders not included', strike: true }
-            ]
-        },
-        {
             id: 'starter', name: 'AI Starter', price: '$99', subtitle: 'For small salons ready to automate calls and bookings', badge: 'SMART START',
             features: [
                 'Up to 5 staff members', { text: 'Bella AI Receptionist', highlight: true },
