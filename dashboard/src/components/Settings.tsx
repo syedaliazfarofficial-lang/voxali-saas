@@ -356,7 +356,7 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                 'SMS and email campaigns', 'Custom branding', 'Advanced roles and permissions',
                 'Priority support & Onboarding'
             ],
-            creditsBox: { title: 'Monthly AI & messaging credits', desc: '(Custom volume or ~500 AI mins)' },
+            creditsBox: { title: 'Monthly AI & messaging credits', desc: '(Custom volume or ~1,200 AI mins)' },
             actionText: 'Talk to Sales',
             caption: 'Need higher AI volume or a tailored setup? Contact sales.'
         }
