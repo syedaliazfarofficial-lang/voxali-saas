@@ -65,7 +65,27 @@ Deno.serve(async (req) => {
       return errorResponse('An account has already been created for this subscription.', 400);
     }
 
-    // Step 2: Create Tenant
+    // Step 2: Create Auth User (Owner) FIRST to block duplicates cleanly
+    const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        role: 'owner'
+      }
+    });
+
+    if (authErr || !authUser?.user) {
+      console.error("Auth User creation failed:", authErr);
+      // Custom translated error for duplicate emails
+      if (authErr && authErr.message.toLowerCase().includes('already registered')) {
+        return errorResponse('Yeh email pehle se majood hai! Bara-e-meharbani koi doosri email try karein.', 400);
+      }
+      return errorResponse(`Failed to create auth user: ${authErr?.message}`, 500);
+    }
+
+    // Step 3: Create Tenant
     const baseSlug = salonName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     const randomSuffix = Math.random().toString(36).substring(2, 6);
     const slug = `${baseSlug}-${randomSuffix}`;
@@ -111,27 +131,17 @@ Deno.serve(async (req) => {
 
     if (tenantErr || !newTenant) {
       console.error("Tenant creation failed:", tenantErr);
+      // Rollback user if tenant fails
+      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
       return errorResponse(`Failed to create tenant: ${JSON.stringify(tenantErr)}`, 500);
     }
 
     const tenantId = newTenant.id;
 
-    // Step 3: Create Auth User (Owner)
-    const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: fullName,
-        tenant_id: tenantId,
-        role: 'owner'
-      }
+    // Update user metadata with tenant_id now that we have it
+    await supabaseAdmin.auth.admin.updateUserById(authUser.user.id, {
+      user_metadata: { tenant_id: tenantId }
     });
-
-    if (authErr || !authUser.user) {
-      console.error("Auth User creation failed:", authErr);
-      return errorResponse(`Failed to create auth user: ${authErr?.message}`, 500);
-    }
 
     // Step 4: Ensure profiles block has the tenant_id and role set
     // A database trigger creates this row, we must wait and then update it.
@@ -188,6 +198,44 @@ Deno.serve(async (req) => {
       console.log(`Skipping Twilio Number Provisioning for ${plan} plan tenant ${tenantId}`);
     }
 
+
+    // Step C: Send Welcome Email via Resend
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+    if (RESEND_API_KEY) {
+      try {
+        const welcomeHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+            <h2 style="color: #D4AF37;">Welcome to Voxali, ${fullName}! 🌟</h2>
+            <p>Your AI Receptionist for <strong>${salonName}</strong> is currently being provisioned.</p>
+            <p>You can access your dashboard right away to customize your AI agent's voice, knowledge base, and booking rules.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://voxali.net/app/" style="background: #111; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold;">Login to Dashboard</a>
+            </div>
+            <p>If you have any questions or need help setting up, just reply to this email!</p>
+            <hr style="border: none; border-top: 1px solid #eaeaea; margin: 30px 0;" />
+            <p style="font-size: 12px; color: #888;">&copy; 2026 Voxali AI. All rights reserved.</p>
+          </div>
+        `;
+        
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: "Voxali CEO <noreply@voxali.net>",
+            to: [email],
+            subject: "Welcome to Voxali! Your AI Agent is Ready 🚀",
+            html: welcomeHtml
+          })
+        });
+        console.log(`Welcome email sent to ${email}`);
+      } catch (emailErr) {
+        console.error("Failed to send welcome email:", emailErr);
+      }
+    }
+    
     console.log(`Auto-provisioning completed for tenant ${tenantId}.`);
 
     return jsonResponse({
