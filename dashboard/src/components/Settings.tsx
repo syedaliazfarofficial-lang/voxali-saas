@@ -331,7 +331,7 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                 'Dedicated local phone number', 'Call forwarding support', 'Custom online booking page',
                 'Stripe payments & deposits', 'Email & SMS reminders', 'Basic CRM and calendar'
             ],
-            creditsBox: { title: 'Monthly AI & messaging credits', desc: '(Approx. 100 AI minutes or 400 SMS)' },
+            creditsBox: { title: 'Monthly AI & messaging credits', desc: '(Approx. 250 AI minutes or 500 SMS)' },
             actionText: 'Start AI Starter',
             caption: 'Let Bella answer calls and book directly on your calendar.'
         },
@@ -343,7 +343,7 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                 'Email & SMS reminders', 'Advanced CRM & Loyalty program', 'SMS and email campaigns',
                 'Revenue analytics & Waitlist', 'White-glove onboarding'
             ],
-            creditsBox: { title: 'Monthly AI & messaging credits', desc: '(Approx. 250 AI minutes or 1,000 SMS)', highlight: true },
+            creditsBox: { title: 'Monthly AI & messaging credits', desc: '(Approx. 600 AI minutes or 1,500 SMS)', highlight: true },
             actionText: 'Choose Growth',
             caption: 'Full automation designed to multiply your revenue.',
             captionHighlight: true
@@ -444,15 +444,15 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                             <div className="space-y-3 pt-6 border-t border-white/5 mt-6">
                                 <p className="text-xs text-white/40 mb-3 font-bold uppercase tracking-wider text-center">Buy Additional Minutes (Never Expire)</p>
                                 <div className="flex gap-2 mb-2">
-                                    <button onClick={() => handleTopUp('ai_minutes', 50)} disabled={!!chargingType} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white">
-                                        {chargingType === 'ai_minutes_50' ? '...' : 'Quick Refill (50 Min) - $35'}
+                                    <button onClick={() => handleTopUp('ai_minutes', 600)} disabled={!!chargingType} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white">
+                                        {chargingType === 'ai_minutes_100' ? '...' : 'Quick Refill (100 Min) - $35'}
                                     </button>
                                     <button onClick={() => handleTopUp('ai_minutes', 100)} disabled={!!chargingType} className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-xs font-bold transition-all text-white">
-                                        {chargingType === 'ai_minutes_100' ? '...' : 'Standard (100 Min) - $65'}
+                                        {chargingType === 'ai_minutes_250' ? '...' : 'Standard (250 Min) - $65'}
                                     </button>
                                 </div>
                                 <button onClick={() => handleTopUp('ai_minutes', 250)} disabled={!!chargingType} className="w-full bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 py-3 rounded-xl text-xs font-bold transition-all text-[#D4AF37]">
-                                    {chargingType === 'ai_minutes_250' ? 'REDIRECTING...' : 'High Volume (250 Min) - $150'}
+                                    {chargingType === 'ai_minutes_600' ? 'REDIRECTING...' : 'High Volume (600 Min) - $150'}
                                 </button>
                             </div>
                         </div>

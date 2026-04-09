@@ -56,14 +56,14 @@ Deno.serve(async (req: Request) => {
             // ~$0.15-0.20 raw cost -> retail at ~$0.60 to $0.70 per minute.
             if (quantity < 50) return errorResponse('Minimum purchase is 50 AI Minutes', 400);
 
-            if (quantity === 50) {
-                unitAmountCents = 3500; // $35.00 ($0.70 / min)
-            } else if (quantity === 100) {
-                unitAmountCents = 6500; // $65.00 ($0.65 / min)
-            } else if (quantity >= 250) {
-                unitAmountCents = quantity * 60; // 60 cents ($0.60) / min for bulk (e.g. 250 = $150)
+            if (quantity === 100) {
+                unitAmountCents = 3500; // $35.00 ($0.35 / min)
+            } else if (quantity === 250) {
+                unitAmountCents = 6500; // $65.00 ($0.26 / min)
+            } else if (quantity >= 600) {
+                unitAmountCents = Math.floor(quantity * 25); // 25 cents ($0.25) / min for bulk (e.g. 600 = $150, or fallback bulk)
             } else {
-                unitAmountCents = quantity * 65; // fallback 65 cents
+                unitAmountCents = Math.floor(quantity * 35); // fallback 35 cents
             }
 
             productName = `${quantity} Prepaid AI Voice Minutes`;

@@ -12,17 +12,17 @@ const PLAN_CONFIG: Record<string, { name: string; priceAmount: number; limits: a
     starter: {
         name: 'AI Starter',
         priceAmount: 9900, // $99
-        limits: { staff: 5, ai_minutes_included: 100, sms_included: 400, emails: 1000 },
+        limits: { staff: 5, ai_minutes_included: 250, sms_included: 500, emails: 1000 },
     },
     growth: {
         name: 'AI Growth',
         priceAmount: 19900, // $199
-        limits: { staff: 15, ai_minutes_included: 250, sms_included: 1000, emails: 5000 },
+        limits: { staff: 15, ai_minutes_included: 600, sms_included: 1500, emails: 5000 },
     },
     elite: {
         name: 'Enterprise',
         priceAmount: 34900, // $349
-        limits: { staff: -1, ai_minutes_included: 500, sms_included: 2000, emails: -1 }, // -1 = unlimited
+        limits: { staff: -1, ai_minutes_included: 1200, sms_included: 3000, emails: -1 }, // -1 = unlimited
     },
 };
 
