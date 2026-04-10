@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
             'subscription_data[metadata][plan]': plan,
             'subscription_data[metadata][limits]': JSON.stringify(config.limits),
             'metadata[plan]': plan,
+            'metadata[limits]': JSON.stringify(config.limits),
             'allow_promotion_codes': 'true',
         };
 

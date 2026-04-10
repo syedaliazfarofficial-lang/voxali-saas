@@ -570,6 +570,7 @@ export const BellaAI: React.FC = () => {
             </div>
 
             {/* ===== SECTION 3: Knowledge Base ===== */}
+            <FeatureLock requiredTier="elite" featureName="Custom Knowledge Base" description="Enterprise feature. Add custom rules and unique instructions for your AI Receptionist." minHeight="min-h-[200px]">
             <div className="glass-panel p-6 border border-white/5">
                 <h4 className="font-bold flex items-center gap-2 mb-2">
                     <BookOpen className="w-5 h-5 text-luxe-gold" />
@@ -620,6 +621,7 @@ export const BellaAI: React.FC = () => {
                     className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all resize-none leading-relaxed"
                 />
             </div>
+            </FeatureLock>
 
             {/* ===== SECTION 4: Privacy Policy ===== */}
             <div className="glass-panel p-6 border border-white/5">

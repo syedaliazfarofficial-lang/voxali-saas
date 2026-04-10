@@ -36,6 +36,7 @@ import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { generateMasterReportPDF } from '../utils/pdfGenerator';
 import { Skeleton } from './ui/Skeleton';
+import { FeatureLock } from './ui/FeatureLock';
 
 interface RevDay { day: string; revenue: number; booking_count: number }
 interface ServiceRow { service_name: string; booking_count: number; total_revenue: number }
@@ -577,6 +578,7 @@ export const Analytics: React.FC = () => {
 
             {/* TAB CONTENT: STAFF COMMISSION */}
             {activeTab === 'staff' && (
+                <FeatureLock requiredTier="growth" featureName="Staff Payroll & Commissions" description="Growth Feature. Automate your staff payroll, calculate commissions, and track tips seamlessly." minHeight="min-h-[400px]">
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="glass-panel p-6">
                          <div className="flex items-center gap-3 mb-6">
@@ -628,10 +630,12 @@ export const Analytics: React.FC = () => {
                         )}
                     </div>
                 </div>
+                </FeatureLock>
             )}
 
             {/* TAB CONTENT: SALES BREAKDOWN */}
             {activeTab === 'sales' && (
+                <FeatureLock requiredTier="growth" featureName="Retail vs Services Pivot" description="Growth Feature. Break down your revenue between salon services and retail product sales." minHeight="min-h-[400px]">
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                      
                      {/* Row 1: Retail vs Services Pivot */}
@@ -757,10 +761,12 @@ export const Analytics: React.FC = () => {
                          
                      </div>
                 </div>
+                </FeatureLock>
             )}
 
             {/* TAB CONTENT: P&L */}
             {activeTab === 'pnl' && (
+                <FeatureLock requiredTier="growth" featureName="Financials & Expenses" description="Growth Feature. Track business expenses, monitor payouts, and calculate your net profit in real time." minHeight="min-h-[400px]">
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <SummaryCard label="Gross Revenue" value={`$${totalRevenue.toLocaleString()}`} icon={DollarSign} />
@@ -840,6 +846,7 @@ export const Analytics: React.FC = () => {
                         </div>
                     </div>
                 </div>
+                </FeatureLock>
             )}
 
             {/* ADD EXPENSE MODAL */}

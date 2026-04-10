@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { session_id, fullName, salonName, email, password, countryCode } = body;
+    const { session_id, fullName, salonName, email, password, countryCode, timezone: explicitTimezone, language: explicitLanguage } = body;
 
     if (!session_id || !fullName || !salonName || !email || !password) {
       return errorResponse('Missing required fields for signup.', 400);
@@ -38,7 +38,16 @@ Deno.serve(async (req) => {
     const customerId = session.customer as string;
     const subscriptionId = session.subscription as string;
     const plan = session.metadata?.plan || 'starter';
-    let limits = { staff: 3, ai_minutes: 150, sms: 200, emails: 500, coins: 0 };
+
+    // Plan-specific default limits — used if metadata.limits is missing
+    const PLAN_DEFAULTS: Record<string, { staff: number; ai_minutes_included: number; sms_included: number; emails: number; coins: number }> = {
+      starter:    { staff: 5,    ai_minutes_included: 250,  sms_included: 500,  emails: 500, coins: 0 },
+      growth:     { staff: 15,   ai_minutes_included: 600,  sms_included: 1500, emails: 500, coins: 0 },
+      elite:      { staff: 9999, ai_minutes_included: 1200, sms_included: 3000, emails: 500, coins: 0 },
+      enterprise: { staff: 9999, ai_minutes_included: 1200, sms_included: 3000, emails: 500, coins: 0 },
+      basic:      { staff: 3,    ai_minutes_included: 0,    sms_included: 0,    emails: 500, coins: 0 },
+    };
+    let limits = PLAN_DEFAULTS[plan.toLowerCase()] || PLAN_DEFAULTS['starter'];
 
     try {
       if (session.metadata?.limits) {
@@ -90,24 +99,35 @@ Deno.serve(async (req) => {
     const randomSuffix = Math.random().toString(36).substring(2, 6);
     const slug = `${baseSlug}-${randomSuffix}`;
 
-    // Map country code to currency and timezone
+    // Map country code to currency and timezone (fallback if not explicitly provided)
     let currencyStr = 'USD';
-    let timezoneStr = 'UTC';
+    let timezoneStr = explicitTimezone || 'UTC'; // Use explicit timezone from signup form if provided
 
-    switch (countryCode) {
-      case 'GB': currencyStr = 'GBP'; timezoneStr = 'Europe/London'; break;
-      case 'AU': currencyStr = 'AUD'; timezoneStr = 'Australia/Sydney'; break;
-      case 'CA': currencyStr = 'CAD'; timezoneStr = 'America/Toronto'; break;
-      case 'AE': currencyStr = 'AED'; timezoneStr = 'Asia/Dubai'; break;
-      case 'SA': currencyStr = 'SAR'; timezoneStr = 'Asia/Riyadh'; break;
-      case 'DE': currencyStr = 'EUR'; timezoneStr = 'Europe/Berlin'; break;
-      case 'FR': currencyStr = 'EUR'; timezoneStr = 'Europe/Paris'; break;
-      case 'ES': currencyStr = 'EUR'; timezoneStr = 'Europe/Madrid'; break;
-      case 'IT': currencyStr = 'EUR'; timezoneStr = 'Europe/Rome'; break;
-      case 'NZ': currencyStr = 'NZD'; timezoneStr = 'Pacific/Auckland'; break;
-      case 'PK': currencyStr = 'PKR'; timezoneStr = 'Asia/Karachi'; break;
-      case 'US': currencyStr = 'USD'; timezoneStr = 'America/New_York'; break;
-      default: currencyStr = 'USD'; timezoneStr = 'UTC'; break;
+    // Only compute from country if no explicit timezone given
+    if (!explicitTimezone) {
+      switch (countryCode) {
+        case 'GB': currencyStr = 'GBP'; timezoneStr = 'Europe/London'; break;
+        case 'AU': currencyStr = 'AUD'; timezoneStr = 'Australia/Sydney'; break;
+        case 'CA': currencyStr = 'CAD'; timezoneStr = 'America/Toronto'; break;
+        case 'AE': currencyStr = 'AED'; timezoneStr = 'Asia/Dubai'; break;
+        case 'SA': currencyStr = 'SAR'; timezoneStr = 'Asia/Riyadh'; break;
+        case 'DE': currencyStr = 'EUR'; timezoneStr = 'Europe/Berlin'; break;
+        case 'FR': currencyStr = 'EUR'; timezoneStr = 'Europe/Paris'; break;
+        case 'ES': currencyStr = 'EUR'; timezoneStr = 'Europe/Madrid'; break;
+        case 'IT': currencyStr = 'EUR'; timezoneStr = 'Europe/Rome'; break;
+        case 'NZ': currencyStr = 'NZD'; timezoneStr = 'Pacific/Auckland'; break;
+        case 'PK': currencyStr = 'PKR'; timezoneStr = 'Asia/Karachi'; break;
+        case 'US': currencyStr = 'USD'; timezoneStr = 'America/New_York'; break;
+        default: currencyStr = 'USD'; timezoneStr = 'UTC'; break;
+      }
+    } else {
+      // Set currency based on country even when timezone is explicit
+      switch (countryCode) {
+        case 'CA': currencyStr = 'CAD'; break;
+        case 'GB': currencyStr = 'GBP'; break;
+        case 'AU': currencyStr = 'AUD'; break;
+        default: currencyStr = 'USD'; break;
+      }
     }
 
     const { data: newTenant, error: tenantErr } = await supabaseAdmin
@@ -118,9 +138,9 @@ Deno.serve(async (req) => {
         plan_tier: plan,
         stripe_customer_id: customerId,
         stripe_subscription_id: subscriptionId,
-        plan_ai_minutes_limit: limits.ai_minutes,
-        plan_sms_limit: limits.sms,
-        plan_email_limit: limits.emails,
+        ai_minutes_included: limits.ai_minutes_included || 0,
+        sms_included: limits.sms_included || 0,
+        plan_email_limit: limits.emails || 0,
         coin_balance: limits.coins || 0,
         subscription_status: 'active',
         currency: currencyStr,
@@ -174,10 +194,16 @@ Deno.serve(async (req) => {
       const agentRes = await fetch(`${supabaseUrl}/functions/v1/provision-vapi-agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
-        body: JSON.stringify({ tenantId: tenantId, salonName: salonName, countryCode: countryCode || 'US' })
+        body: JSON.stringify({ 
+          tenantId: tenantId, 
+          salonName: salonName, 
+          countryCode: countryCode || 'US',
+          language: explicitLanguage || null // Pass Quebec French or null for auto-detect
+        })
       });
       const agentData = await agentRes.json();
       createdAssistantId = agentData.assistantId;
+      console.log(`Vapi agent created: ${createdAssistantId}`);
     } catch (err) {
       console.error("Vapi Init background error: ", err);
     }

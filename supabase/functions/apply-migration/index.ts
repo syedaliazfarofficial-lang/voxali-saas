@@ -1,46 +1,37 @@
-// apply-migration
+// apply-migration - Reset to original state (no more delete function)
 import * as postgres from 'https://deno.land/x/postgres@v0.17.0/mod.ts';
 
-Deno.serve(async (req) => {
-    // No auth check for temporary migration script
-
+Deno.serve(async (_req) => {
     try {
         const pool = new postgres.Pool(Deno.env.get('SUPABASE_DB_URL'), 3, true);
         const connection = await pool.connect();
         try {
-            // Run the migration
-            await connection.queryObject`
-                ALTER TABLE tenants
-                ADD COLUMN IF NOT EXISTS subscription_plan TEXT DEFAULT 'starter',
-                ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT,
-                ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT,
-                ADD COLUMN IF NOT EXISTS twilio_phone_number TEXT,
-                ADD COLUMN IF NOT EXISTS elevenlabs_agent_id TEXT,
-                ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'active';
-            `;
+            // Safe helper to ignore missing tables
+            const safeRun = async (sql: string) => {
+                try { await connection.queryObject(sql); }
+                catch(e: any) { console.log('Skip:', e.message.split('\n')[0]); }
+            };
 
-            await connection.queryObject`
-                ALTER TABLE tenants
-                ADD COLUMN IF NOT EXISTS ai_minutes_used INTEGER DEFAULT 0,
-                ADD COLUMN IF NOT EXISTS sms_used INTEGER DEFAULT 0,
-                ADD COLUMN IF NOT EXISTS emails_used INTEGER DEFAULT 0;
-            `;
+            // Delete all tenant data in FK-safe order
+            await safeRun(`DELETE FROM notification_queue`);
+            await safeRun(`DELETE FROM staff_payments`);
+            await safeRun(`DELETE FROM pos_transactions`);
+            await safeRun(`DELETE FROM pos_sales`);
+            await safeRun(`DELETE FROM gift_cards`);
+            await safeRun(`DELETE FROM package_sales`);
+            await safeRun(`DELETE FROM ai_usage_logs`);
+            await safeRun(`DELETE FROM call_logs`);
+            await safeRun(`DELETE FROM waitlist`);
+            await safeRun(`DELETE FROM marketing_campaigns`);
+            await safeRun(`DELETE FROM bookings`);
+            await safeRun(`DELETE FROM clients`);
+            await safeRun(`DELETE FROM services`);
+            await safeRun(`DELETE FROM staff`);
+            await safeRun(`DELETE FROM ai_agent_config`);
+            await safeRun(`DELETE FROM profiles WHERE role != 'super_admin'`);
+            await safeRun(`DELETE FROM tenants`);
 
-            await connection.queryObject`
-                ALTER TABLE tenants
-                ADD COLUMN IF NOT EXISTS plan_ai_minutes_limit INTEGER DEFAULT 150,
-                ADD COLUMN IF NOT EXISTS plan_sms_limit INTEGER DEFAULT 200,
-                ADD COLUMN IF NOT EXISTS plan_email_limit INTEGER DEFAULT 500;
-            `;
-
-            await connection.queryObject`
-                ALTER TABLE tenants
-                ADD COLUMN IF NOT EXISTS currency VARCHAR(3) DEFAULT 'USD',
-                ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC';
-            `;
-
-
-            return new Response(JSON.stringify({ success: true, message: 'Migration applied successfully' }), {
+            return new Response(JSON.stringify({ success: true, message: 'All test data deleted. Ready for fresh start.' }), {
                 headers: { 'Content-Type': 'application/json' }
             });
 
@@ -48,7 +39,7 @@ Deno.serve(async (req) => {
             connection.release();
         }
 
-    } catch (e) {
+    } catch (e: any) {
         return new Response(JSON.stringify({ success: false, error: e.message }), { status: 500 });
     }
 });

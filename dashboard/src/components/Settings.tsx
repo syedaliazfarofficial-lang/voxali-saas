@@ -8,6 +8,7 @@ import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { Skeleton } from './ui/Skeleton';
+import { FeatureLock } from './ui/FeatureLock';
 
 const TIMEZONES = [
     { value: 'America/New_York', label: 'Eastern Time (New York)' },
@@ -357,7 +358,7 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                 'Priority support & Onboarding'
             ],
             creditsBox: { title: 'Monthly AI & messaging credits', desc: '(Custom volume or ~1,200 AI mins)' },
-            actionText: 'Talk to Sales',
+            actionText: 'Start Enterprise',
             caption: 'Need higher AI volume or a tailored setup? Contact sales.'
         }
     ];
@@ -596,7 +597,7 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                                     <button
                                         disabled={isActive || !!upgradingTo}
                                         onClick={() => handleUpgrade(p.id)}
-                                        className={`mt-6 w-full py-3.5 rounded-xl font-bold transition-all ${isActive ? 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10' : p.highlighted ? 'bg-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:brightness-110 active:scale-95' : 'bg-white/5 text-white hover:bg-white/10 border border-white/10 active:scale-95'} flex justify-center items-center gap-2`}
+                                        className={`mt-6 w-full py-3.5 rounded-xl font-bold transition-all ${isActive ? 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10' : 'bg-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:brightness-110 active:scale-95'} flex justify-center items-center gap-2`}
                                     >
                                         {isChanging ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                                         {isActive ? 'CURRENT PLAN' : isChanging ? 'PROCESSING...' : (p.actionText || 'UPGRADE')}
@@ -1483,53 +1484,57 @@ export const Settings: React.FC = () => {
                     </div>
 
 {/* ============ LOYALTY PROGRAM SETTINGS ============ */}
-                    <div className="flex items-center gap-3 mt-10 mb-6">
-                        <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
-                            <Zap className="w-6 h-6 text-luxe-gold" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold">Loyalty Program & Points</h3>
-                            <p className="text-xs text-white/40 uppercase tracking-widest">Reward clients for their visits</p>
-                        </div>
-                    </div>
-
-                    <div className="glass-panel border border-white/5 p-6 mb-6">
-                        <p className="text-sm text-white/60 mb-6 border border-luxe-gold/20 bg-luxe-gold/5 p-4 rounded-xl">
-                            Set how many points a client earns per <strong className="text-luxe-gold">$1 spent</strong>. Points are automatically awarded when an appointment is marked as <strong>Completed</strong>.
-                        </p>
-                        
-                        <div className="flex flex-col md:flex-row gap-8 items-start">
-                            <div className="flex-1 space-y-4 w-full">
-                                <div>
-                                    <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Points per $1 Spent</label>
-                                    <div className="flex items-center gap-3">
-                                        <input
-                                            type="number" step="0.5" min="0" value={loyaltyMultiplier}
-                                            onChange={e => setLoyaltyMultiplier(parseFloat(e.target.value) || 0)}
-                                            className="w-32 bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all font-bold text-center"
-                                        />
-                                        <div className="text-xs text-white/40 leading-relaxed">
-                                            <span>e.g., <strong>1.0</strong> means $100 service = 100 points. <br/> <strong>0.5</strong> means $100 service = 50 points.</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <button
-                                    onClick={async () => {
-                                        setLoyaltySaving(true);
-                                        const { error } = await supabaseAdmin.from('tenants').update({ loyalty_points_multiplier: loyaltyMultiplier }).eq('id', tenantId);
-                                        if (!error) showToast('Loyalty settings saved!');
-                                        else showToast('Failed to save: ' + error.message, 'error');
-                                        setLoyaltySaving(false);
-                                    }}
-                                    disabled={loyaltySaving}
-                                    className="bg-gold-gradient text-luxe-obsidian px-8 py-3 rounded-xl font-bold shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mt-4"
-                                >
-                                    {loyaltySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    {loyaltySaving ? 'SAVING...' : 'SAVE LOYALTY RULES'}
-                                </button>
+                    <div className="mt-10 mb-6">
+                        <FeatureLock requiredTier="growth" featureName="Auto-Loyalty Rules" description="Growth feature. Automatically reward clients with loyalty points per dollar spent." minHeight="min-h-[200px]">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
+                                <Zap className="w-6 h-6 text-luxe-gold" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold">Loyalty Program & Points</h3>
+                                <p className="text-xs text-white/40 uppercase tracking-widest">Reward clients for their visits</p>
                             </div>
                         </div>
+
+                        <div className="glass-panel border border-white/5 p-6 mb-6">
+                            <p className="text-sm text-white/60 mb-6 border border-luxe-gold/20 bg-luxe-gold/5 p-4 rounded-xl">
+                                Set how many points a client earns per <strong className="text-luxe-gold">$1 spent</strong>. Points are automatically awarded when an appointment is marked as <strong>Completed</strong>.
+                            </p>
+                            
+                            <div className="flex flex-col md:flex-row gap-8 items-start">
+                                <div className="flex-1 space-y-4 w-full">
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Points per $1 Spent</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="number" step="0.5" min="0" value={loyaltyMultiplier}
+                                                onChange={e => setLoyaltyMultiplier(parseFloat(e.target.value) || 0)}
+                                                className="w-32 bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all font-bold text-center"
+                                            />
+                                            <div className="text-xs text-white/40 leading-relaxed">
+                                                <span>e.g., <strong>1.0</strong> means $100 service = 100 points. <br/> <strong>0.5</strong> means $100 service = 50 points.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <button
+                                        onClick={async () => {
+                                            setLoyaltySaving(true);
+                                            const { error } = await supabaseAdmin.from('tenants').update({ loyalty_points_multiplier: loyaltyMultiplier }).eq('id', tenantId);
+                                            if (!error) showToast('Loyalty settings saved!');
+                                            else showToast('Failed to save: ' + error.message, 'error');
+                                            setLoyaltySaving(false);
+                                        }}
+                                        disabled={loyaltySaving}
+                                        className="bg-gold-gradient text-luxe-obsidian px-8 py-3 rounded-xl font-bold shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mt-4"
+                                    >
+                                        {loyaltySaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                        {loyaltySaving ? 'SAVING...' : 'SAVE LOYALTY RULES'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        </FeatureLock>
                     </div>
                 </div>
             )}

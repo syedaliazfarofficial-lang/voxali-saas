@@ -188,19 +188,30 @@
             </div>
 
             <div class="space-y-1">
-                <label for="countryCode" class="text-sm font-medium text-zinc-300">Salon Location (Country)</label>
+                <label for="countryCode" class="text-sm font-medium text-zinc-300">Salon Country</label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="globe" class="w-5 h-5 text-zinc-500"></i>
                     </div>
-                    <select id="countryCode" required
+                    <select id="countryCode" required onchange="updateTimezones()"
                         class="input-field w-full rounded-xl py-3 pl-10 pr-4 appearance-none cursor-pointer">
-                        <option value="US">United States (+1)</option>
-                        <option value="CA">Canada (+1)</option>
+                        <option value="US">🇺🇸 United States</option>
+                        <option value="CA">🇨🇦 Canada</option>
                     </select>
                 </div>
-                <p class="text-xs text-zinc-500 mt-1">This determines your AI Agent's local phone number and language.
-                </p>
+            </div>
+
+            <div class="space-y-1">
+                <label for="timezone" class="text-sm font-medium text-zinc-300">Salon City / Timezone</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="clock" class="w-5 h-5 text-zinc-500"></i>
+                    </div>
+                    <select id="timezone" required
+                        class="input-field w-full rounded-xl py-3 pl-10 pr-4 appearance-none cursor-pointer">
+                    </select>
+                </div>
+                <p class="text-xs text-zinc-500 mt-1" id="tz-hint">Your AI will use this timezone for all bookings and call scheduling.</p>
             </div>
 
             <div class="space-y-1">
@@ -296,6 +307,48 @@
         // Initialize Lucide Icons
         lucide.createIcons();
 
+        // ── Timezone Data ─────────────────────────────────────────────────────
+        const TIMEZONES = {
+            US: [
+                { value: 'America/New_York',    label: '🗽 Eastern Time  — New York, Miami, Boston' },
+                { value: 'America/Chicago',     label: '🌆 Central Time  — Chicago, Dallas, Houston' },
+                { value: 'America/Denver',      label: '⛰️ Mountain Time — Denver, Phoenix, Salt Lake' },
+                { value: 'America/Los_Angeles', label: '🌊 Pacific Time  — Los Angeles, San Francisco, Seattle' },
+                { value: 'America/Anchorage',   label: '🧊 Alaska Time   — Anchorage' },
+                { value: 'Pacific/Honolulu',    label: '🌺 Hawaii Time   — Honolulu' },
+            ],
+            CA: [
+                { value: 'America/Toronto',     label: '🏙️ Eastern Time  — Toronto, Ottawa, Montreal (EN)' },
+                { value: 'America/Toronto_FR',  label: '🥐 Eastern Time  — Québec City, Montréal (FR — French AI)' },
+                { value: 'America/Winnipeg',    label: '🌾 Central Time  — Winnipeg, Regina' },
+                { value: 'America/Edmonton',    label: '⛽ Mountain Time — Calgary, Edmonton' },
+                { value: 'America/Vancouver',   label: '🌲 Pacific Time  — Vancouver, Victoria' },
+                { value: 'America/Halifax',     label: '⚓ Atlantic Time — Halifax, Moncton' },
+                { value: 'America/St_Johns',    label: '🪨 Newfoundland  — St. John\'s' },
+            ]
+        };
+
+        function updateTimezones() {
+            const country = document.getElementById('countryCode').value;
+            const tzSelect = document.getElementById('timezone');
+            const hint = document.getElementById('tz-hint');
+            tzSelect.innerHTML = '';
+            const zones = TIMEZONES[country] || TIMEZONES['US'];
+            zones.forEach(tz => {
+                const opt = document.createElement('option');
+                opt.value = tz.value;
+                opt.textContent = tz.label;
+                tzSelect.appendChild(opt);
+            });
+            if (country === 'CA') {
+                hint.textContent = 'Select Québec for French AI — all other provinces use English.';
+            } else {
+                hint.textContent = 'Your AI will use this timezone for all bookings and call scheduling.';
+            }
+        }
+        // Initialize timezone dropdown on page load
+        updateTimezones();
+
         // Constants
         const SUPABASE_PROJECT_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
 
@@ -339,6 +392,10 @@
             const fullName = document.getElementById('fullName').value.trim();
             const salonName = document.getElementById('salonName').value.trim();
             const countryCode = document.getElementById('countryCode').value;
+            const timezoneRaw = document.getElementById('timezone').value;
+            // Quebec special case: real timezone is America/Toronto, language is fr
+            const timezone = timezoneRaw === 'America/Toronto_FR' ? 'America/Toronto' : timezoneRaw;
+            const language = (countryCode === 'CA' && timezoneRaw === 'America/Toronto_FR') ? 'fr' : 'en';
             const email = document.getElementById('email').value.trim();
             const password = passwordInput.value;
 
@@ -357,6 +414,8 @@
                 fullName,
                 salonName,
                 countryCode,
+                timezone,
+                language,
                 email,
                 password
             });

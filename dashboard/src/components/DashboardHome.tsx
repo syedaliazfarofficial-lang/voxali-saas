@@ -40,7 +40,10 @@ interface DashboardStats {
     twilio_number?: string;
     ai_used?: number;
     sms_used?: number;
-    coin_balance?: number;
+    ai_included?: number;
+    sms_included?: number;
+    ai_topup?: number;
+    sms_topup?: number;
 }
 
 interface RevenueDay {
@@ -62,17 +65,34 @@ interface DashboardHomeProps {
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) => {
-    const { tenantId, planTier } = useTenant();
+    const { tenantId, planTier, timezone } = useTenant();
     const { isOwner, isSuperAdmin } = useAuth();
     const isOwnerPrivilege = isOwner || isSuperAdmin;
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [chartData, setChartData] = useState<RevenueDay[]>([]);
     const [activities, setActivities] = useState<RecentBooking[]>([]);
     const [loading, setLoading] = useState(true);
+    const [localTime, setLocalTime] = useState('');
+    const [localDate, setLocalDate] = useState('');
+    const [tzShort, setTzShort] = useState('');
 
     const [announcement, setAnnouncement] = useState('');
     const [announceSaving, setAnnounceSaving] = useState(false);
     const [chartRange, setChartRange] = useState('week');
+
+    // Live salon clock — ticks every second using tenant's timezone
+    useEffect(() => {
+        const tz = timezone || 'America/New_York';
+        const tick = () => {
+            const now = new Date();
+            setLocalTime(now.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+            setLocalDate(now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'short', day: 'numeric' }));
+            setTzShort(now.toLocaleTimeString('en-US', { timeZone: tz, timeZoneName: 'short' }).split(' ').pop() || tz);
+        };
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [timezone]);
 
 
     const fetchAll = useCallback(async () => {
@@ -92,7 +112,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                     .eq('tenant_id', tenantId).gte('created_at', todayISO),
                 supabaseAdmin.from('call_logs').select('id')
                     .eq('tenant_id', tenantId).gte('created_at', todayISO),
-                supabaseAdmin.from('tenants').select('twilio_number, ai_minutes_used, plan_ai_minutes_limit, sms_used, plan_sms_limit, emails_used, plan_email_limit')
+                supabaseAdmin.from('tenants').select('twilio_number, ai_minutes_used, sms_used, ai_minutes_included, sms_included, ai_minutes_topup_balance, sms_topup_balance')
                     .eq('id', tenantId).single()
             ]);
 
@@ -107,7 +127,10 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                 twilio_number: tData.twilio_number || '',
                 ai_used: tData.ai_minutes_used || 0,
                 sms_used: tData.sms_used || 0,
-                coin_balance: tenantRes.data?.coin_balance || 0,
+                ai_included: tData.ai_minutes_included || 0,
+                sms_included: tData.sms_included || 0,
+                ai_topup: tData.ai_minutes_topup_balance || 0,
+                sms_topup: tData.sms_topup_balance || 0,
             });
 
             // Weekly revenue chart
@@ -163,6 +186,12 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
 
     const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`;
 
+    const totalAiMins = (stats?.ai_included ?? 0) + (stats?.ai_topup ?? 0);
+    const availAiMins = Math.max(0, totalAiMins - (stats?.ai_used ?? 0));
+    
+    const totalSms = (stats?.sms_included ?? 0) + (stats?.sms_topup ?? 0);
+    const availSms = Math.max(0, totalSms - (stats?.sms_used ?? 0));
+
     if (loading) return <DashboardSkeleton />;
 
     return (
@@ -174,6 +203,25 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                 <StatCard label="Today's Revenue" value={fmt(stats?.revenue_today ?? 0)} trend="live" icon={TrendingUp} onClick={() => setActiveTab?.('analytics')} />
                 <StatCard label="New Clients" value={String(stats?.new_clients ?? 0)} trend="today" icon={Users} onClick={() => setActiveTab?.('clients')} />
                 <StatCard label="Bella Calls Today" value={String(stats?.calls_today ?? 0)} trend="live" icon={PhoneCall} onClick={() => setActiveTab?.('call_logs')} />
+            </div>
+
+            {/* Salon Local Clock */}
+            <div className="glass-panel p-5 flex items-center justify-between border-b-2 border-b-luxe-gold/30">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-luxe-gold/10 border border-luxe-gold/20 flex items-center justify-center">
+                        <Clock className="w-6 h-6 text-luxe-gold" />
+                    </div>
+                    <div>
+                        <p className="text-xs text-white/40 font-bold uppercase tracking-widest">Your Salon Local Time</p>
+                        <p className="text-2xl font-mono font-bold text-white tracking-wide">{localTime}</p>
+                        <p className="text-xs text-white/40 mt-0.5">{localDate}</p>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <p className="text-xs text-white/30 uppercase tracking-wider">Timezone</p>
+                    <p className="text-sm font-bold text-luxe-gold">{tzShort}</p>
+                    <p className="text-[10px] text-white/25 mt-0.5">{timezone || 'America/New_York'}</p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -365,9 +413,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                 Resource Usage & Wallet
                             </h3>
                             <div className="space-y-5">
-                                <UsageBar label="Available AI Minutes" used={stats?.coin_balance ?? 0} limit={stats?.coin_balance ?? 0} color="bg-luxe-gold" hideBar />
-                                <UsageBar label="AI Call Minutes (Equivalent)" used={stats?.ai_used ?? 0} limit={Math.max(stats?.ai_used ?? 0, Math.floor((stats?.coin_balance ?? 0) / 20))} color="bg-emerald-500" />
-                                <UsageBar label="SMS Credits (Equivalent)" used={stats?.sms_used ?? 0} limit={Math.max(stats?.sms_used ?? 0, Math.floor((stats?.coin_balance ?? 0) / 5))} color="bg-blue-500" />
+                                <UsageBar label="Available AI Minutes" used={availAiMins} limit={totalAiMins} color="bg-luxe-gold" hideBar />
+                                <UsageBar label="AI Call Minutes" used={stats?.ai_used ?? 0} limit={totalAiMins} color="bg-emerald-500" />
+                                <UsageBar label="SMS Credits" used={stats?.sms_used ?? 0} limit={totalSms} color="bg-blue-500" />
                             </div>
                         </div>
                         <div className="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-xs">

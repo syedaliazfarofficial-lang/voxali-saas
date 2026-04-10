@@ -4,23 +4,27 @@ import { Lock, Zap, ArrowRight } from 'lucide-react';
 
 interface FeatureLockProps {
     children: React.ReactNode;
-    requiredTier: 'starter' | 'growth' | 'elite';
+    requiredTier: 'starter' | 'growth' | 'elite' | 'Enterprise' | 'AI Growth' | 'AI Starter';
     featureName: string;
     description: string;
+    minHeight?: string;
 }
 
 const TIER_ORDER = {
     'basic': 0,
     'starter': 1,
+    'AI Starter': 1,
     'growth': 2,
+    'AI Growth': 2,
     'elite': 3,
+    'Enterprise': 3,
 };
 
-export const FeatureLock: React.FC<FeatureLockProps> = ({ children, requiredTier, featureName, description }) => {
+export const FeatureLock: React.FC<FeatureLockProps> = ({ children, requiredTier, featureName, description, minHeight = 'min-h-[400px]' }) => {
     const { planTier } = useTenant();
 
     const currentTierLevel = TIER_ORDER[(planTier as keyof typeof TIER_ORDER) || 'basic'] || 0;
-    const requiredTierLevel = TIER_ORDER[requiredTier] || 1;
+    const requiredTierLevel = TIER_ORDER[requiredTier as keyof typeof TIER_ORDER] || 1;
 
     const isLocked = currentTierLevel < requiredTierLevel;
 
@@ -34,7 +38,7 @@ export const FeatureLock: React.FC<FeatureLockProps> = ({ children, requiredTier
     };
 
     return (
-        <div className="relative w-full h-full min-h-[400px] overflow-hidden rounded-3xl group">
+        <div className={`relative w-full h-full ${minHeight} overflow-hidden rounded-3xl group`}>
             {/* Blurred background content */}
             <div className="absolute inset-0 select-none pointer-events-none opacity-40 blur-[8px] transition-all duration-700 group-hover:blur-[12px] group-hover:opacity-20 scale-105 origin-top z-0">
                 {children}

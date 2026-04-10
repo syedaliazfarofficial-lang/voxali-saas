@@ -240,6 +240,22 @@ Deno.serve(async (req) => {
             if (newTier) {
                 updateData.plan_tier = newTier;
                 updateData.subscription_tier = newTier;
+                
+                // Map the limits based on the tier
+                if (newTier === 'basic' || newTier === 'Essentials') {
+                    updateData.ai_minutes_included = 0;
+                    updateData.sms_included = 0;
+                } else if (newTier === 'starter') {
+                    updateData.ai_minutes_included = 250;
+                    updateData.sms_included = 500;
+                } else if (newTier === 'growth') {
+                    updateData.ai_minutes_included = 600;
+                    updateData.sms_included = 1500;
+                } else if (newTier === 'elite' || newTier === 'Enterprise') {
+                    updateData.ai_minutes_included = 1200;
+                    updateData.sms_included = 3000;
+                }
+
                 console.log(`Upgrading/Downgrading tenant to ${newTier}`);
             }
 

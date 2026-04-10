@@ -234,7 +234,7 @@ serve(async (req) => {
     }
 
     try {
-        const { tenantId, salonName, industry, countryCode, aiName: requestedAiName } = await req.json();
+        const { tenantId, salonName, industry, countryCode, aiName: requestedAiName, language: explicitLanguage } = await req.json();
 
         if (!tenantId || !salonName) {
             return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -255,21 +255,33 @@ serve(async (req) => {
         // AI Name — default "Aria"
         const aiName = requestedAiName?.trim() || "Aria";
 
-        // Language — auto-detect from country code
-        const detectedLanguage = countryCode ? (COUNTRY_LANGUAGE_MAP[countryCode.toUpperCase()] || "en") : "en";
+        // Language — use explicit if provided, otherwise auto-detect from country
+        const detectedLanguage = explicitLanguage?.trim() ||
+            (countryCode ? (COUNTRY_LANGUAGE_MAP[countryCode.toUpperCase()] || "en") : "en");
 
         // Transcriber language (Deepgram maps Urdu → Hindi model)
         const transcriberLanguage = detectedLanguage === "ur" ? "hi" : detectedLanguage;
 
-        // First message — warm greeting
-        const firstMessage = `Welcome to ${salonName}. This is ${aiName}. How may I assist you today?`;
+        // First message — French greeting for Quebec
+        const firstMessage = detectedLanguage === "fr"
+            ? `Bonjour et bienvenue à ${salonName}. Je suis ${aiName}. Comment puis-je vous aider?`
+            : `Welcome to ${salonName}. This is ${aiName}. How may I assist you today?`;
 
         // System prompt
         const systemPrompt = buildSystemPrompt(salonName, tenantId, aiName);
 
-        // Language instruction (if not English)
+        // Language instruction — Quebec gets bilingual mode, others monolingual
         let langInstruction = "";
-        if (detectedLanguage !== "en") {
+        if (detectedLanguage === "fr" && (countryCode === "CA" || explicitLanguage === "fr")) {
+            langInstruction = `\n\n═══════════════════════════════════════════════════════
+🌍  LANGUAGE — BILINGUAL MODE (QUÉBEC CANADA)
+═══════════════════════════════════════════════════════
+You serve clients in BOTH French (Français) and English. Automatically detect which language the caller uses:
+- If they speak French → respond entirely in French for the full call.
+- If they speak English → respond entirely in English for the full call.
+- If they mix both → follow whichever language they started the conversation in.
+Your warm, professional concierge personality carries through both languages equally.`;
+        } else if (detectedLanguage !== "en") {
             const langName = LANGUAGE_NAMES[detectedLanguage] || detectedLanguage;
             langInstruction = `\n\n═══════════════════════════════════════════════════════
 🌍  LANGUAGE — NON-NEGOTIABLE
