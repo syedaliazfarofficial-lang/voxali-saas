@@ -936,6 +936,10 @@ export const Settings: React.FC = () => {
     const [salonEmail, setSalonEmail] = useState('');
     const [salonWebsite, setSalonWebsite] = useState('');
     const [googleReviewUrl, setGoogleReviewUrl] = useState('');
+    const [ownerNotifEmail, setOwnerNotifEmail] = useState('');
+    const [ownerPhone, setOwnerPhone] = useState('');
+    const [taxRate, setTaxRate] = useState('8.00'); // stored as % string e.g. "8.25"
+    const [taxSaving, setTaxSaving] = useState(false);
     // Tab navigation
     const [activeSettingsTab, setActiveSettingsTab] = useState('general');
 
@@ -1059,7 +1063,7 @@ export const Settings: React.FC = () => {
             .eq('tenant_id', tenantId).order('day_of_week');
 
         const { data: tenantData } = await supabaseAdmin
-            .from('tenants').select('loyalty_points_multiplier, salon_email, salon_website, google_review_url')
+            .from('tenants').select('loyalty_points_multiplier, salon_email, salon_website, google_review_url, owner_notification_email, owner_phone, tax_rate')
             .eq('id', tenantId).single();
 
         if (svcData) setServices(svcData);
@@ -1069,6 +1073,9 @@ export const Settings: React.FC = () => {
             setSalonEmail(tenantData.salon_email || '');
             setSalonWebsite(tenantData.salon_website || '');
             setGoogleReviewUrl(tenantData.google_review_url || '');
+            setOwnerNotifEmail(tenantData.owner_notification_email || '');
+            setOwnerPhone(tenantData.owner_phone || '');
+            if (tenantData.tax_rate != null) setTaxRate((tenantData.tax_rate * 100).toFixed(3).replace(/\.?0+$/, ''));
         }
         
         setLoading(false);
@@ -1127,12 +1134,28 @@ export const Settings: React.FC = () => {
             updates.logoUrl = bLogoPreview || '';
         }
 
-        await supabaseAdmin.from('tenants').update({ salon_email: salonEmail || null, salon_website: salonWebsite || null, google_review_url: googleReviewUrl || null }).eq('id', tenantId);
+        const parsedTax = parseFloat(taxRate);
+        const taxRateValue = isNaN(parsedTax) ? 0.08 : parsedTax / 100;
+
+        const { error: settingsError } = await supabaseAdmin.from('tenants').update({
+            salon_email: salonEmail || null,
+            salon_website: salonWebsite || null,
+            google_review_url: googleReviewUrl || null,
+            owner_notification_email: ownerNotifEmail || null,
+            owner_phone: ownerPhone || null,
+            tax_rate: taxRateValue,
+        }).eq('id', tenantId);
+
+        if (settingsError) {
+            console.error('[Settings] Failed to save tenant settings:', settingsError);
+            showToast('⚠️ Some settings may not have saved: ' + settingsError.message, 'error');
+        }
 
         const ok = await updateBranding(updates);
-        if (ok) {
-            showToast('✅ Branding updated!');
+        if (ok || !settingsError) {
+            showToast('✅ Settings saved!');
             refetch();
+            fetchAll(); // refresh local taxRate, ownerEmail etc.
         } else {
             showToast('❌ Failed to save branding');
         }
@@ -1470,7 +1493,110 @@ export const Settings: React.FC = () => {
                                     placeholder="https://g.page/r/your-salon/review"
                                     className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
                                 />
-                                <p className="text-xs text-white/30 mt-2">Shown in \"Thank You\" emails — clients can rate your salon on Google.</p>
+                                <p className="text-xs text-white/30 mt-2">Shown in "Thank You" emails — clients can rate your salon on Google.</p>
+                            </div>
+
+                            {/* ---- Owner Alert Settings ---- */}
+                            <div className="mt-6 pt-5 border-t border-white/10">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">Owner Alert Settings</span>
+                                </div>
+                                <p className="text-xs text-white/30 mb-4 leading-relaxed bg-orange-400/5 border border-orange-400/20 rounded-xl p-3">
+                                    <strong className="text-orange-300">These are for YOU (the owner)</strong> — not shown to customers.<br/>
+                                    You'll receive alerts here when: AI minutes are low, SMS credits running out, or retail products need restocking.
+                                </p>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Owner Alert Email</label>
+                                        <input
+                                            type="email"
+                                            value={ownerNotifEmail} onChange={e => setOwnerNotifEmail(e.target.value)}
+                                            placeholder="your-personal@email.com"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-orange-400/50 transition-all"
+                                        />
+                                        <p className="text-xs text-white/30 mt-1">Billing warnings, AI pause alerts & low stock emails go here. Different from customer salon email.</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Owner Phone (Shown to callers when AI is paused)</label>
+                                        <input
+                                            type="tel"
+                                            value={ownerPhone} onChange={e => setOwnerPhone(e.target.value)}
+                                            placeholder="+1 (555) 000-0000"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-orange-400/50 transition-all"
+                                        />
+                                        <p className="text-xs text-white/30 mt-1">When AI minutes run out, Bella will tell callers: "Please call us at [this number]".</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* ---- Tax Rate Settings ---- */}
+                            <div className="mt-6 pt-5 border-t border-white/10">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <div className="w-2 h-2 rounded-full bg-blue-400" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">POS Tax Rate</span>
+                                </div>
+                                <p className="text-xs text-white/30 mb-4 leading-relaxed bg-blue-400/5 border border-blue-400/20 rounded-xl p-3">
+                                    Applied automatically to all POS transactions. Choose a preset or enter custom rate.
+                                </p>
+                                {/* US & Canada Presets */}
+                                <div className="mb-4">
+                                    <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2">🇺🇸 US Common Rates</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            { label: 'No Tax', rate: '0' },
+                                            { label: 'TX 8.25%', rate: '8.25' },
+                                            { label: 'NY 8.875%', rate: '8.875' },
+                                            { label: 'CA 10.25%', rate: '10.25' },
+                                            { label: 'FL 7%', rate: '7' },
+                                            { label: 'IL 10.25%', rate: '10.25' },
+                                        ].map(p => (
+                                            <button key={p.rate + p.label} onClick={() => setTaxRate(p.rate)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${taxRate === p.rate ? 'bg-blue-500 border-blue-400 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:border-blue-400/50'}`}>
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-white/40 uppercase tracking-widest font-bold mb-2 mt-4">🇨🇦 Canada Common Rates</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            { label: 'AB 5% GST', rate: '5' },
+                                            { label: 'ON 13% HST', rate: '13' },
+                                            { label: 'BC 12%', rate: '12' },
+                                            { label: 'QC 14.975%', rate: '14.975' },
+                                            { label: 'NS/NB/NL 15%', rate: '15' },
+                                            { label: 'MB 12%', rate: '12' },
+                                        ].map(p => (
+                                            <button key={p.rate + p.label} onClick={() => setTaxRate(p.rate)}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${taxRate === p.rate ? 'bg-blue-500 border-blue-400 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:border-blue-400/50'}`}>
+                                                {p.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                {/* Custom input */}
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-1">
+                                        <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Custom Rate (%)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number" min="0" max="30" step="0.001"
+                                                value={taxRate}
+                                                onChange={e => setTaxRate(e.target.value)}
+                                                className="w-full bg-white/5 border border-blue-400/30 rounded-xl p-3 text-sm outline-none focus:border-blue-400 transition-all pr-8"
+                                                placeholder="8.25"
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 font-bold">%</span>
+                                        </div>
+                                    </div>
+                                    <div className="pt-6">
+                                        <div className="px-4 py-3 bg-blue-500/10 border border-blue-400/20 rounded-xl text-center">
+                                            <p className="text-xl font-black text-blue-400">{taxRate || '0'}%</p>
+                                            <p className="text-[10px] text-white/30">Current</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-white/20 mt-2">On $100 sale → Tax: {((parseFloat(taxRate) || 0)).toFixed(2)} → Total: {(100 + (parseFloat(taxRate) || 0)).toFixed(2)}</p>
                             </div>
                         </div>
                         <button
@@ -1794,7 +1920,7 @@ export const Settings: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={handleSaveTimezone}
-                                    disabled={tzSaving || selectedTz === timezone}
+                                    disabled={tzSaving}
                                     className="bg-gold-gradient text-luxe-obsidian px-8 py-3 rounded-xl font-bold shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
                                     {tzSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

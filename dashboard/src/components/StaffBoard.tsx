@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     BarChart3, TrendingUp, Trophy, ArrowUpRight, Scissors,
     Loader2, Ban, CheckCircle2, Undo2, Plus, X,
     UserMinus, Percent, UserPlus, Key, Lock, Eye, EyeOff,
-    CalendarDays, Trash2, AlertTriangle, Pencil, Clock, Copy, Banknote
+    CalendarDays, Trash2, AlertTriangle, Pencil, Clock, Copy, Banknote, Camera, Upload
 } from 'lucide-react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -20,7 +20,7 @@ interface StaffMember {
     id: string; full_name: string; role: string; color: string;
     is_active: boolean; bookings_count: number; revenue: number;
     is_blocked_today: boolean; commission_rate: number; base_salary: number;
-    email?: string; phone?: string;
+    email?: string; phone?: string; photo_url?: string;
 }
 
 export const StaffBoard: React.FC = () => {
@@ -104,6 +104,11 @@ export const StaffBoard: React.FC = () => {
     const [ledgerNotes, setLedgerNotes] = useState('');
     const [ledgerHistory, setLedgerHistory] = useState<any[]>([]);
 
+    // Photo Upload
+    const [photoUploadStaff, setPhotoUploadStaff] = useState<StaffMember | null>(null);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const photoInputRef = useRef<HTMLInputElement>(null);
+
     const fetchStaff = useCallback(async () => {
         if (!tenantId) return;
         setLoading(true);
@@ -159,6 +164,46 @@ export const StaffBoard: React.FC = () => {
             showToast(err.message, 'error');
         }
         setSaving(false);
+    };
+
+    // ─── Photo Upload ───
+    const handlePhotoUpload = async (file: File, staffMember: StaffMember) => {
+        if (!file || !staffMember) return;
+        setUploadingPhoto(true);
+        try {
+            const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+            const filePath = `staff-photos/${tenantId}/${staffMember.id}.${ext}`;
+
+            // Upload to Supabase Storage bucket 'staff-photos'
+            const { error: uploadError } = await supabase.storage
+                .from('staff-photos')
+                .upload(filePath, file, { upsert: true, contentType: file.type });
+
+            if (uploadError) throw uploadError;
+
+            // Get public URL
+            const { data: urlData } = supabase.storage
+                .from('staff-photos')
+                .getPublicUrl(filePath);
+
+            const publicUrl = urlData?.publicUrl + '?t=' + Date.now(); // cache bust
+
+            // Save to staff table
+            const { error: updateError } = await supabase
+                .from('staff')
+                .update({ photo_url: publicUrl })
+                .eq('id', staffMember.id)
+                .eq('tenant_id', tenantId);
+
+            if (updateError) throw updateError;
+
+            showToast(`Photo updated for ${staffMember.full_name}!`);
+            setPhotoUploadStaff(null);
+            fetchStaff();
+        } catch (err: any) {
+            showToast(err.message || 'Photo upload failed', 'error');
+        }
+        setUploadingPhoto(false);
     };
 
     const handleBlock = async (staffId: string, staffName: string) => {
@@ -758,8 +803,23 @@ export const StaffBoard: React.FC = () => {
                                     <tr key={s.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                                         <td className="px-6 py-5">
                                             <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black border border-white/10" style={{ color: s.color, backgroundColor: `${s.color}15` }}>
-                                                    {s.full_name.charAt(0)}
+                                                <div className="relative group cursor-pointer" onClick={() => { if (isOwnerPrivilege) { setPhotoUploadStaff(s); photoInputRef.current?.click(); } }}>
+                                                    {s.photo_url ? (
+                                                        <img
+                                                            src={s.photo_url}
+                                                            alt={s.full_name}
+                                                            className="w-10 h-10 rounded-xl object-cover border border-white/10"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black border border-white/10" style={{ color: s.color, backgroundColor: `${s.color}15` }}>
+                                                            {s.full_name.charAt(0)}
+                                                        </div>
+                                                    )}
+                                                    {isOwnerPrivilege && (
+                                                        <div className="absolute inset-0 rounded-xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <Camera className="w-4 h-4 text-white" />
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-sm">{s.full_name}</p>
@@ -1427,6 +1487,30 @@ export const StaffBoard: React.FC = () => {
                             {savingHours ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
                             {savingHours ? 'SAVING...' : 'SAVE WORKING HOURS'}
                         </button>
+                    </div>
+                </div>
+            )}
+            {/* Hidden file input for photo upload */}
+            <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file && photoUploadStaff) {
+                        await handlePhotoUpload(file, photoUploadStaff);
+                    }
+                    e.target.value = '';
+                }}
+            />
+
+            {/* Photo uploading overlay */}
+            {uploadingPhoto && (
+                <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center">
+                    <div className="bg-[#1E1E1E] border border-white/10 rounded-2xl p-8 text-center">
+                        <Loader2 className="w-10 h-10 text-luxe-gold animate-spin mx-auto mb-3" />
+                        <p className="text-white font-bold">Uploading photo...</p>
                     </div>
                 </div>
             )}
