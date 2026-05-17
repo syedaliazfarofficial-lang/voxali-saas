@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
-
-// ====================================================================
-// VOXALI — Shared SaaS Login Page
-// This is the COMMON login page for ALL salon owners, managers & staff.
-// It shows VOXALI branding, NOT salon-specific branding.
-// After login, the user's profile determines which salon they see.
-// ====================================================================
+import { Eye, EyeOff, Loader2, PhoneCall, Calendar, BarChart2, Users } from 'lucide-react';
 
 export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     const [email, setEmail] = useState('');
@@ -17,21 +10,15 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     const [error, setError] = useState('');
     const [checkingSession, setCheckingSession] = useState(true);
 
-    // Check existing session on mount
     useEffect(() => {
-        const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                onLogin();
-            }
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) onLogin();
             setCheckingSession(false);
-        };
-        checkSession();
+        });
     }, [onLogin]);
 
-    // Listen for auth changes
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
             if (session) onLogin();
         });
         return () => subscription.unsubscribe();
@@ -42,459 +29,339 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         if (!email || !password) return;
         setLoading(true);
         setError('');
-
-        const { error: authError } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-        });
-
-        if (authError) {
-            setError(authError.message === 'Invalid login credentials'
-                ? 'Invalid email or password'
-                : authError.message
-            );
-        }
+        const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        if (authError) setError(authError.message === 'Invalid login credentials' ? 'Invalid email or password' : authError.message);
         setLoading(false);
     };
 
+    const features = [
+        { icon: <PhoneCall size={18} />, title: 'AI Voice Receptionist', desc: 'Never miss a call' },
+        { icon: <Calendar size={18} />, title: 'Smart Booking', desc: 'Zero conflicts' },
+        { icon: <BarChart2 size={18} />, title: 'Real-time Analytics', desc: 'Revenue at a glance' },
+        { icon: <Users size={18} />, title: 'CRM & Clients', desc: 'Build loyalty' },
+    ];
+
     if (checkingSession) {
         return (
-            <div style={styles.loadingContainer}>
-                <Loader2 style={{ width: 32, height: 32, color: '#D4A853', animation: 'spin 1s linear infinite' }} />
+            <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Loader2 size={24} color="#8B5CF6" style={{ animation: 'spin 1s linear infinite' }} />
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
         );
     }
 
     return (
-        <div style={styles.pageContainer}>
-            {/* Animated background elements */}
-            <div style={styles.bgContainer}>
-                <div style={styles.bgOrb1} />
-                <div style={styles.bgOrb2} />
-                <div style={styles.bgOrb3} />
-                <div style={styles.gridOverlay} />
-            </div>
-
-            <div style={styles.mainContent}>
-                {/* Left side — Hero Section */}
-                <div style={styles.heroSection}>
-                    <div style={styles.heroContent}>
-                        {/* Voxali Logo */}
-                        <div style={styles.logoContainer}>
-                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                                <defs>
-                                    <linearGradient id="voxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stopColor="#F5D77A" />
-                                        <stop offset="50%" stopColor="#D4A853" />
-                                        <stop offset="100%" stopColor="#A67C32" />
-                                    </linearGradient>
-                                </defs>
-                                <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#voxGrad)" />
-                                <path d="M20 18L32 46L44 18" stroke="#0A0A0F" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        </div>
-
-                        <h1 style={styles.heroTitle}>
-                            <span style={styles.heroTitleGold}>Voxali</span>
-                        </h1>
-                        <p style={styles.heroSubtitle}>AI-Powered Salon Management</p>
-
-                        <div style={styles.featureList}>
-                            <div style={styles.featureItem}>
-                                <div style={styles.featureDot} />
-                                <span>Smart Booking & Scheduling</span>
-                            </div>
-                            <div style={styles.featureItem}>
-                                <div style={styles.featureDot} />
-                                <span>AI Voice Assistant — Bella</span>
-                            </div>
-                            <div style={styles.featureItem}>
-                                <div style={styles.featureDot} />
-                                <span>Real-time Analytics &amp; CRM</span>
-                            </div>
-                            <div style={styles.featureItem}>
-                                <div style={styles.featureDot} />
-                                <span>Multi-Salon Management</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right side — Login Form */}
-                <div style={styles.formSection}>
-                    <div style={styles.formCard}>
-                        <div style={styles.formHeader}>
-                            <h2 style={styles.formTitle}>Welcome Back</h2>
-                            <p style={styles.formDesc}>Sign in to your salon dashboard</p>
-                        </div>
-
-                        <form onSubmit={handleLogin} style={styles.form}>
-                            <div style={styles.inputGroup}>
-                                <label style={styles.label}>Email Address</label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                    placeholder="you@salon.com"
-                                    autoComplete="email"
-                                    style={styles.input}
-                                    onFocus={e => {
-                                        e.target.style.borderColor = 'rgba(212,168,83,0.5)';
-                                        e.target.style.backgroundColor = 'rgba(255,255,255,0.07)';
-                                    }}
-                                    onBlur={e => {
-                                        e.target.style.borderColor = 'rgba(255,255,255,0.1)';
-                                        e.target.style.backgroundColor = 'rgba(255,255,255,0.04)';
-                                    }}
-                                />
-                            </div>
-
-                            <div style={styles.inputGroup}>
-                                <label style={styles.label}>Password</label>
-                                <div style={{ position: 'relative' }}>
-                                    <input
-                                        type={showPw ? 'text' : 'password'}
-                                        value={password}
-                                        onChange={e => setPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        autoComplete="current-password"
-                                        style={{ ...styles.input, paddingRight: 48 }}
-                                        onFocus={e => {
-                                            e.target.style.borderColor = 'rgba(212,168,83,0.5)';
-                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.07)';
-                                        }}
-                                        onBlur={e => {
-                                            e.target.style.borderColor = 'rgba(255,255,255,0.1)';
-                                            e.target.style.backgroundColor = 'rgba(255,255,255,0.04)';
-                                        }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPw(!showPw)}
-                                        style={styles.eyeBtn}
-                                        aria-label="Toggle password visibility"
-                                    >
-                                        {showPw ? <EyeOff style={{ width: 18, height: 18 }} /> : <Eye style={{ width: 18, height: 18 }} />}
-                                    </button>
-                                </div>
-                            </div>
-
-                            {error && (
-                                <div style={styles.errorBox}>
-                                    {error}
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                disabled={loading || !email || !password}
-                                style={{
-                                    ...styles.submitBtn,
-                                    opacity: (loading || !email || !password) ? 0.5 : 1,
-                                    cursor: (loading || !email || !password) ? 'not-allowed' : 'pointer',
-                                }}
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }} />
-                                        <span>Signing in...</span>
-                                    </>
-                                ) : (
-                                    'Sign In'
-                                )}
-                            </button>
-                        </form>
-
-                        <div style={styles.footerSection}>
-                            <div style={styles.divider} />
-                            <p style={styles.footerText}>
-                                Powered by <span style={styles.footerBrand}>Voxali</span> — Premium Salon SaaS
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Global animation keyframes */}
+        <div className="login-wrapper">
             <style>{`
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
+                * { box-sizing: border-box; }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                @keyframes fadeUp { 
+                    from { opacity: 0; transform: translateY(20px); } 
+                    to { opacity: 1; transform: translateY(0); } 
                 }
-                @keyframes float1 {
-                    0%, 100% { transform: translate(0, 0) scale(1); }
-                    33% { transform: translate(30px, -20px) scale(1.05); }
-                    66% { transform: translate(-20px, 15px) scale(0.95); }
+                
+                .login-wrapper {
+                    min-height: 100vh;
+                    background: #f8fafc; /* Light gray background to make card pop */
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+                    padding: 24px;
                 }
-                @keyframes float2 {
-                    0%, 100% { transform: translate(0, 0) scale(1); }
-                    50% { transform: translate(-40px, 20px) scale(1.1); }
+
+                .login-container {
+                    display: flex;
+                    width: 100%;
+                    max-width: 940px;
+                    background: #ffffff;
+                    border-radius: 20px;
+                    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.08);
+                    overflow: hidden;
+                    animation: fadeUp 0.6s ease-out;
                 }
-                @keyframes float3 {
-                    0%, 100% { transform: translate(0, 0); }
-                    50% { transform: translate(20px, -30px); }
+
+                /* --- Left Side --- */
+                .left-panel {
+                    flex: 1;
+                    background: #1e1b4b; /* Deep dark purple */
+                    padding: 48px;
+                    color: #ffffff;
+                    display: flex;
+                    flex-direction: column;
                 }
-                @keyframes fadeInUp {
-                    from { opacity: 0; transform: translateY(24px); }
-                    to { opacity: 1; transform: translateY(0); }
+
+                .status-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    background: rgba(255,255,255,0.1);
+                    border: 1px solid rgba(255,255,255,0.15);
+                    border-radius: 20px;
+                    padding: 6px 14px;
+                    align-self: flex-start;
+                    margin-bottom: 40px;
                 }
+
+                .status-dot {
+                    width: 8px;
+                    height: 8px;
+                    background: #10b981;
+                    border-radius: 50%;
+                }
+
+                .logo-section {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    margin-bottom: 32px;
+                }
+
+                .logo-icon {
+                    width: 44px;
+                    height: 44px;
+                    background: #8B5CF6;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: white;
+                }
+
+                .main-heading {
+                    font-size: 32px;
+                    font-weight: 800;
+                    line-height: 1.2;
+                    margin: 0 0 12px 0;
+                    letter-spacing: -0.03em;
+                }
+
+                .feature-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 12px;
+                    margin-top: 32px;
+                }
+
+                .feature-card {
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                    background: rgba(255, 255, 255, 0.03);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
+                    padding: 14px 16px;
+                    border-radius: 12px;
+                }
+
+                .feature-icon-wrapper {
+                    color: #a78bfa; /* Lighter purple for icon */
+                }
+
+
+                /* --- Right Side --- */
+                .right-panel {
+                    flex: 1;
+                    background: #ffffff;
+                    padding: 56px 48px;
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                }
+
+                .input-group {
+                    margin-bottom: 20px;
+                }
+
+                .input-label {
+                    display: block;
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #0f172a;
+                    margin-bottom: 8px;
+                }
+
+                .v-input {
+                    width: 100%;
+                    padding: 14px 16px;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    font-size: 15px;
+                    color: #0f172a;
+                    outline: none;
+                    transition: border-color 0.2s, box-shadow 0.2s;
+                }
+
+                .v-input:focus {
+                    border-color: #8B5CF6;
+                    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+                }
+
+                .v-btn-primary {
+                    width: 100%;
+                    padding: 14px;
+                    background: #8B5CF6;
+                    color: #fff;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 16px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    margin-top: 8px;
+                    transition: background 0.2s, transform 0.1s;
+                }
+
+                .v-btn-primary:hover:not(:disabled) {
+                    background: #7c3aed;
+                }
+                
+                .v-btn-primary:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+
                 @media (max-width: 768px) {
-                    .login-hero-section { display: none !important; }
-                    .login-form-section { width: 100% !important; padding: 24px !important; }
+                    .login-container {
+                        flex-direction: column;
+                    }
+                    .left-panel, .right-panel {
+                        padding: 32px 24px;
+                    }
                 }
             `}</style>
+
+            <div className="login-container">
+                {/* --- LEFT PANEL --- */}
+                <div className="left-panel">
+                    <div className="status-badge">
+                        <div className="status-dot"></div>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>All systems operational</span>
+                    </div>
+
+                    <div className="logo-section">
+                        <div className="logo-icon">V</div>
+                        <div>
+                            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>Voxali</div>
+                            <div style={{ fontSize: 12, color: '#a78bfa', fontWeight: 500, marginTop: 4 }}>Salon Management</div>
+                        </div>
+                    </div>
+
+                    <h1 className="main-heading">
+                        Run your salon<br />
+                        <span style={{ color: '#a78bfa' }}>on autopilot.</span>
+                    </h1>
+                    <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', margin: 0 }}>
+                        Bookings, calls, and clients handled automatically.
+                    </p>
+
+                    <div className="feature-list">
+                        {features.map((f, i) => (
+                            <div key={i} className="feature-card">
+                                <div className="feature-icon-wrapper">{f.icon}</div>
+                                <div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>{f.title}</div>
+                                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{f.desc}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* --- RIGHT PANEL --- */}
+                <div className="right-panel">
+                    <div style={{ marginBottom: 40 }}>
+                        <h2 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', margin: '0 0 8px', letterSpacing: '-0.03em' }}>
+                            Welcome back
+                        </h2>
+                        <p style={{ color: '#64748b', fontSize: 15, margin: 0 }}>
+                            Sign in to your salon dashboard
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleLogin}>
+                        {/* Email */}
+                        <div className="input-group">
+                            <label className="input-label">Email address</label>
+                            <input
+                                className="v-input"
+                                type="email"
+                                value={email}
+                                onChange={e => setEmail(e.target.value)}
+                                placeholder="you@salon.com"
+                                autoComplete="email"
+                            />
+                        </div>
+
+                        {/* Password */}
+                        <div className="input-group" style={{ marginBottom: 32 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                <label className="input-label" style={{ margin: 0 }}>Password</label>
+                                <a href="mailto:support@voxali.net" style={{ fontSize: 13, color: '#8B5CF6', textDecoration: 'none', fontWeight: 600 }}>
+                                    Forgot password?
+                                </a>
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    className="v-input"
+                                    type={showPw ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                    placeholder="••••••••"
+                                    autoComplete="current-password"
+                                    style={{ paddingRight: 48 }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPw(!showPw)}
+                                    style={{
+                                        position: 'absolute', right: 16, top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none', border: 'none',
+                                        color: '#94a3b8', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', padding: 0,
+                                    }}
+                                >
+                                    {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Error */}
+                        {error && (
+                            <div style={{
+                                background: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444',
+                                padding: '12px 16px', borderRadius: 10, fontSize: 14, fontWeight: 500,
+                                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20,
+                            }}>
+                                <span>⚠️</span> {error}
+                            </div>
+                        )}
+
+                        {/* Submit */}
+                        <button className="v-btn-primary" type="submit" disabled={loading || !email || !password}>
+                            {loading
+                                ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                    <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Signing in...
+                                  </div>
+                                : 'Sign in'
+                            }
+                        </button>
+                    </form>
+
+                    <div style={{ marginTop: 24, textAlign: 'center' }}>
+                        <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
+                            Don't have an account?{' '}
+                            <a href="#" style={{ color: '#8B5CF6', fontWeight: 600, textDecoration: 'none' }}>
+                                Sign up free
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
 
-// ====================================================================
-// STYLES — Premium dark glass UI
-// ====================================================================
-const styles: Record<string, React.CSSProperties> = {
-    loadingContainer: {
-        minHeight: '100vh',
-        background: '#0A0A0F',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    pageContainer: {
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #0A0A0F 0%, #0D0D15 40%, #0A0A0F 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        overflow: 'hidden',
-        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-    },
-    bgContainer: {
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none' as const,
-    },
-    bgOrb1: {
-        position: 'absolute',
-        top: '-10%',
-        left: '20%',
-        width: 500,
-        height: 500,
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(212,168,83,0.08) 0%, transparent 70%)',
-        animation: 'float1 12s ease-in-out infinite',
-    },
-    bgOrb2: {
-        position: 'absolute',
-        bottom: '-5%',
-        right: '10%',
-        width: 400,
-        height: 400,
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(212,168,83,0.05) 0%, transparent 70%)',
-        animation: 'float2 15s ease-in-out infinite',
-    },
-    bgOrb3: {
-        position: 'absolute',
-        top: '50%',
-        right: '30%',
-        width: 300,
-        height: 300,
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(100,130,255,0.04) 0%, transparent 70%)',
-        animation: 'float3 10s ease-in-out infinite',
-    },
-    gridOverlay: {
-        position: 'absolute',
-        inset: 0,
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)',
-        backgroundSize: '60px 60px',
-    },
-    mainContent: {
-        display: 'flex',
-        width: '100%',
-        maxWidth: 960,
-        minHeight: 580,
-        position: 'relative',
-        zIndex: 10,
-        animation: 'fadeInUp 0.6s ease-out',
-        margin: '0 24px',
-    },
-    // ===== LEFT: Hero Section =====
-    heroSection: {
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '48px 40px',
-    },
-    heroContent: {
-        maxWidth: 340,
-    },
-    logoContainer: {
-        marginBottom: 24,
-        filter: 'drop-shadow(0 8px 24px rgba(212,168,83,0.25))',
-    },
-    heroTitle: {
-        fontSize: 42,
-        fontWeight: 900,
-        margin: 0,
-        letterSpacing: '-0.03em',
-        lineHeight: 1.1,
-    },
-    heroTitleGold: {
-        background: 'linear-gradient(135deg, #F5D77A 0%, #D4A853 50%, #A67C32 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-    },
-    heroSubtitle: {
-        color: 'rgba(255,255,255,0.45)',
-        fontSize: 14,
-        fontWeight: 500,
-        margin: '8px 0 0',
-        letterSpacing: '0.05em',
-    },
-    featureList: {
-        marginTop: 40,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 14,
-    },
-    featureItem: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 13,
-        fontWeight: 500,
-    },
-    featureDot: {
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, #D4A853, #A67C32)',
-        flexShrink: 0,
-    },
-    // ===== RIGHT: Form Section =====
-    formSection: {
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-    },
-    formCard: {
-        width: '100%',
-        maxWidth: 400,
-        background: 'rgba(255,255,255,0.03)',
-        backdropFilter: 'blur(40px)',
-        WebkitBackdropFilter: 'blur(40px)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 24,
-        padding: '40px 36px',
-        boxShadow: '0 32px 64px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
-    },
-    formHeader: {
-        marginBottom: 32,
-    },
-    formTitle: {
-        fontSize: 24,
-        fontWeight: 800,
-        color: '#FAFAFA',
-        margin: 0,
-        letterSpacing: '-0.02em',
-    },
-    formDesc: {
-        color: 'rgba(255,255,255,0.4)',
-        fontSize: 13,
-        margin: '6px 0 0',
-        fontWeight: 400,
-    },
-    form: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 20,
-    },
-    inputGroup: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
-    },
-    label: {
-        fontSize: 10,
-        fontWeight: 800,
-        color: 'rgba(255,255,255,0.35)',
-        textTransform: 'uppercase' as const,
-        letterSpacing: '0.15em',
-    },
-    input: {
-        width: '100%',
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderRadius: 14,
-        padding: '14px 16px',
-        fontSize: 14,
-        color: '#FAFAFA',
-        outline: 'none',
-        transition: 'all 0.2s ease',
-        boxSizing: 'border-box' as const,
-    },
-    eyeBtn: {
-        position: 'absolute' as const,
-        right: 14,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        background: 'none',
-        border: 'none',
-        color: 'rgba(255,255,255,0.3)',
-        cursor: 'pointer',
-        padding: 4,
-        display: 'flex',
-        alignItems: 'center',
-    },
-    errorBox: {
-        background: 'rgba(239,68,68,0.1)',
-        border: '1px solid rgba(239,68,68,0.2)',
-        color: '#F87171',
-        padding: '12px 16px',
-        borderRadius: 14,
-        fontSize: 13,
-        fontWeight: 500,
-    },
-    submitBtn: {
-        width: '100%',
-        background: 'linear-gradient(135deg, #F5D77A 0%, #D4A853 50%, #A67C32 100%)',
-        color: '#0A0A0F',
-        fontWeight: 800,
-        padding: '16px 0',
-        borderRadius: 14,
-        border: 'none',
-        fontSize: 13,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase' as const,
-        boxShadow: '0 8px 32px rgba(212,168,83,0.25)',
-        transition: 'all 0.2s ease',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-    },
-    footerSection: {
-        marginTop: 28,
-    },
-    divider: {
-        height: 1,
-        background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)',
-        marginBottom: 16,
-    },
-    footerText: {
-        textAlign: 'center' as const,
-        color: 'rgba(255,255,255,0.2)',
-        fontSize: 11,
-        margin: 0,
-        fontWeight: 400,
-    },
-    footerBrand: {
-        color: 'rgba(212,168,83,0.5)',
-        fontWeight: 700,
-    },
-};
