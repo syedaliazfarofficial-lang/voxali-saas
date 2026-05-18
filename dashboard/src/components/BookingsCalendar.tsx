@@ -84,6 +84,34 @@ function toSalonDateLabel(isoString: string, tz: string): string {
     return new Date(isoString).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+function mapRawBooking(b: any, tz: string): Booking {
+    const startDt = new Date(b.start_time);
+    const endDt = new Date(b.end_time);
+    return {
+        id: b.id,
+        stylist_id: b.stylist_id,
+        client_id: b.client_id,
+        client_name: (() => {
+            if (b.notes) {
+                const m = b.notes.match(/^(?:Online booking|Walk-in) by (.+)$/i);
+                if (m) return m[1];
+            }
+            return b.clients?.name || 'Walk-in';
+        })(),
+        service_name: b.services?.name || 'Service',
+        start_hour: toSalonHour(b.start_time, tz),
+        duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
+        status: b.status,
+        start_time: b.start_time,
+        date_label: toSalonDateLabel(b.start_time, tz),
+        price: b.total_price || 0,
+        is_gap_booking: b.is_gap_booking || false,
+        deposit_amount: b.deposit_amount || 0,
+        deposit_paid_amount: b.deposit_paid_amount || 0,
+        payment_status: b.payment_status || 'unpaid',
+    };
+}
+
 export const BookingsCalendar: React.FC = () => {
     const { tenantId, timezone } = useTenant();
     const { staffId, isStaff } = useAuth();
@@ -173,33 +201,7 @@ export const BookingsCalendar: React.FC = () => {
         const { data: globalPendingData } = await pendingQ;
         if (globalPendingData) {
             const tz = timezone || 'America/Chicago';
-            setPendingRefunds(globalPendingData.map((b: any) => {
-                const startDt = new Date(b.start_time);
-                const endDt = new Date(b.end_time);
-                return {
-                    id: b.id,
-                    stylist_id: b.stylist_id,
-                    client_id: b.client_id,
-                    client_name: (() => {
-                        if (b.notes) {
-                            const m = b.notes.match(/^(?:Online booking|Walk-in) by (.+)$/i);
-                            if (m) return m[1];
-                        }
-                        return b.clients?.name || 'Walk-in';
-                    })(),
-                    service_name: b.services?.name || 'Service',
-                    start_hour: toSalonHour(b.start_time, tz),
-                    duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
-                    status: b.status,
-                    start_time: b.start_time,
-                    date_label: toSalonDateLabel(b.start_time, tz),
-                    price: b.total_price || 0,
-                    is_gap_booking: b.is_gap_booking || false,
-                    deposit_amount: b.deposit_amount || 0,
-                    deposit_paid_amount: b.deposit_paid_amount || 0,
-                    payment_status: b.payment_status || 'unpaid',
-                };
-            }));
+            setPendingRefunds(globalPendingData.map((b: any) => mapRawBooking(b, tz)));
         }
 
         // Fetch bookings for the selected date range
@@ -230,33 +232,7 @@ export const BookingsCalendar: React.FC = () => {
                 .order('start_time');
             if (filteredData) {
                 const tz = timezone || 'America/Chicago';
-                setBookings(filteredData.map((b: any) => {
-                    const startDt = new Date(b.start_time);
-                    const endDt = new Date(b.end_time);
-                    return {
-                        id: b.id,
-                        stylist_id: b.stylist_id,
-                        client_id: b.client_id,
-                        client_name: (() => {
-                            if (b.notes) {
-                                const m = b.notes.match(/^(?:Online booking|Walk-in) by (.+)$/i);
-                                if (m) return m[1];
-                            }
-                            return b.clients?.name || 'Walk-in';
-                        })(),
-                        service_name: b.services?.name || 'Service',
-                        start_hour: toSalonHour(b.start_time, tz),
-                        duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
-                        status: b.status,
-                        start_time: b.start_time,
-                        date_label: toSalonDateLabel(b.start_time, tz),
-                        price: b.total_price || 0,
-                        is_gap_booking: b.is_gap_booking || false,
-                        deposit_amount: b.deposit_amount || 0,
-                        deposit_paid_amount: b.deposit_paid_amount || 0,
-                        payment_status: b.payment_status || 'unpaid',
-                    };
-                }));
+                setBookings(filteredData.map((b: any) => mapRawBooking(b, tz)));
             }
             if (staffData) setStaff(staffData);
             if (svcData) setServices(svcData);
@@ -268,33 +244,7 @@ export const BookingsCalendar: React.FC = () => {
         if (svcData) setServices(svcData);
         if (bookData) {
             const tz = timezone || 'America/Chicago';
-            setBookings(bookData.map((b: any) => {
-                const startDt = new Date(b.start_time);
-                const endDt = new Date(b.end_time);
-                return {
-                    id: b.id,
-                    stylist_id: b.stylist_id,
-                    client_id: b.client_id,
-                    client_name: (() => {
-                        if (b.notes) {
-                            const m = b.notes.match(/^(?:Online booking|Walk-in) by (.+)$/i);
-                            if (m) return m[1];
-                        }
-                        return b.clients?.name || 'Walk-in';
-                    })(),
-                    service_name: b.services?.name || 'Service',
-                    start_hour: toSalonHour(b.start_time, tz),
-                    duration_hours: (endDt.getTime() - startDt.getTime()) / 3600000,
-                    status: b.status,
-                    start_time: b.start_time,
-                    date_label: toSalonDateLabel(b.start_time, tz),
-                    price: b.total_price || 0,
-                    is_gap_booking: b.is_gap_booking || false,
-                    deposit_amount: b.deposit_amount || 0,
-                    deposit_paid_amount: b.deposit_paid_amount || 0,
-                    payment_status: b.payment_status || 'unpaid',
-                };
-            }));
+            setBookings(bookData.map((b: any) => mapRawBooking(b, tz)));
         }
         setLoading(false);
     }, [viewMode, dateOffset, isStaff, staffId, tenantId, timezone]);
