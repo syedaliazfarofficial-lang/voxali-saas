@@ -292,7 +292,7 @@ function AppContent() {
                 {!isStaff && (
                   <button
                     onClick={() => safeSetActiveTab('bookings')}
-                    className="h-9 px-4 flex items-center gap-1.5 bg-yellow-500 text-black text-sm font-bold rounded-md hover:bg-yellow-400 transition-colors"
+                    className="h-9 px-4 flex items-center gap-1.5 bg-white text-black text-sm font-bold rounded-md hover:bg-white/90 transition-colors"
                   >
                     <Plus className="w-4 h-4" />
                     New Booking
@@ -316,7 +316,7 @@ function AppContent() {
 
                 {/* User avatar + name */}
                 <div className="h-9 pl-1 pr-3 flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-full hover:bg-zinc-700 cursor-pointer transition-colors">
-                  <div className="w-7 h-7 rounded-full bg-yellow-500 text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
                     {((isStaff ? (staffRecord?.full_name as string || "S") : ownerName) || "A").charAt(0).toUpperCase()}
                   </div>
                   <span className="text-xs font-medium text-white truncate max-w-[100px]">

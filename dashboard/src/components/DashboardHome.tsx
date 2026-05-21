@@ -316,9 +316,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                         <Cell
                                             key={`cell-${index}`}
                                             fill={entry.revenue === maxRev && entry.revenue > 0
-                                                ? '#D4AF37'
+                                                ? '#ffffff'
                                                 : entry.revenue > 0
-                                                    ? 'rgba(212,175,55,0.35)'
+                                                    ? 'rgba(255,255,255,0.25)'
                                                     : 'rgba(255,255,255,0.06)'
                                             }
                                             stroke="none"
@@ -538,7 +538,7 @@ const PremiumUsageBar: React.FC<PremiumUsageBarProps> = ({ label, used, limit, c
     const percent = limit === 0 ? 0 : Math.min(100, Math.max(0, (used / limit) * 100));
     const isDanger = percent >= 100;
     const isWarning = percent > 80 && !isDanger;
-    const barColor = isDanger ? '#e53935' : isWarning ? '#f59e0b' : '#D4AF37';
+    const barColor = isDanger ? '#e53935' : isWarning ? '#f59e0b' : '#ffffff';
 
     return (
         <div>
