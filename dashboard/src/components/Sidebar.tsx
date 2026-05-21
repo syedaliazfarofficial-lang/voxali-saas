@@ -298,7 +298,7 @@ const IconNavItem: React.FC<IconNavItemProps> = ({
                         top: '15%', bottom: '15%',
                         width: 3,
                         borderRadius: 99,
-                        background: '#000000',
+                        background: '#ffffff',
                     }} />
                 )}
                 <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
