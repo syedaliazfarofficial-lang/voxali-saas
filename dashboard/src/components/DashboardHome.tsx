@@ -22,7 +22,8 @@ import {
     ResponsiveContainer,
     BarChart,
     Bar,
-    Cell
+    Cell,
+    ReferenceLine,
 } from 'recharts';
 import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -73,7 +74,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
 
     const [announcement, setAnnouncement] = useState('');
     const [announceSaving, setAnnounceSaving] = useState(false);
-    const [aiActive, setAiActive] = useState<boolean | null>(null); // null = loading
+    const [aiActive, setAiActive] = useState<boolean | null>(null);
     const [aiToggling, setAiToggling] = useState(false);
     const [chartRange, setChartRange] = useState('week');
 
@@ -85,7 +86,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             todayStart.setHours(0, 0, 0, 0);
             const todayISO = todayStart.toISOString();
 
-            // Stats: counts for today
             const [bookingsRes, clientsRes, callsRes, tenantRes, aiConfigRes] = await Promise.all([
                 supabaseAdmin.from('bookings').select('id, total_price')
                     .eq('tenant_id', tenantId).gte('start_time', todayISO)
@@ -123,7 +123,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                 sms_topup: tData.sms_topup_balance || 0,
             });
 
-            // Weekly revenue chart
             const weekStart = new Date();
             weekStart.setDate(weekStart.getDate() - 6);
             weekStart.setHours(0, 0, 0, 0);
@@ -145,7 +144,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             });
             setChartData(Object.entries(dayMap).map(([day, revenue]) => ({ day, revenue })));
 
-            // Recent activity
             const { data: recentData } = await supabaseAdmin.from('bookings')
                 .select(`id, status, created_at, start_time, clients(name), services(name), staff!bookings_stylist_id_fkey(full_name)`)
                 .eq('tenant_id', tenantId)
@@ -179,7 +177,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
 
     const totalAiMins = (stats?.ai_included ?? 0) + (stats?.ai_topup ?? 0);
     const availAiMins = Math.max(0, totalAiMins - (stats?.ai_used ?? 0));
-    
+
     const totalSms = (stats?.sms_included ?? 0) + (stats?.sms_topup ?? 0);
     const availSms = Math.max(0, totalSms - (stats?.sms_used ?? 0));
 
@@ -199,14 +197,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                         {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                 </div>
-                <button
-                    onClick={() => setActiveTab?.('bookings')}
-                    className="flex items-center gap-1.5 px-3 py-2 text-white text-xs font-semibold rounded-lg hover:opacity-90 active:scale-95 transition-all"
-                    style={{ background: '#1a1a2e', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
-                >
-                    <CalendarIcon className="w-3.5 h-3.5" />
-                    + New Booking
-                </button>
             </div>
 
             {/* ── STAT CARDS ── */}
@@ -227,18 +217,23 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                             onClick={() => setActiveTab?.(card.tab)}
                             className="group relative text-left bg-surface-container-lowest border border-outline-variant rounded-xl p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
                         >
+                            {/* Card top row: icon + live badge */}
                             <div className="flex items-center justify-between mb-3">
                                 <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center">
-                                    <Icon className="w-4 h-4 text-on-surface" strokeWidth={1.8} />
+                                    <Icon className="w-4 h-4 text-white/70" strokeWidth={1.8} />
                                 </div>
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-on-surface-variant flex items-center gap-0.5">
-                                    <TrendingUp className="w-2 h-2" />
+                                {/* Live badge — with safe right padding */}
+                                <span className="text-[9px] font-bold px-2 py-0.5 mr-0.5 rounded-full bg-white/10 text-white/50 flex items-center gap-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                                     Live
                                 </span>
                             </div>
-                            <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-widest mb-1">{card.label}</p>
+                            {/* Label — bright enough to read */}
+                            <p className="text-[10px] font-semibold text-white/60 uppercase tracking-widest mb-1">{card.label}</p>
+                            {/* Metric number */}
                             <p className="text-2xl font-bold text-on-surface tracking-tight leading-none mb-2">{card.value}</p>
-                            <p className="text-[10px] text-on-surface-variant font-medium flex items-center gap-1">
+                            {/* Trend */}
+                            <p className="text-[10px] text-white/40 font-medium flex items-center gap-1">
                                 <TrendingUp className="w-2.5 h-2.5" />
                                 {card.sub}
                             </p>
@@ -262,58 +257,77 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                             <div className="flex items-center gap-2">
                                 <h2 className="text-[13px] font-bold text-on-surface">Weekly Revenue</h2>
                                 <span className="text-[13px] font-bold text-on-surface">${chartData.reduce((s, d) => s + d.revenue, 0).toFixed(0)}</span>
-                                <span className="text-[10px] text-on-surface-variant font-medium">this week</span>
+                                <span className="text-[10px] text-white/40 font-medium">this week</span>
                             </div>
-                            <p className="text-[10px] text-on-surface-variant mt-0.5">Last 7 days performance</p>
+                            <p className="text-[10px] text-white/40 mt-0.5">Last 7 days performance</p>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <select
                                 value={chartRange}
                                 onChange={e => setChartRange(e.target.value)}
-                                className="text-[11px] font-semibold border border-outline-variant rounded-lg px-2 py-1 outline-none cursor-pointer bg-transparent text-on-surface"
+                                className="text-[11px] font-semibold border border-outline-variant rounded-lg px-2 py-1 outline-none cursor-pointer bg-transparent text-white/70"
                             >
                                 <option value="today">Today</option>
                                 <option value="week">Last 7 Days</option>
                                 <option value="month">This Month</option>
                             </select>
-                            <button className="text-[11px] font-semibold border border-outline-variant rounded-lg px-2 py-1 text-on-surface hover:bg-surface-container-high transition-colors">
+                            {/* Export button — readable contrast */}
+                            <button className="text-[11px] font-semibold border border-white/20 rounded-lg px-2 py-1 text-white/70 hover:bg-surface-container-high hover:text-white transition-colors">
                                 Export
                             </button>
                         </div>
                     </div>
 
-                    {chartData.length > 0 ? (
-                        <div className="flex-1">
-                            <ResponsiveContainer width="100%" height={140}>
-                                <BarChart data={chartData} margin={{ top: 4, right: 0, left: -18, bottom: 0 }} barCategoryGap="28%" maxBarSize={60}>
-                                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--color-outline-variant)" />
-                                    <XAxis
-                                        dataKey="day"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        height={20}
-                                        tick={{ fontSize: 10, fill: 'var(--color-on-surface-variant)', fontWeight: 600, dy: 4 }}
-                                    />
-                                    <YAxis domain={[0, 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-on-surface-variant)' }} tickFormatter={(v: number) => v === 0 ? '' : `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} />
-                                    <Tooltip
-                                        cursor={{ fill: 'var(--color-surface-container-high)', rx: 6 }}
-                                        contentStyle={{ borderRadius: '10px', border: '1px solid var(--color-outline-variant)', backgroundColor: 'var(--color-surface-container-lowest)', color: 'var(--color-on-surface)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: 600 }}
-                                        formatter={(value: number) => [`$${value.toFixed(0)}`, 'Revenue']}
-                                    />
-                                    <Bar dataKey="revenue" radius={[5, 5, 0, 0]}>
-                                        {chartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.revenue === maxRev ? 'var(--color-on-surface)' : 'var(--color-surface-container-high)'} stroke={entry.revenue === maxRev ? 'none' : 'var(--color-outline-variant)'} strokeWidth={1} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-on-surface-variant py-8">
-                            <BarChart3 className="w-8 h-8 opacity-20" />
-                            <p className="text-xs font-semibold">No revenue data yet</p>
-                        </div>
-                    )}
+                    <div className="flex-1">
+                        <ResponsiveContainer width="100%" height={140}>
+                            <BarChart data={chartData} margin={{ top: 4, right: 0, left: -18, bottom: 0 }} barCategoryGap="28%" maxBarSize={60}>
+                                <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(255,255,255,0.06)" />
+                                {/* Dotted baseline to fill empty chart area */}
+                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.10)" strokeDasharray="3 3" />
+                                <XAxis
+                                    dataKey="day"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    height={20}
+                                    tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)', fontWeight: 600, dy: 4 }}
+                                />
+                                <YAxis
+                                    domain={[0, 'auto']}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }}
+                                    tickFormatter={(v: number) => v === 0 ? '' : `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`}
+                                />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.04)', rx: 6 }}
+                                    contentStyle={{
+                                        borderRadius: '10px',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        backgroundColor: '#1c1c20',
+                                        color: '#F0F0F2',
+                                        boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                                        fontSize: '11px',
+                                        fontWeight: 600
+                                    }}
+                                    formatter={(value: number) => [`$${value.toFixed(0)}`, 'Revenue']}
+                                />
+                                <Bar dataKey="revenue" radius={[5, 5, 0, 0]} minPointSize={3}>
+                                    {chartData.map((entry, index) => (
+                                        <Cell
+                                            key={`cell-${index}`}
+                                            fill={entry.revenue === maxRev && entry.revenue > 0
+                                                ? '#D4AF37'
+                                                : entry.revenue > 0
+                                                    ? 'rgba(212,175,55,0.35)'
+                                                    : 'rgba(255,255,255,0.06)'
+                                            }
+                                            stroke="none"
+                                        />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </motion.div>
 
                 {/* Today's Schedule */}
@@ -326,22 +340,23 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                     <div className="flex items-center justify-between mb-3">
                         <div>
                             <h2 className="text-[13px] font-bold text-on-surface">Today's Schedule</h2>
-                            <p className="text-[10px] text-on-surface-variant mt-0.5">{activities.length} appointments</p>
+                            <p className="text-[10px] text-white/40 mt-0.5">{activities.length} appointments</p>
                         </div>
                         <button
                             onClick={() => setActiveTab?.('bookings')}
-                            className="text-[10px] font-bold text-on-surface border border-outline-variant rounded-md px-2 py-1 hover:bg-surface-container-high transition-colors"
+                            className="text-[10px] font-bold text-white/60 border border-outline-variant rounded-md px-2 py-1 hover:bg-surface-container-high hover:text-white transition-colors"
                         >
                             View Full
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar max-h-[220px] pr-1">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-1 max-h-[220px] pr-1">
                         {activities.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-[140px] gap-2 text-on-surface-variant">
+                            /* Perfectly centered empty state */
+                            <div className="flex flex-col items-center justify-center h-full min-h-[160px] gap-2 text-on-surface-variant">
                                 <CalendarDays className="w-10 h-10 opacity-20" />
-                                <p className="text-sm font-semibold">Free day ahead!</p>
-                                <p className="text-xs text-center max-w-[180px]">No appointments scheduled for today.</p>
+                                <p className="text-sm font-semibold text-white/50">Free day ahead!</p>
+                                <p className="text-xs text-center max-w-[180px] text-white/30">No appointments scheduled for today.</p>
                             </div>
                         ) : (
                             activities.map((act, i) => {
@@ -352,18 +367,15 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                 return (
                                     <div
                                         key={i}
-                                        className={`group flex items-start gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-surface-container-high border ${isPending ? 'border-[#e53935]/20 bg-[#fef2f2]/50 dark:bg-[#e53935]/5' : 'border-transparent'}`}
+                                        className={`group flex items-start gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-surface-container-high border ${isPending ? 'border-[#e53935]/20 bg-[#e53935]/5' : 'border-transparent'}`}
                                     >
-                                        {/* Time column */}
                                         <div className="min-w-[44px] text-right shrink-0 pt-0.5">
                                             <p className="text-[10px] font-bold text-on-surface leading-tight">{time}</p>
                                         </div>
-                                        {/* Color bar */}
                                         <div className={`w-0.5 self-stretch rounded-full shrink-0 ${isPending ? 'bg-[#e53935]' : isConfirmed ? 'bg-[#00b67a]' : 'bg-outline-variant'}`} />
-                                        {/* Content */}
                                         <div className="flex-1 min-w-0">
                                             <p className={`text-[13px] font-bold truncate ${isPending ? 'text-[#e53935]' : 'text-on-surface'}`}>{act.service_name}</p>
-                                            <p className="text-[11px] text-on-surface-variant truncate">{act.client_name} · {act.stylist_name}</p>
+                                            <p className="text-[11px] text-white/40 truncate">{act.client_name} · {act.stylist_name}</p>
                                             {isPending && (
                                                 <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-[#e53935] mt-1">
                                                     <ShieldAlert className="w-2.5 h-2.5" /> Unconfirmed
@@ -388,14 +400,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
-                            className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col items-center text-center gap-5"
+                            className="bg-surface-container-lowest border border-outline-variant rounded-xl p-8 flex flex-col items-center text-center gap-5"
                         >
                             <div className="w-14 h-14 bg-surface-container-high rounded-2xl flex items-center justify-center">
-                                <Bot className="w-7 h-7 text-on-surface" strokeWidth={1.5} />
+                                <Bot className="w-7 h-7 text-white/60" strokeWidth={1.5} />
                             </div>
                             <div>
                                 <h3 className="text-lg font-bold text-on-surface">AI Receptionist</h3>
-                                <p className="text-sm text-on-surface-variant mt-1.5 max-w-xs mx-auto leading-relaxed">Upgrade to automate bookings and handle calls 24/7 with Bella AI.</p>
+                                <p className="text-sm text-white/40 mt-1.5 max-w-xs mx-auto leading-relaxed">Upgrade to automate bookings and handle calls 24/7 with Bella AI.</p>
                             </div>
                             <button
                                 onClick={() => setActiveTab?.('settings')}
@@ -409,7 +421,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
-                            className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3 flex flex-col gap-3"
+                            className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3 flex flex-col gap-2"
                         >
                             {/* Header */}
                             <div className="flex items-center gap-2">
@@ -418,7 +430,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="text-[12px] font-bold text-on-surface">Bella AI Control Panel</h3>
-                                    <p className="text-[10px] text-on-surface-variant">Virtual Receptionist Status</p>
+                                    <p className="text-[10px] text-white/40">Virtual Receptionist Status</p>
                                 </div>
                                 <button
                                     disabled={aiToggling || aiActive === null}
@@ -436,8 +448,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                         setAiToggling(false);
                                     }}
                                     className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all shrink-0 ${aiActive
-                                        ? 'border-[#e53935]/30 text-[#e53935] bg-[#fef2f2] hover:bg-[#fde8e8] dark:bg-[#e53935]/10 dark:border-[#e53935]/20'
-                                        : 'border-[#00b67a]/30 text-[#00b67a] bg-[#e6f9f2] hover:bg-[#d0f5e7] dark:bg-[#00b67a]/10 dark:border-[#00b67a]/20'
+                                        ? 'border-[#e53935]/30 text-[#e53935] bg-[#e53935]/10 hover:bg-[#e53935]/20'
+                                        : 'border-[#00b67a]/30 text-[#00b67a] bg-[#00b67a]/10 hover:bg-[#00b67a]/20'
                                     } ${aiToggling ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 >
                                     {aiToggling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : aiActive ? <ShieldAlert className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -445,38 +457,39 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                 </button>
                             </div>
 
-                            {/* Status Fields */}
+                            {/* Status Fields — symmetric boxes */}
                             <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-surface-container-high rounded-lg p-2.5 border border-outline-variant">
-                                    <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Receptionist Number</p>
+                                <div className="bg-surface-container-high rounded-xl p-3 border border-outline-variant min-h-[60px] flex flex-col justify-between">
+                                    <p className="text-[9px] font-bold text-white/40 uppercase tracking-wider mb-1.5">Receptionist Number</p>
                                     <div className="flex items-center justify-between gap-1">
                                         <p className="text-[11px] font-bold text-on-surface font-mono truncate">{stats?.twilio_number || '—'}</p>
                                         <button
-                                            className="shrink-0 text-on-surface-variant hover:text-on-surface transition-colors"
+                                            className="shrink-0 text-white/40 hover:text-white transition-colors"
                                             onClick={() => { navigator.clipboard.writeText(stats?.twilio_number || ''); showToast('Copied!'); }}
                                         >
                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                                         </button>
                                     </div>
                                 </div>
-                                <div className={`rounded-lg p-2.5 border ${aiActive ? 'bg-[#e6f9f2]/60 border-[#00b67a]/20' : 'bg-surface-container-high border-outline-variant'}`}>
-                                    <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Active Status</p>
+                                <div className={`rounded-xl p-3 border min-h-[60px] flex flex-col justify-between ${aiActive ? 'bg-[#00b67a]/10 border-[#00b67a]/20' : 'bg-surface-container-high border-outline-variant'}`}>
+                                    <p className="text-[9px] font-bold text-white/40 uppercase tracking-wider mb-1.5">Active Status</p>
                                     <div className="flex items-center gap-1.5">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${aiActive ? 'bg-[#00b67a]' : 'bg-[#e53935]'}`} />
-                                        <p className={`text-[11px] font-bold ${aiActive ? 'text-[#00b67a]' : 'text-on-surface'}`}>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${aiActive ? 'bg-[#00b67a] animate-pulse' : 'bg-[#e53935]'}`} />
+                                        <p className={`text-[11px] font-bold ${aiActive ? 'text-[#00b67a]' : 'text-white/60'}`}>
                                             {aiActive === null ? 'Loading...' : aiActive ? 'Online & Handling Calls' : 'Offline'}
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Quick link to AI settings */}
+                            {/* Manage Settings — clear footer with border-top */}
                             <button
                                 onClick={() => setActiveTab?.('ai')}
-                                className="flex items-center justify-between px-3 py-2 bg-surface-container-high rounded-lg border border-outline-variant hover:bg-surface-container transition-colors"
+                                className="flex items-center justify-between px-3 py-2.5 bg-surface-container-high rounded-xl border border-outline-variant hover:bg-surface-container transition-colors mt-1"
+                                style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
                             >
-                                <span className="text-[11px] font-semibold text-on-surface">Manage Bella AI Settings</span>
-                                <span className="text-[11px] text-on-surface-variant">→</span>
+                                <span className="text-[11px] font-semibold text-white/70">Manage Bella AI Settings</span>
+                                <span className="text-[11px] text-white/40">→</span>
                             </button>
                         </motion.div>
                     )}
@@ -486,22 +499,22 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.6 }}
-                        className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3 flex flex-col gap-2"
+                        className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3 flex flex-col gap-3"
                     >
                         <div className="flex items-center justify-between">
                             <div>
                                 <h3 className="text-[13px] font-bold text-on-surface">Resource Usage</h3>
-                                <p className="text-[10px] text-on-surface-variant mt-0.5">Resets on billing cycle</p>
+                                <p className="text-[10px] text-white/40 mt-0.5">Resets on billing cycle</p>
                             </div>
                             <button
                                 onClick={() => { localStorage.setItem('voxali_settings_tab', 'billing'); setActiveTab?.('settings'); }}
-                                className="text-[10px] font-bold border border-outline-variant rounded-md px-2 py-1 text-on-surface hover:bg-surface-container-high transition-colors"
+                                className="text-[10px] font-bold border border-outline-variant rounded-md px-2 py-1 text-white/60 hover:bg-surface-container-high hover:text-white transition-colors"
                             >
                                 View Billing
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-4">
                             <PremiumUsageBar label="Call Minutes" used={stats?.ai_used ?? 0} limit={totalAiMins} color="#101113" darkColor="#F5F5F7" />
                             <PremiumUsageBar label="SMS Credits"  used={stats?.sms_used ?? 0} limit={totalSms}    color="#101113" darkColor="#F5F5F7" />
                         </div>
@@ -525,33 +538,34 @@ const PremiumUsageBar: React.FC<PremiumUsageBarProps> = ({ label, used, limit, c
     const percent = limit === 0 ? 0 : Math.min(100, Math.max(0, (used / limit) * 100));
     const isDanger = percent >= 100;
     const isWarning = percent > 80 && !isDanger;
-    const barColor = isDanger ? '#e53935' : isWarning ? '#f59e0b' : undefined;
+    const barColor = isDanger ? '#e53935' : isWarning ? '#f59e0b' : '#D4AF37';
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-1.5">
-                <span className="text-[11px] font-semibold text-on-surface">{label}</span>
-                <span className={`text-[11px] font-bold ${isDanger ? 'text-[#e53935]' : isWarning ? 'text-[#f59e0b]' : 'text-on-surface'}`}>
-                    {used.toLocaleString()} <span className="text-on-surface-variant font-normal">/ {limit.toLocaleString()}</span>
+            <div className="flex justify-between items-center mb-2">
+                <span className="text-[12px] font-semibold text-white/70">{label}</span>
+                {/* Bolder usage numbers */}
+                <span className={`text-[12px] font-bold ${isDanger ? 'text-[#e53935]' : isWarning ? 'text-[#f59e0b]' : 'text-white/80'}`}>
+                    {used.toLocaleString()} <span className="text-white/30 font-normal">/ {limit.toLocaleString()}</span>
                 </span>
             </div>
-            <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
+            {/* Thicker progress bar (h-2.5) */}
+            <div className="h-2.5 w-full bg-surface-container-high rounded-full overflow-hidden">
                 <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${percent}%` }}
                     transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
                     className="h-full rounded-full"
-                    style={{ backgroundColor: barColor || 'var(--color-on-surface)' }}
+                    style={{ backgroundColor: barColor }}
                 />
             </div>
-            <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">
+            <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider mt-1.5">
                 {Math.round(percent)}% consumed
             </p>
         </div>
     );
 };
 
-// Keep old UsageBar for compatibility but it won't be used
 interface UsageBarProps {
     label: string;
     used: number;
@@ -565,7 +579,7 @@ const UsageBar: React.FC<UsageBarProps> = ({ label, used, limit, colorClass, hid
     return (
         <div>
             <div className="flex justify-between mb-2">
-                <span className="text-xs text-on-surface-variant">{label}</span>
+                <span className="text-xs text-white/40">{label}</span>
                 <span className="text-xs font-bold text-on-surface">{used} / {limit}</span>
             </div>
             {!hideBar && (
