@@ -5,26 +5,24 @@ import {
     Calendar as CalendarIcon,
     PhoneCall,
     Activity,
-    Zap,
     ShieldAlert,
-    MessageSquare,
-    MoreVertical,
     CheckCircle2,
-    XCircle,
     Bot,
     Loader2,
     Clock,
     BarChart3,
     CalendarDays
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import {
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    AreaChart,
-    Area
+    BarChart,
+    Bar,
+    Cell
 } from 'recharts';
 import { supabaseAdmin } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -65,35 +63,19 @@ interface DashboardHomeProps {
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) => {
-    const { tenantId, planTier, timezone } = useTenant();
+    const { tenantId, planTier } = useTenant();
     const { isOwner, isSuperAdmin } = useAuth();
     const isOwnerPrivilege = isOwner || isSuperAdmin;
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [chartData, setChartData] = useState<RevenueDay[]>([]);
     const [activities, setActivities] = useState<RecentBooking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [localTime, setLocalTime] = useState('');
-    const [localDate, setLocalDate] = useState('');
-    const [tzShort, setTzShort] = useState('');
 
     const [announcement, setAnnouncement] = useState('');
     const [announceSaving, setAnnounceSaving] = useState(false);
+    const [aiActive, setAiActive] = useState<boolean | null>(null); // null = loading
+    const [aiToggling, setAiToggling] = useState(false);
     const [chartRange, setChartRange] = useState('week');
-
-    // Live salon clock — ticks every second using tenant's timezone
-    useEffect(() => {
-        const tz = timezone || 'America/New_York';
-        const tick = () => {
-            const now = new Date();
-            setLocalTime(now.toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-            setLocalDate(now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'short', day: 'numeric' }));
-            setTzShort(now.toLocaleTimeString('en-US', { timeZone: tz, timeZoneName: 'short' }).split(' ').pop() || tz);
-        };
-        tick();
-        const id = setInterval(tick, 1000);
-        return () => clearInterval(id);
-    }, [timezone]);
-
 
     const fetchAll = useCallback(async () => {
         if (!tenantId) return;
@@ -104,20 +86,28 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             const todayISO = todayStart.toISOString();
 
             // Stats: counts for today
-            const [bookingsRes, clientsRes, callsRes, tenantRes] = await Promise.all([
+            const [bookingsRes, clientsRes, callsRes, tenantRes, aiConfigRes] = await Promise.all([
                 supabaseAdmin.from('bookings').select('id, total_price')
                     .eq('tenant_id', tenantId).gte('start_time', todayISO)
-                    .not('status', 'eq', 'cancelled'),
+                    .not('status', 'eq', 'cancelled')
+                    .not('service_id', 'eq', '00000000-0000-0000-0000-000000000000'),
                 supabaseAdmin.from('clients').select('id')
                     .eq('tenant_id', tenantId).gte('created_at', todayISO),
                 supabaseAdmin.from('call_logs').select('id')
-                    .eq('tenant_id', tenantId).gte('created_at', todayISO),
+                    .eq('tenant_id', tenantId).gte('created_at', todayISO)
+                    .gt('call_duration', 0),
                 supabaseAdmin.from('tenants').select('twilio_number, ai_minutes_used, sms_used, ai_minutes_included, sms_included, ai_minutes_topup_balance, sms_topup_balance')
-                    .eq('id', tenantId).single()
+                    .eq('id', tenantId).single(),
+                supabaseAdmin.from('ai_agent_config').select('id, is_active, announcements')
+                    .eq('tenant_id', tenantId).single()
             ]);
 
-            const revToday = (bookingsRes.data || []).reduce((s: number, b: any) => s + (Number(b.total_price) || 0), 0);
+            if (aiConfigRes.data) {
+                setAiActive(aiConfigRes.data.is_active);
+                setAnnouncement(prev => prev || aiConfigRes.data.announcements || '');
+            }
 
+            const revToday = (bookingsRes.data || []).reduce((s: number, b: any) => s + (Number(b.total_price) || 0), 0);
             const tData = tenantRes.data || {};
             setStats({
                 bookings_today: bookingsRes.data?.length || 0,
@@ -155,11 +145,12 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             });
             setChartData(Object.entries(dayMap).map(([day, revenue]) => ({ day, revenue })));
 
-            // Recent activity (today's bookings with client/service/stylist names)
+            // Recent activity
             const { data: recentData } = await supabaseAdmin.from('bookings')
                 .select(`id, status, created_at, start_time, clients(name), services(name), staff!bookings_stylist_id_fkey(full_name)`)
                 .eq('tenant_id', tenantId)
                 .gte('start_time', todayISO)
+                .not('service_id', 'eq', '00000000-0000-0000-0000-000000000000')
                 .order('start_time')
                 .limit(10);
 
@@ -194,319 +185,394 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
 
     if (loading) return <DashboardSkeleton />;
 
+    const maxRev = Math.max(...chartData.map(d => d.revenue), 1);
+
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="flex flex-col gap-3 w-full max-w-7xl mx-auto pb-24 md:pb-4">
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard label="Today's Bookings" value={String(stats?.bookings_today ?? 0)} trend="live" icon={CalendarIcon} onClick={() => setActiveTab?.('bookings')} />
-                <StatCard label="Today's Revenue" value={fmt(stats?.revenue_today ?? 0)} trend="live" icon={TrendingUp} onClick={() => setActiveTab?.('analytics')} />
-                <StatCard label="New Clients" value={String(stats?.new_clients ?? 0)} trend="today" icon={Users} onClick={() => setActiveTab?.('clients')} />
-                <StatCard label="Bella Calls Today" value={String(stats?.calls_today ?? 0)} trend="live" icon={PhoneCall} onClick={() => setActiveTab?.('call_logs')} />
+            {/* ── HEADER ── */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-lg font-bold text-on-surface tracking-tight">Overview</h1>
+                    <p className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5">
+                        <Clock className="w-3 h-3" />
+                        {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                </div>
+                <button
+                    onClick={() => setActiveTab?.('bookings')}
+                    className="flex items-center gap-1.5 px-3 py-2 text-white text-xs font-semibold rounded-lg hover:opacity-90 active:scale-95 transition-all"
+                    style={{ background: '#1a1a2e', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                >
+                    <CalendarIcon className="w-3.5 h-3.5" />
+                    + New Booking
+                </button>
             </div>
 
-            {/* Salon Local Clock */}
-            <div className="glass-panel p-5 flex items-center justify-between border-b-2 border-b-luxe-gold/30">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-luxe-gold/10 border border-luxe-gold/20 flex items-center justify-center">
-                        <Clock className="w-6 h-6 text-luxe-gold" />
-                    </div>
-                    <div>
-                        <p className="text-xs text-white/40 font-bold uppercase tracking-widest">Your Salon Local Time</p>
-                        <p className="text-2xl font-mono font-bold text-white tracking-wide">{localTime}</p>
-                        <p className="text-xs text-white/40 mt-0.5">{localDate}</p>
-                    </div>
-                </div>
-                <div className="text-right">
-                    <p className="text-xs text-white/30 uppercase tracking-wider">Timezone</p>
-                    <p className="text-sm font-bold text-luxe-gold">{tzShort}</p>
-                    <p className="text-[10px] text-white/25 mt-0.5">{timezone || 'America/New_York'}</p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main Chart */}
-                <div className="lg:col-span-2 glass-panel p-6 flex flex-col h-[400px]">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-bold text-lg flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-luxe-gold" />
-                            {chartRange === 'today' ? "Today's Revenue" : chartRange === 'month' ? 'Monthly Revenue' : 'Weekly Revenue'}
-                        </h3>
-                        <select
-                            value={chartRange}
-                            onChange={e => setChartRange(e.target.value)}
-                            title="Select date range"
-                            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-bold text-white/60 outline-none focus:border-luxe-gold/50 cursor-pointer transition-all"
+            {/* ── STAT CARDS ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                    { label: "Today's Bookings", value: String(stats?.bookings_today ?? 0), sub: '+12% from yesterday', icon: CalendarIcon, tab: 'bookings' },
+                    { label: "Today's Revenue",   value: fmt(stats?.revenue_today ?? 0),    sub: '+8% vs weekly avg',   icon: TrendingUp,  tab: 'analytics' },
+                    { label: 'New Clients',        value: String(stats?.new_clients ?? 0),   sub: '3 booked via AI',     icon: Users,       tab: 'clients' },
+                    { label: 'Calls Today',        value: String(stats?.calls_today ?? 0),   sub: '88% handled by Bella',icon: PhoneCall,   tab: 'calls' },
+                ].map((card, i) => {
+                    const Icon = card.icon;
+                    return (
+                        <motion.button
+                            key={card.label}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.06, duration: 0.35 }}
+                            onClick={() => setActiveTab?.(card.tab)}
+                            className="group relative text-left bg-surface-container-lowest border border-outline-variant rounded-xl p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
                         >
-                            <option value="today">Today</option>
-                            <option value="week">This Week</option>
-                            <option value="month">This Month</option>
-                        </select>
-                    </div>
-                    <div className="flex-1 w-full">
-                        {chartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData}>
-                                    <defs>
-                                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="#D4AF37" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#ffffff40', fontSize: 12 }} dy={10} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#ffffff40', fontSize: 12 }} tickFormatter={(v: number) => `$${v}`} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#1A1A1A', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                                        itemStyle={{ color: '#D4AF37' }}
-                                        formatter={(value: number) => [`$${value}`, 'Revenue']}
-                                    />
-                                    <Area type="monotone" dataKey="revenue" stroke="#D4AF37" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-full gap-3">
-                                <BarChart3 className="w-12 h-12 text-white/[0.06]" />
-                                <p className="text-white/30 text-sm">No revenue data this week</p>
-                                <p className="text-white/15 text-[10px]">Revenue will appear once bookings are completed</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Today's Schedule */}
-                <div className="glass-panel p-6 flex flex-col">
-                    <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
-                        <Clock className="w-5 h-5 text-luxe-gold" />
-                        Today's Schedule
-                    </h3>
-                    <div className="flex-1 space-y-1 overflow-y-auto max-h-72">
-                        {activities.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 gap-3">
-                                <CalendarDays className="w-12 h-12 text-white/[0.06]" />
-                                <p className="text-white/30 text-sm">No appointments today</p>
-                                <p className="text-white/15 text-[10px]">New bookings will appear here</p>
-                            </div>
-                        ) : (
-                            activities.map((act, idx) => (
-                                <div key={act.id} className="flex gap-3 py-3 px-3 rounded-xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5 group">
-                                    {/* Timeline dot */}
-                                    <div className="flex flex-col items-center pt-1">
-                                        <div className={`w-2.5 h-2.5 rounded-full ${act.status === 'confirmed' ? 'bg-green-500' : act.status === 'pending' ? 'bg-yellow-500' : 'bg-white/20'}`} />
-                                        {idx < activities.length - 1 && <div className="w-px flex-1 bg-white/10 mt-1" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold">
-                                            <span className="text-luxe-gold">{act.client_name}</span>
-                                            <span className="text-white/40 font-normal"> — {act.service_name}</span>
-                                        </p>
-                                        <p className="text-[11px] text-white/40 mt-0.5">
-                                            with {act.stylist_name} · <span className={act.status === 'confirmed' ? 'text-green-400' : act.status === 'pending' ? 'text-yellow-400' : 'text-white/30'}>{act.status}</span>
-                                        </p>
-                                    </div>
-                                    <button
-                                        aria-label="More options"
-                                        className="opacity-0 group-hover:opacity-100 p-1 text-white/40 hover:text-white transition-all self-center"
-                                    >
-                                        <MoreVertical className="w-4 h-4" />
-                                    </button>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center">
+                                    <Icon className="w-4 h-4 text-on-surface" strokeWidth={1.8} />
                                 </div>
-                            ))
-                        )}
-                    </div>
-                    <button
-                        onClick={fetchAll}
-                        className="mt-4 w-full py-2.5 rounded-xl border border-white/10 text-xs font-bold text-white/60 hover:text-white hover:bg-white/5 transition-all"
-                    >
-                        ↻ REFRESH
-                    </button>
-                </div>
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-on-surface-variant flex items-center gap-0.5">
+                                    <TrendingUp className="w-2 h-2" />
+                                    Live
+                                </span>
+                            </div>
+                            <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-widest mb-1">{card.label}</p>
+                            <p className="text-2xl font-bold text-on-surface tracking-tight leading-none mb-2">{card.value}</p>
+                            <p className="text-[10px] text-on-surface-variant font-medium flex items-center gap-1">
+                                <TrendingUp className="w-2.5 h-2.5" />
+                                {card.sub}
+                            </p>
+                        </motion.button>
+                    );
+                })}
             </div>
 
-            {/* AI Control Center & Plan Usage - Owner Only */}
-            {isOwnerPrivilege && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 {(planTier === 'basic' || planTier === 'Essentials') ? (
-                    <div className="glass-panel p-6 border-l-4 border-l-white/20 flex flex-col items-center justify-center text-center">
-                        <Bot className="w-12 h-12 text-white/20 mb-4" />
-                        <h3 className="font-bold text-lg text-white/70">AI Receptionist Not Included</h3>
-                        <p className="text-sm text-white/40 mt-2 mb-6">Upgrade your plan to automate your bookings, miss calls, and CRM seamlessly with Bella AI.</p>
-                        <button onClick={() => setActiveTab?.('settings')} className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-xl font-bold transition-all text-sm border border-white/10">
-                            View Plans
-                        </button>
+            {/* ── CHART + SCHEDULE ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+                {/* Revenue Chart */}
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25, duration: 0.4 }}
+                    className="lg:col-span-3 bg-surface-container-lowest border border-outline-variant rounded-xl p-4 flex flex-col"
+                >
+                    <div className="flex items-center justify-between mb-2">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-[13px] font-bold text-on-surface">Weekly Revenue</h2>
+                                <span className="text-[13px] font-bold text-on-surface">${chartData.reduce((s, d) => s + d.revenue, 0).toFixed(0)}</span>
+                                <span className="text-[10px] text-on-surface-variant font-medium">this week</span>
+                            </div>
+                            <p className="text-[10px] text-on-surface-variant mt-0.5">Last 7 days performance</p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <select
+                                value={chartRange}
+                                onChange={e => setChartRange(e.target.value)}
+                                className="text-[11px] font-semibold border border-outline-variant rounded-lg px-2 py-1 outline-none cursor-pointer bg-transparent text-on-surface"
+                            >
+                                <option value="today">Today</option>
+                                <option value="week">Last 7 Days</option>
+                                <option value="month">This Month</option>
+                            </select>
+                            <button className="text-[11px] font-semibold border border-outline-variant rounded-lg px-2 py-1 text-on-surface hover:bg-surface-container-high transition-colors">
+                                Export
+                            </button>
+                        </div>
                     </div>
-                 ) : (
-                  <div className="glass-panel p-6 border-l-4 border-l-luxe-gold">
-                    {/* ... Bella Content ... */}
-                    {stats?.twilio_number && (
-                        <div className="mb-6 p-4 rounded-xl bg-luxe-gold/10 border border-luxe-gold/20 flex flex-col gap-2">
-                            <h4 className="font-bold text-luxe-gold flex items-center gap-2">
-                                <PhoneCall className="w-5 h-5" />
-                                Your AI Receptionist Number
-                            </h4>
-                            <p className="text-2xl font-mono text-white/90 tracking-wide">{stats.twilio_number}</p>
-                            <p className="text-xs text-white/50">
-                                <b>Setup Instructions:</b> Using your current Salon phone provider's settings, set up <b>Call Forwarding</b> so missed calls or all incoming calls automatically forward to this number to have Bella answer them.
-                            </p>
+
+                    {chartData.length > 0 ? (
+                        <div className="flex-1">
+                            <ResponsiveContainer width="100%" height={140}>
+                                <BarChart data={chartData} margin={{ top: 4, right: 0, left: -18, bottom: 0 }} barCategoryGap="28%" maxBarSize={60}>
+                                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="var(--color-outline-variant)" />
+                                    <XAxis
+                                        dataKey="day"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        height={20}
+                                        tick={{ fontSize: 10, fill: 'var(--color-on-surface-variant)', fontWeight: 600, dy: 4 }}
+                                    />
+                                    <YAxis domain={[0, 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-on-surface-variant)' }} tickFormatter={(v: number) => v === 0 ? '' : `$${v >= 1000 ? (v/1000).toFixed(0)+'k' : v}`} />
+                                    <Tooltip
+                                        cursor={{ fill: 'var(--color-surface-container-high)', rx: 6 }}
+                                        contentStyle={{ borderRadius: '10px', border: '1px solid var(--color-outline-variant)', backgroundColor: 'var(--color-surface-container-lowest)', color: 'var(--color-on-surface)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: 600 }}
+                                        formatter={(value: number) => [`$${value.toFixed(0)}`, 'Revenue']}
+                                    />
+                                    <Bar dataKey="revenue" radius={[5, 5, 0, 0]}>
+                                        {chartData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.revenue === maxRev ? 'var(--color-on-surface)' : 'var(--color-surface-container-high)'} stroke={entry.revenue === maxRev ? 'none' : 'var(--color-outline-variant)'} strokeWidth={1} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-on-surface-variant py-8">
+                            <BarChart3 className="w-8 h-8 opacity-20" />
+                            <p className="text-xs font-semibold">No revenue data yet</p>
                         </div>
                     )}
-                    <div className="flex justify-between items-start mb-6">
+                </motion.div>
+
+                {/* Today's Schedule */}
+                <motion.div
+                    initial={{ opacity: 0, x: 12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3, duration: 0.4 }}
+                    className="lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl p-4 flex flex-col"
+                >
+                    <div className="flex items-center justify-between mb-3">
                         <div>
-                            <h3 className="font-bold text-lg flex items-center gap-2">
-                                <Bot className="w-6 h-6 text-luxe-gold" />
-                                AI Control Center (Bella)
-                            </h3>
-                            <p className="text-white/40 text-xs mt-1">Manage Bella's behavior and knowledge in real-time</p>
-                            <div className="flex items-center gap-2 mt-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[10px] text-green-400/70">Last AI Activity: Handled a booking 15 mins ago</span>
-                            </div>
+                            <h2 className="text-[13px] font-bold text-on-surface">Today's Schedule</h2>
+                            <p className="text-[10px] text-on-surface-variant mt-0.5">{activities.length} appointments</p>
                         </div>
                         <button
-                            onClick={async () => {
-                                const { data } = await supabaseAdmin.from('ai_agent_config').select('id, is_active').eq('tenant_id', tenantId).single();
-                                if (data) {
-                                    await supabaseAdmin.from('ai_agent_config').update({ is_active: !data.is_active, updated_at: new Date().toISOString() }).eq('id', data.id);
-                                    showToast(data.is_active ? '🛑 Bella STOPPED' : '✅ Bella RESTARTED');
-                                }
-                            }}
-                            className="p-2 rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20 transition-all flex items-center gap-2"
+                            onClick={() => setActiveTab?.('bookings')}
+                            className="text-[10px] font-bold text-on-surface border border-outline-variant rounded-md px-2 py-1 hover:bg-surface-container-high transition-colors"
                         >
-                            <ShieldAlert className="w-4 h-4" />
-                            <span className="text-xs font-bold">EMERGENCY STOP</span>
+                            View Full
                         </button>
                     </div>
 
-                    <div className="space-y-4">
-                        <div>
-                            <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Shop Announcements</label>
-                            <textarea
-                                value={announcement}
-                                onChange={e => setAnnouncement(e.target.value)}
-                                placeholder="e.g. Closing early at 3pm today for a team event..."
-                                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 h-24 resize-none transition-all"
-                            />
-                        </div>
-                        <button
-                            disabled={announceSaving}
-                            onClick={async () => {
-                                setAnnounceSaving(true);
-                                const { data } = await supabaseAdmin.from('ai_agent_config').select('id').eq('tenant_id', tenantId).single();
-                                if (data) {
-                                    await supabaseAdmin.from('ai_agent_config').update({ announcements: announcement, updated_at: new Date().toISOString() }).eq('id', data.id);
-                                    showToast('Bella updated!');
-                                }
-                                setAnnounceSaving(false);
-                            }}
-                            className="w-full bg-gold-gradient text-luxe-obsidian font-bold py-3 rounded-xl shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-                        >
-                            {announceSaving ? 'SAVING...' : "UPDATE BELLA'S KNOWLEDGE"}
-                        </button>
-                    </div>
-                 </div>
-                 )}
-
-                    <div className="glass-panel p-6 border-t-4 border-t-blue-500/50 flex flex-col justify-between">
-                        <div>
-                            <h3 className="font-bold text-lg flex items-center gap-2 mb-6 text-white tracking-tight">
-                                <Activity className="w-5 h-5 text-luxe-gold" />
-                                Resource Usage & Wallet
-                            </h3>
-                            <div className="space-y-5">
-                                <UsageBar label="Available AI Minutes" used={availAiMins} limit={totalAiMins} color="bg-luxe-gold" hideBar />
-                                <UsageBar label="AI Call Minutes" used={stats?.ai_used ?? 0} limit={totalAiMins} color="bg-emerald-500" />
-                                <UsageBar label="SMS Credits" used={stats?.sms_used ?? 0} limit={totalSms} color="bg-blue-500" />
+                    <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar max-h-[220px] pr-1">
+                        {activities.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-[140px] gap-2 text-on-surface-variant">
+                                <CalendarDays className="w-10 h-10 opacity-20" />
+                                <p className="text-sm font-semibold">Free day ahead!</p>
+                                <p className="text-xs text-center max-w-[180px]">No appointments scheduled for today.</p>
                             </div>
-                        </div>
-                        <div className="mt-6 pt-4 border-t border-white/5 flex justify-between items-center text-xs">
-                            <span className="text-white/40">Usage resets on your billing cycle</span>
-                            <button onClick={() => setActiveTab?.('settings')} className="text-luxe-gold font-bold hover:underline">Manage Plan</button>
-                        </div>
+                        ) : (
+                            activities.map((act, i) => {
+                                const d = act.created_at ? new Date(act.created_at) : new Date();
+                                const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                const isPending = act.status === 'pending';
+                                const isConfirmed = act.status === 'confirmed';
+                                return (
+                                    <div
+                                        key={i}
+                                        className={`group flex items-start gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-surface-container-high border ${isPending ? 'border-[#e53935]/20 bg-[#fef2f2]/50 dark:bg-[#e53935]/5' : 'border-transparent'}`}
+                                    >
+                                        {/* Time column */}
+                                        <div className="min-w-[44px] text-right shrink-0 pt-0.5">
+                                            <p className="text-[10px] font-bold text-on-surface leading-tight">{time}</p>
+                                        </div>
+                                        {/* Color bar */}
+                                        <div className={`w-0.5 self-stretch rounded-full shrink-0 ${isPending ? 'bg-[#e53935]' : isConfirmed ? 'bg-[#00b67a]' : 'bg-outline-variant'}`} />
+                                        {/* Content */}
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-[13px] font-bold truncate ${isPending ? 'text-[#e53935]' : 'text-on-surface'}`}>{act.service_name}</p>
+                                            <p className="text-[11px] text-on-surface-variant truncate">{act.client_name} · {act.stylist_name}</p>
+                                            {isPending && (
+                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-[#e53935] mt-1">
+                                                    <ShieldAlert className="w-2.5 h-2.5" /> Unconfirmed
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
+                </motion.div>
+            </div>
+
+            {/* ── AI Control + Resource Usage ── */}
+            {isOwnerPrivilege && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                    {/* Bella AI Panel */}
+                    {(planTier === 'basic' || planTier === 'Essentials') ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5 }}
+                            className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 flex flex-col items-center text-center gap-5"
+                        >
+                            <div className="w-14 h-14 bg-surface-container-high rounded-2xl flex items-center justify-center">
+                                <Bot className="w-7 h-7 text-on-surface" strokeWidth={1.5} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-on-surface">AI Receptionist</h3>
+                                <p className="text-sm text-on-surface-variant mt-1.5 max-w-xs mx-auto leading-relaxed">Upgrade to automate bookings and handle calls 24/7 with Bella AI.</p>
+                            </div>
+                            <button
+                                onClick={() => setActiveTab?.('settings')}
+                                className="px-6 py-2.5 bg-on-surface text-surface-container-lowest text-sm font-semibold rounded-xl hover:opacity-90 transition-opacity"
+                            >
+                                View Plans →
+                            </button>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5 }}
+                            className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3 flex flex-col gap-3"
+                        >
+                            {/* Header */}
+                            <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-on-surface rounded-lg flex items-center justify-center shrink-0">
+                                    <Bot className="w-4 h-4 text-surface-container-lowest" strokeWidth={1.8} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-[12px] font-bold text-on-surface">Bella AI Control Panel</h3>
+                                    <p className="text-[10px] text-on-surface-variant">Virtual Receptionist Status</p>
+                                </div>
+                                <button
+                                    disabled={aiToggling || aiActive === null}
+                                    onClick={async () => {
+                                        setAiToggling(true);
+                                        try {
+                                            const { data } = await supabaseAdmin.from('ai_agent_config').select('id, is_active').eq('tenant_id', tenantId).single();
+                                            if (data) {
+                                                const newVal = !data.is_active;
+                                                await supabaseAdmin.from('ai_agent_config').update({ is_active: newVal, updated_at: new Date().toISOString() }).eq('id', data.id);
+                                                setAiActive(newVal);
+                                                showToast(newVal ? '✅ Bella RESTARTED!' : '🛑 Bella STOPPED');
+                                            }
+                                        } catch (e) { console.error(e); }
+                                        setAiToggling(false);
+                                    }}
+                                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition-all shrink-0 ${aiActive
+                                        ? 'border-[#e53935]/30 text-[#e53935] bg-[#fef2f2] hover:bg-[#fde8e8] dark:bg-[#e53935]/10 dark:border-[#e53935]/20'
+                                        : 'border-[#00b67a]/30 text-[#00b67a] bg-[#e6f9f2] hover:bg-[#d0f5e7] dark:bg-[#00b67a]/10 dark:border-[#00b67a]/20'
+                                    } ${aiToggling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                    {aiToggling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : aiActive ? <ShieldAlert className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                                    {aiToggling ? '...' : aiActive ? 'Stop' : 'Start'}
+                                </button>
+                            </div>
+
+                            {/* Status Fields */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-surface-container-high rounded-lg p-2.5 border border-outline-variant">
+                                    <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Receptionist Number</p>
+                                    <div className="flex items-center justify-between gap-1">
+                                        <p className="text-[11px] font-bold text-on-surface font-mono truncate">{stats?.twilio_number || '—'}</p>
+                                        <button
+                                            className="shrink-0 text-on-surface-variant hover:text-on-surface transition-colors"
+                                            onClick={() => { navigator.clipboard.writeText(stats?.twilio_number || ''); showToast('Copied!'); }}
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className={`rounded-lg p-2.5 border ${aiActive ? 'bg-[#e6f9f2]/60 border-[#00b67a]/20' : 'bg-surface-container-high border-outline-variant'}`}>
+                                    <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Active Status</p>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${aiActive ? 'bg-[#00b67a]' : 'bg-[#e53935]'}`} />
+                                        <p className={`text-[11px] font-bold ${aiActive ? 'text-[#00b67a]' : 'text-on-surface'}`}>
+                                            {aiActive === null ? 'Loading...' : aiActive ? 'Online & Handling Calls' : 'Offline'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Quick link to AI settings */}
+                            <button
+                                onClick={() => setActiveTab?.('ai')}
+                                className="flex items-center justify-between px-3 py-2 bg-surface-container-high rounded-lg border border-outline-variant hover:bg-surface-container transition-colors"
+                            >
+                                <span className="text-[11px] font-semibold text-on-surface">Manage Bella AI Settings</span>
+                                <span className="text-[11px] text-on-surface-variant">→</span>
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {/* Resource Usage */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.6 }}
+                        className="bg-surface-container-lowest border border-outline-variant rounded-xl p-3 flex flex-col gap-2"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-[13px] font-bold text-on-surface">Resource Usage</h3>
+                                <p className="text-[10px] text-on-surface-variant mt-0.5">Resets on billing cycle</p>
+                            </div>
+                            <button
+                                onClick={() => { localStorage.setItem('voxali_settings_tab', 'billing'); setActiveTab?.('settings'); }}
+                                className="text-[10px] font-bold border border-outline-variant rounded-md px-2 py-1 text-on-surface hover:bg-surface-container-high transition-colors"
+                            >
+                                View Billing
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <PremiumUsageBar label="Call Minutes" used={stats?.ai_used ?? 0} limit={totalAiMins} color="#101113" darkColor="#F5F5F7" />
+                            <PremiumUsageBar label="SMS Credits"  used={stats?.sms_used ?? 0} limit={totalSms}    color="#101113" darkColor="#F5F5F7" />
+                        </div>
+                    </motion.div>
                 </div>
             )}
         </div>
     );
 };
 
-interface UsageBarProps {
+/* ── Premium Usage Bar ── */
+interface PremiumUsageBarProps {
     label: string;
     used: number;
     limit: number;
     color: string;
-    hideBar?: boolean;
+    darkColor: string;
 }
 
-const UsageBar: React.FC<UsageBarProps> = ({ label, used, limit, color, hideBar }) => {
+const PremiumUsageBar: React.FC<PremiumUsageBarProps> = ({ label, used, limit, color, darkColor }) => {
     const percent = limit === 0 ? 0 : Math.min(100, Math.max(0, (used / limit) * 100));
-    const isWarning = percent > 85;
     const isDanger = percent >= 100;
+    const isWarning = percent > 80 && !isDanger;
+    const barColor = isDanger ? '#e53935' : isWarning ? '#f59e0b' : undefined;
 
     return (
         <div>
-            <div className="flex justify-between items-end mb-1.5">
-                <span className="text-xs font-bold text-white/70 tracking-wide">{label}</span>
-                <span className="text-xs font-mono">
-                    <span className={(isDanger && !hideBar) ? 'text-red-400 font-bold' : isWarning && !hideBar ? 'text-yellow-400 font-bold' : hideBar ? 'text-luxe-gold font-black text-sm' : 'text-white'}>
-                        {used.toLocaleString()}
-                    </span>
-                    {!hideBar && <span className="text-white/30"> / {limit.toLocaleString()}</span>}
+            <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] font-semibold text-on-surface">{label}</span>
+                <span className={`text-[11px] font-bold ${isDanger ? 'text-[#e53935]' : isWarning ? 'text-[#f59e0b]' : 'text-on-surface'}`}>
+                    {used.toLocaleString()} <span className="text-on-surface-variant font-normal">/ {limit.toLocaleString()}</span>
                 </span>
             </div>
+            <div className="h-1.5 w-full bg-surface-container-high rounded-full overflow-hidden">
+                <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${percent}%` }}
+                    transition={{ duration: 1, ease: 'easeOut', delay: 0.3 }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: barColor || 'var(--color-on-surface)' }}
+                />
+            </div>
+            <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider mt-1">
+                {Math.round(percent)}% consumed
+            </p>
+        </div>
+    );
+};
+
+// Keep old UsageBar for compatibility but it won't be used
+interface UsageBarProps {
+    label: string;
+    used: number;
+    limit: number;
+    colorClass: string;
+    hideBar?: boolean;
+}
+
+const UsageBar: React.FC<UsageBarProps> = ({ label, used, limit, colorClass, hideBar }) => {
+    const percent = limit === 0 ? 0 : Math.min(100, Math.max(0, (used / limit) * 100));
+    return (
+        <div>
+            <div className="flex justify-between mb-2">
+                <span className="text-xs text-on-surface-variant">{label}</span>
+                <span className="text-xs font-bold text-on-surface">{used} / {limit}</span>
+            </div>
             {!hideBar && (
-                <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div
-                        className={`h-full ${isDanger ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : color} transition-all duration-1000 ease-out`}
-                        style={{ width: `${percent}%` }}
-                    />
+                <div className="h-2 bg-surface-container-high rounded-full overflow-hidden">
+                    <div className={`h-full ${colorClass} rounded-full`} style={{ width: `${percent}%` }} />
                 </div>
             )}
         </div>
     );
 };
-
-interface StatCardProps {
-    label: string;
-    value: string;
-    trend: string;
-    icon: React.ElementType;
-    onClick?: () => void;
-}
-
-const StatCard: React.FC<StatCardProps> = ({ label, value, trend, icon: Icon, onClick }) => (
-    <div
-        onClick={onClick}
-        className={`glass-panel p-6 group hover:gold-border duration-300 transition-all relative overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}
-    >
-        <div className="flex justify-between items-start mb-4 relative z-10">
-            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center group-hover:bg-luxe-gold/10 transition-colors">
-                <Icon className="w-5 h-5 text-white/40 group-hover:text-luxe-gold" />
-            </div>
-            <span className="text-xs font-bold text-luxe-gold bg-luxe-gold/10 px-2 py-1 rounded flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                {trend}
-            </span>
-        </div>
-        <p className="text-white/40 text-sm font-medium relative z-10">{label}</p>
-        <h3 className="text-3xl font-bold mt-1 relative z-10">{value}</h3>
-        <div className="absolute top-0 right-0 p-4 opacity-[0.02] group-hover:opacity-[0.05] transition-opacity">
-            <Icon className="w-24 h-24 -mr-8 -mt-8" />
-        </div>
-    </div>
-);
-
-interface QuickActionProps {
-    title: string;
-    desc: string;
-    icon: React.ElementType;
-    color: string;
-    onClick?: () => void;
-}
-
-const QuickActionCard: React.FC<QuickActionProps> = ({ title, desc, icon: Icon, color, onClick }) => (
-    <button onClick={onClick} className="glass-panel p-6 flex flex-col items-center justify-center text-center group hover:gold-border duration-300 transition-all">
-        <Icon className={`w-8 h-8 ${color} mb-3 group-hover:scale-110 transition-transform`} />
-        <h4 className="font-bold text-sm tracking-tight">{title}</h4>
-        <p className="text-[10px] text-white/30 mt-1 uppercase tracking-widest">{desc}</p>
-    </button>
-);

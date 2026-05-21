@@ -23,6 +23,22 @@
   --color-sa-accent-dark: #3B82F6;
   --color-sa-border: rgba(148, 163, 184, 0.1);
   --background-image-sa-gradient: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%);
+
+  /* ── Dark Theme Surface Tokens ── */
+  /* Cards / panels */
+  --color-surface-container-lowest: #161618;
+  /* Inner boxes / elevated surfaces */
+  --color-surface-container-high: #242428;
+  /* Mid-level surfaces */
+  --color-surface-container: #1c1c20;
+  /* Primary text */
+  --color-on-surface: #F0F0F2;
+  /* Muted / secondary text */
+  --color-on-surface-variant: #8a8a96;
+  /* Borders */
+  --color-outline-variant: rgba(255, 255, 255, 0.07);
+  /* Page background */
+  --color-surface: #0D0D0D;
 }
 
 @layer base {
