@@ -21,7 +21,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider, showToast } from './components/ui/ToastNotification'
 import { SuperAdminLayout } from './components/SuperAdmin/SuperAdminLayout'
 import { SessionTimeout } from './components/SessionTimeout'
-import { ArrowLeft, AlertTriangle, LogOut, Loader2, Plus, Clock } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, LogOut, Loader2 } from 'lucide-react'
 
 // ─── Floating "Back to Admin" bar for impersonation ───
 function ImpersonationBar() {
@@ -105,11 +105,38 @@ function DigitalClock() {
     return () => clearInterval(timer)
   }, [])
 
+  const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  const hours = time.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', hour12: false }).padStart(2,'0')
+  const minutes = time.toLocaleString('en-US', { timeZone: tz, minute: '2-digit' }).padStart(2,'0')
+  const seconds = time.toLocaleString('en-US', { timeZone: tz, second: '2-digit' }).padStart(2,'0')
+  const ampm = parseInt(hours) >= 12 ? 'PM' : 'AM'
+  const h12 = parseInt(hours) % 12 || 12
+
   return (
-    <div className="h-9 px-3 flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 rounded-md">
-      <Clock className="w-3.5 h-3.5 text-zinc-400" />
-      <span className="text-xs font-medium text-zinc-300 font-mono">
-        {time.toLocaleTimeString('en-US', { timeZone: timezone || 'America/New_York', hour: '2-digit', minute: '2-digit' })}
+    <div style={{
+      height: 36,
+      padding: '0 12px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      background: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.10)',
+      borderRadius: 10,
+      backdropFilter: 'blur(8px)',
+    }}>
+      {/* Clock dot animation */}
+      <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+        <div style={{ width:3, height:3, borderRadius:'50%', background:'rgba(255,255,255,0.5)', animation:'pulse 2s infinite' }} />
+        <div style={{ width:3, height:3, borderRadius:'50%', background:'rgba(255,255,255,0.25)' }} />
+      </div>
+      <span style={{ fontFamily:'monospace', fontSize:15, fontWeight:700, color:'rgba(255,255,255,0.9)', letterSpacing:1 }}>
+        {String(h12).padStart(2,'0')}:{minutes}
+      </span>
+      <span style={{ fontFamily:'monospace', fontSize:10, fontWeight:600, color:'rgba(255,255,255,0.35)', letterSpacing:0.5 }}>
+        :{seconds}
+      </span>
+      <span style={{ fontSize:9, fontWeight:800, color:'rgba(255,255,255,0.5)', letterSpacing:1, marginLeft:1 }}>
+        {ampm}
       </span>
     </div>
   )
@@ -280,50 +307,89 @@ function AppContent() {
 
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
           <div className="px-6 py-5 max-w-7xl mx-auto">
-            {/* Compact Header */}
-            <header className="flex justify-between items-center mb-5">
+            {/* Floating Premium Header */}
+            <header style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 20,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 16,
+              padding: '10px 16px',
+              backdropFilter: 'blur(12px)',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.25)',
+            }}>
               <div>
                 <h2 className="text-2xl font-bold gold-text">{tabTitles[activeTab] ?? activeTab}</h2>
                 <p className="text-white/40 text-xs mt-0.5">Welcome back to {salonName}</p>
               </div>
 
-              <div className="flex items-center gap-3 h-full">
-                {/* + New Booking */}
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                {/* Walking customer icon-only booking button */}
                 {!isStaff && (
                   <button
                     onClick={() => safeSetActiveTab('bookings')}
-                    className="h-9 px-4 flex items-center gap-1.5 bg-white text-black text-sm font-bold rounded-md hover:bg-white/90 transition-colors"
+                    title="New Booking"
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      background: 'rgba(255,255,255,0.9)',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      flexShrink: 0,
+                    }}
+                    onMouseOver={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.transform = 'scale(1.07)'; }}
+                    onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.9)'; e.currentTarget.style.transform = 'scale(1)'; }}
                   >
-                    <Plus className="w-4 h-4" />
-                    New Booking
+                    {/* Walking customer SVG icon */}
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="4" r="1.5" fill="#111" stroke="none"/>
+                      <path d="M9 9h6l-1 5h-4z"/>
+                      <path d="M8 9l-2 5"/>
+                      <path d="M16 9l2 5"/>
+                      <path d="M10 14l-1.5 5"/>
+                      <path d="M14 14l1.5 5"/>
+                    </svg>
                   </button>
                 )}
 
-                {/* Clock */}
+                {/* Premium Clock */}
                 <DigitalClock />
 
-                {/* AI status pill - generic */}
-                {(!isStaff && planTier !== 'basic' && planTier !== 'Essentials') && (
-                  <div className={`h-9 px-3 flex items-center gap-2 border rounded-md ${
-                    aiStatus === 'paused' ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${aiStatus === 'paused' ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`} />
-                    <span className={`text-xs font-bold tracking-wide ${aiStatus === 'paused' ? 'text-red-400' : 'text-emerald-400'}`}>
-                      Bella AI Receptionist: {aiStatus === 'paused' ? 'Paused' : 'Active'}
-                    </span>
-                  </div>
-                )}
-
-                {/* User avatar + name */}
-                <div className="h-9 pl-1 pr-3 flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-full hover:bg-zinc-700 cursor-pointer transition-colors">
-                  <div className="w-7 h-7 rounded-full bg-white text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
-                    {((isStaff ? (staffRecord?.full_name as string || "S") : ownerName) || "A").charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-xs font-medium text-white truncate max-w-[100px]">
-                    {isStaff
-                      ? (staffRecord?.full_name as string || 'Stylist').split(' ')[0]
-                      : ownerName.split(' ')[0] || 'Admin'}
+                {/* Circular Avatar with gradient */}
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 0 0 2px rgba(139,92,246,0.35), 0 2px 8px rgba(0,0,0,0.3)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    position: 'relative',
+                    transition: 'box-shadow 0.2s',
+                  }}
+                  title={isStaff ? (staffRecord?.full_name as string || 'Stylist') : ownerName || 'Owner'}
+                >
+                  <span style={{ fontSize:15, fontWeight:800, color:'#fff', letterSpacing:0.5 }}>
+                    {((isStaff ? (staffRecord?.full_name as string || 'S') : ownerName) || 'A').charAt(0).toUpperCase()}
                   </span>
+                  {/* Online dot */}
+                  <div style={{
+                    position:'absolute', bottom:1, right:1,
+                    width:9, height:9, borderRadius:'50%',
+                    background:'#22c55e',
+                    border:'2px solid #1a1a2e',
+                  }} />
                 </div>
               </div>
             </header>

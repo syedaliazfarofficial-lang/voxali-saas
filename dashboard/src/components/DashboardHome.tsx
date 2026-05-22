@@ -9,7 +9,6 @@ import {
     CheckCircle2,
     Bot,
     Loader2,
-    Clock,
     BarChart3,
     CalendarDays
 } from 'lucide-react';
@@ -192,10 +191,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-lg font-bold text-on-surface tracking-tight">Overview</h1>
-                    <p className="text-xs text-on-surface-variant flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3" />
-                        {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
                 </div>
             </div>
 
