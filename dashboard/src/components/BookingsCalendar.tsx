@@ -1187,99 +1187,104 @@ export const BookingsCalendar: React.FC = () => {
             {/* Walk-in Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-                    <div className="bg-luxe-obsidian border border-white/10 rounded-2xl p-8 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold flex items-center gap-2">
-                                <UserPlus className="w-6 h-6 text-luxe-gold" />
+                    <div className="bg-luxe-obsidian border border-white/10 rounded-2xl p-5 w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                        {/* Sticky Header */}
+                        <div className="flex justify-between items-center pb-3 border-b border-white/10 flex-shrink-0">
+                            <h3 className="text-base font-bold flex items-center gap-2 text-white">
+                                <UserPlus className="w-5 h-5 text-luxe-gold" />
                                 Add Walk-in Customer
                             </h3>
-                            <button onClick={() => setShowModal(false)} title="Close" className="p-2 hover:bg-white/10 rounded-xl transition-all">
-                                <X className="w-5 h-5" />
+                            <button onClick={() => setShowModal(false)} title="Close" className="p-1.5 hover:bg-white/10 rounded-xl transition-all text-white/50 hover:text-white">
+                                <X className="w-4 h-4" />
                             </button>
                         </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Client Name *</label>
-                                <input
-                                    value={wName} onChange={e => setWName(e.target.value)}
-                                    placeholder="e.g. Jessica Martinez"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
-                                />
+                        {/* Scrollable Form Body */}
+                        <div className="flex-1 overflow-y-auto pr-1 my-3 space-y-4 max-h-[50vh] custom-scrollbar">
+                            {/* Client Details Row (Inline) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider mb-1 block">Client Name *</label>
+                                    <input
+                                        value={wName} onChange={e => setWName(e.target.value)}
+                                        placeholder="Jessica Martinez"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs outline-none focus:border-luxe-gold/50 transition-all text-white placeholder-white/30"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider mb-1 block">Phone Number *</label>
+                                    <input
+                                        value={wPhone} onChange={e => setWPhone(e.target.value)}
+                                        placeholder="+1 555-0101"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs outline-none focus:border-luxe-gold/50 transition-all text-white placeholder-white/30"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2 block">Phone Number *</label>
-                                <input
-                                    value={wPhone} onChange={e => setWPhone(e.target.value)}
-                                    placeholder="+1 555-0101"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
-                                />
-                            </div>
+
                             {/* Service Items Custom Array Mapping */}
-                            <div className="space-y-4 mt-6">
-                                <label className="text-xs font-bold text-white/50 uppercase tracking-wider block border-b border-white/10 pb-2">Requested Services / Guests</label>
+                            <div className="space-y-3 mt-4">
+                                <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider block border-b border-white/10 pb-1">Requested Services / Guests</label>
                                 
                                 {wServiceItems.map((item, index) => (
-                                    <div key={item.id} className="bg-white/5 border border-white/10 rounded-xl p-4 relative group">
+                                    <div key={item.id} className="bg-white/5 border border-white/5 rounded-xl p-3 relative group">
                                         {wServiceItems.length > 1 && (
-                                            <button onClick={() => removeServiceItem(item.id)} title="Remove Service" className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 shadow-xl transition-all">
-                                                <X className="w-3 h-3" />
+                                            <button onClick={() => removeServiceItem(item.id)} title="Remove Service" className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 shadow-xl transition-all">
+                                                <X className="w-2.5 h-2.5" />
                                             </button>
                                         )}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                                        <div className="grid grid-cols-2 gap-3 mb-2">
                                             <div>
-                                                <label className="text-[10px] font-bold text-white/40 uppercase mb-1 block">Service *</label>
+                                                <label className="text-[9px] font-bold text-white/40 uppercase mb-0.5 block">Service *</label>
                                                 <select 
                                                     value={item.serviceId} 
                                                     onChange={e => updateServiceItem(item.id, 'serviceId', e.target.value)} 
                                                     title="Select service"
-                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none focus:border-luxe-gold/50"
+                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white"
                                                 >
                                                     <option value="">Select service...</option>
-                                                    {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${s.price} ({s.duration}m)</option>)}
+                                                    {services.map(s => <option key={s.id} value={s.id}>{s.name} — ${s.price}</option>)}
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-bold text-white/40 uppercase mb-1 block">Stylist *</label>
+                                                <label className="text-[9px] font-bold text-white/40 uppercase mb-0.5 block">Stylist *</label>
                                                 <select 
                                                     value={item.stylistId} 
                                                     onChange={e => updateServiceItem(item.id, 'stylistId', e.target.value)} 
                                                     title="Select stylist"
-                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none focus:border-luxe-gold/50"
+                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white"
                                                 >
                                                     <option value="">Select stylist...</option>
-                                                    {staff.map(s => <option key={s.id} value={s.id}>{s.full_name} ({s.role})</option>)}
+                                                    {staff.map(s => <option key={s.id} value={s.id}>{s.full_name.split(' ')[0]} ({s.role})</option>)}
                                                 </select>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className="text-[10px] font-bold text-white/40 uppercase mb-1 block">Start Time *</label>
+                                                <label className="text-[9px] font-bold text-white/40 uppercase mb-0.5 block">Start *</label>
                                                 <input 
                                                     type="time" 
                                                     value={item.startTime} 
                                                     onChange={e => updateServiceItem(item.id, 'startTime', e.target.value)} 
-                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none focus:border-luxe-gold/50"
+                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-bold text-white/40 uppercase mb-1 block">End Time *</label>
+                                                <label className="text-[9px] font-bold text-white/40 uppercase mb-0.5 block">End *</label>
                                                 <input 
                                                     type="time" 
                                                     value={item.endTime} 
                                                     onChange={e => updateServiceItem(item.id, 'endTime', e.target.value)} 
-                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none focus:border-luxe-gold/50"
+                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white"
                                                 />
                                             </div>
                                         </div>
                                         {/* Optional Guest Name for group bookings */}
-                                        <div className="mt-3">
-                                            <label className="text-[10px] font-bold text-white/40 uppercase mb-1 block">Guest Name (Optional — Group Booking)</label>
+                                        <div className="mt-2">
                                             <input 
                                                 value={item.guestName} 
                                                 onChange={e => updateServiceItem(item.id, 'guestName', e.target.value)} 
-                                                placeholder="e.g. John's friend" 
-                                                className="w-full bg-black/40 border border-white/10 rounded-lg p-2 text-xs outline-none focus:border-luxe-gold/50" 
+                                                placeholder="Guest Name (Optional — Group Booking)" 
+                                                className="w-full bg-black/40 border border-white/5 rounded-lg p-1.5 text-[11px] outline-none focus:border-luxe-gold/50 text-white placeholder-white/20" 
                                             />
                                         </div>
                                     </div>
@@ -1287,37 +1292,34 @@ export const BookingsCalendar: React.FC = () => {
 
                                 <button 
                                     onClick={addServiceItem} 
-                                    className="w-full border border-dashed border-white/20 hover:border-luxe-gold/50 text-white/50 hover:text-luxe-gold rounded-xl p-3 flex justify-center items-center gap-2 transition-all text-xs font-bold uppercase tracking-wider"
+                                    className="w-full border border-dashed border-white/10 hover:border-luxe-gold/30 text-white/45 hover:text-luxe-gold rounded-xl py-2 flex justify-center items-center gap-1.5 transition-all text-[11px] font-bold uppercase tracking-wider"
                                 >
-                                    <Plus className="w-4 h-4" /> Add Another Service / Guest
+                                    <Plus className="w-3.5 h-3.5" /> Add Service / Guest
                                 </button>
                             </div>
-                        </div>
 
-                        <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-4">
-                            <label className="text-xs font-bold text-luxe-gold uppercase tracking-wider mb-3 block">
-                                🔁 Auto-Repeat Appointment
-                            </label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
+                            {/* Auto-Repeat Appointment Box */}
+                            <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 mt-3">
+                                <label className="text-[10px] font-bold text-luxe-gold uppercase tracking-wider mb-2 block">
+                                    🔁 Auto-Repeat Appointment
+                                </label>
+                                <div className="grid grid-cols-2 gap-2">
                                     <select
                                         value={wRecurring} onChange={e => setWRecurring(e.target.value as any)}
                                         title="Repeat Frequency"
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all"
+                                        className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white"
                                     >
-                                        <option value="none">Just Once (Do Not Repeat)</option>
+                                        <option value="none">Do Not Repeat</option>
                                         <option value="weekly">Weekly</option>
                                         <option value="biweekly">Every 2 Weeks</option>
                                         <option value="monthly">Monthly</option>
                                     </select>
-                                </div>
-                                
-                                {wRecurring !== 'none' && (
-                                    <div className="animate-fade-in">
+                                    
+                                    {wRecurring !== 'none' && (
                                         <select
                                             value={wRecurringCount} onChange={e => setWRecurringCount(Number(e.target.value))}
-                                            title="Number of defaults"
-                                            className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 transition-all font-bold text-white"
+                                            title="Number of repeats"
+                                            className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white font-bold"
                                         >
                                             <option value={2}>2 Times Total</option>
                                             <option value={3}>3 Times Total</option>
@@ -1326,19 +1328,22 @@ export const BookingsCalendar: React.FC = () => {
                                             <option value={8}>8 Times Total</option>
                                             <option value={12}>12 Times Total</option>
                                         </select>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        <button
-                            onClick={handleWalkin}
-                            disabled={saving || !isFormValid}
-                            className="w-full mt-6 bg-gold-gradient text-luxe-obsidian font-bold py-3 rounded-xl shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                            {saving ? 'BOOKING...' : 'CONFIRM WALK-IN'}
-                        </button>
+                        {/* Sticky Footer */}
+                        <div className="pt-3 border-t border-white/10 flex-shrink-0">
+                            <button
+                                onClick={handleWalkin}
+                                disabled={saving || !isFormValid}
+                                className="w-full bg-gold-gradient text-luxe-obsidian font-bold py-2.5 rounded-xl shadow-lg shadow-luxe-gold/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs"
+                            >
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                {saving ? 'BOOKING...' : 'CONFIRM WALK-IN'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
