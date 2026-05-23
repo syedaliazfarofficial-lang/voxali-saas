@@ -1186,8 +1186,8 @@ export const BookingsCalendar: React.FC = () => {
 
             {/* Walk-in Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-                    <div className="bg-luxe-obsidian border border-white/10 rounded-2xl p-5 w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-luxe-obsidian border border-white/10 rounded-2xl p-5 w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
                         {/* Sticky Header */}
                         <div className="flex justify-between items-center pb-3 border-b border-white/10 flex-shrink-0">
                             <h3 className="text-base font-bold flex items-center gap-2 text-white">
