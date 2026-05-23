@@ -61,11 +61,11 @@ interface BookingInfo {
 }
 
 export function POSSystem() {
-  const { tenantId, timezone, salonName, logoUrl } = useTenant()
+  const { tenantId, timezone, salonName, logoUrl, taxRate } = useTenant()
   const { user, staffRecord } = useAuth()
   
   // Views
-  const [activeTab, setActiveTab] = useState<'walkin' | 'bookings' | 'retail' | 'packages' | 'giftcards'>('walkin')
+  const [activeTab, setActiveTab] = useState<'walkin' | 'bookings' | 'retail' | 'packages' | 'giftcards'>('bookings')
   
   // Data State
   const [services, setServices] = useState<ServiceInfo[]>([])
@@ -80,7 +80,13 @@ export function POSSystem() {
 
   // Product Management
   const [showAddProductModal, setShowAddProductModal] = useState(false)
-  const [newProduct, setNewProduct] = useState({ name: '', sku: '', price: '', stock: '10' })
+  const [newProduct, setNewProduct] = useState({ name: '', sku: '', price: '', stock: '10', threshold: '5' })
+  // Restock modal
+  const [restockProductId, setRestockProductId] = useState<string | null>(null)
+  const [restockProductName, setRestockProductName] = useState('')
+  const [restockQty, setRestockQty] = useState('')
+  const [restockThreshold, setRestockThreshold] = useState('5')
+  const [isRestocking, setIsRestocking] = useState(false)
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('')
@@ -146,7 +152,7 @@ export function POSSystem() {
           .select('id, name, price, sku, quantity')
           .eq('tenant_id', tenantId)
           .eq('is_active', true)
-        if (data) setProducts(data.map(p => ({ ...p, stock: p.quantity })))
+        if (data) setProducts(data.map(p => ({ ...p, stock: p.quantity, low_stock_threshold: 5 })))
       } else if (activeTab === 'packages') {
         const { data } = await supabase
           .from('client_package_templates')
@@ -157,9 +163,20 @@ export function POSSystem() {
       } else if (activeTab === 'bookings') {
         // Fetch today's confirmed/checked_in bookings
         // Convert 'now' to tenant timezone date
-        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: timezone }) // YYYY-MM-DD
-        const startOfDay = new Date(`${todayStr}T00:00:00`).toISOString()
-        const endOfDay = new Date(`${todayStr}T23:59:59`).toISOString()
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: timezone })
+        const [y, m, d] = todayStr.split('-').map(Number)
+
+        // Get salon's UTC offset correctly (not browser's timezone)
+        const refDate = new Date(Date.UTC(y, m - 1, d, 12, 0, 0))
+        const tzStr = refDate.toLocaleString('en-US', { timeZone: timezone, timeZoneName: 'shortOffset' })
+        const offMatch = tzStr.match(/GMT([+-])(\d+)(?::(\d+))?/)
+        const sign = offMatch?.[1] === '+' ? 1 : -1
+        const offH = parseInt(offMatch?.[2] || '0')
+        const offMins = parseInt(offMatch?.[3] || '0')
+        const offsetMin = sign * (offH * 60 + offMins)
+
+        const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - offsetMin * 60000).toISOString()
+        const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - offsetMin * 60000).toISOString()
 
         const { data } = await supabase
           .from('bookings')
@@ -183,7 +200,7 @@ export function POSSystem() {
             service_names: b.booking_items ? b.booking_items.map((i: any) => i.name_snapshot).join(', ') : 'Service',
             total_price: b.total_price || 0,
             deposit_paid: b.payment_status === 'deposit_paid' ? b.deposit_amount : 0,
-            start_time: new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            start_time: new Date(b.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: timezone }),
             raw_start_time: b.start_time,
             status: b.status,
             stylist_name: b.staff?.full_name || 'Unassigned'
@@ -296,7 +313,7 @@ export function POSSystem() {
   }, 0);
 
   const subtotal = calculateTotal()
-  const tax = taxableSubtotal * 0.08 // 8% placeholder tax
+  const tax = taxableSubtotal * (taxRate ?? 0.08) // from tenant settings
   
   // Recalculate based on total before GC
   const preGFTotal = subtotal + tax + customTip - depositAlreadyPaid;
@@ -357,7 +374,7 @@ export function POSSystem() {
             total_price: subtotal,
             payment_method: paymentMethod,
             payment_status: 'paid',
-            notes: 'POS Walk-in'
+            notes: primaryServiceId === '00000000-0000-0000-0000-000000000000' ? 'POS Retail' : 'POS Walk-in'
           })
           .select('id')
           .single()
@@ -480,27 +497,34 @@ export function POSSystem() {
       // 3. Deduct retail inventory
       const retailItems = cart.filter(c => c.type === 'product')
       for (const item of retailItems) {
-        // Quick decrement via RPC or direct update if concurrency is low
-        const prod = products.find(p => p.id === item.id)
-        if (prod) {
-          const oldStock = prod.stock;
-          const newStock = Math.max(0, prod.stock - item.quantity);
+        // ✅ Fetch LIVE stock from DB — don't use stale React state
+        const { data: freshProd } = await supabase
+          .from('products').select('quantity, name').eq('id', item.id).single();
+        
+        if (freshProd) {
+          const oldStock = freshProd.quantity;
+          const newStock = Math.max(0, oldStock - item.quantity);
           await supabase.from('products').update({ quantity: newStock }).eq('id', item.id);
 
-          // Trigger Low Stock Alert to Owner if it drops to 5 or below for the FIRST time
-          if (oldStock > 5 && newStock <= 5) {
-               await supabase.from('notification_queue').insert({
-                  tenant_id: tenantId,
-                  event_type: 'low_stock_alert',
-                  client_email: 'retail_alert@voxali.net', // Placeholder to satisfy queue structure
-                  client_name: 'Store Manager',
-                  booking_details: {
-                      product_name: prod.name,
-                      remaining_stock: newStock
-                  }
-               });
-               // Instantly trigger dispatch
-               await supabase.functions.invoke('send-notification', { body: {} }).catch(e => console.error(e));
+          console.log(`[Stock] ${freshProd.name}: ${oldStock} → ${newStock}`);
+
+          // ✅ threshold default 5 (until DB column migration is applied)
+          const threshold = 5;
+
+          // ✅ LOW STOCK ALERT: crosses threshold going down (not yet zero)
+          if (oldStock > threshold && newStock <= threshold && newStock > 0) {
+            console.log(`[Alert] Low stock triggered for ${freshProd.name}: ${newStock} units`);
+            supabase.functions.invoke('send-low-balance-alert', {
+              body: { tenant_id: tenantId, alert_type: 'low_stock', product_name: freshProd.name, current_stock: newStock, threshold }
+            }).catch(e => console.warn('Low stock alert error:', e));
+          }
+
+          // ✅ OUT OF STOCK ALERT: always fires when newStock is 0 (regardless of oldStock)
+          if (newStock === 0) {
+            console.log(`[Alert] Out of stock triggered for ${freshProd.name}`);
+            supabase.functions.invoke('send-low-balance-alert', {
+              body: { tenant_id: tenantId, alert_type: 'low_stock', product_name: freshProd.name, current_stock: 0, threshold: 0 }
+            }).catch(e => console.warn('Out of stock alert error:', e));
           }
         }
       }
@@ -566,6 +590,8 @@ export function POSSystem() {
             price: c.price
           })),
           subtotal: subtotal,
+          tax: tax,
+          taxRate: taxRate ?? 0.08,
           tip: customTip,
           total: finalCharge,
           paymentMethod: paymentMethod
@@ -625,26 +651,55 @@ export function POSSystem() {
     if (!tenantId || !newProduct.name || !newProduct.price) return
     setIsProcessing(true)
     try {
-      const { data, error } = await supabase.from('products').insert({
+      const { error } = await supabase.from('products').insert({
         tenant_id: tenantId,
         name: newProduct.name,
         sku: newProduct.sku || null,
         price: parseFloat(newProduct.price),
         quantity: parseInt(newProduct.stock) || 0,
+        low_stock_threshold: parseInt(newProduct.threshold) || 5,
         is_active: true
-      }).select().single()
-      
+      })
       if (error) throw error
-      
       showToast('Product added successfully', 'success')
       setShowAddProductModal(false)
-      setNewProduct({ name: '', sku: '', price: '', stock: '10' })
-      fetchData() // Refresh products list
+      setNewProduct({ name: '', sku: '', price: '', stock: '10', threshold: '5' })
+      fetchData()
     } catch (err: any) {
-      console.error(err)
       showToast('Failed to add product: ' + err.message, 'error')
     }
     setIsProcessing(false)
+  }
+
+  const handleRestock = async () => {
+    if (!restockProductId || !restockQty) return
+    setIsRestocking(true)
+    try {
+      const addQty = parseInt(restockQty) || 0
+      const { data: current } = await supabase.from('products').select('quantity').eq('id', restockProductId).single()
+      const newQty = (current?.quantity || 0) + addQty
+      const { error } = await supabase.from('products').update({
+        quantity: newQty,
+        low_stock_threshold: parseInt(restockThreshold) || 5,
+        is_active: true
+      }).eq('id', restockProductId)
+      if (error) throw error
+      showToast(`✅ Restocked! New stock: ${newQty} units`, 'success')
+      setRestockProductId(null)
+      setRestockQty('')
+      fetchData()
+    } catch (err: any) {
+      showToast('Restock failed: ' + err.message, 'error')
+    }
+    setIsRestocking(false)
+  }
+
+  const handleDeleteProduct = async (productId: string, productName: string) => {
+    if (!window.confirm(`Remove "${productName}" from your product list?`)) return
+    const { error } = await supabase.from('products').update({ is_active: false }).eq('id', productId)
+    if (error) { showToast('Failed to remove product', 'error'); return }
+    showToast(`"${productName}" removed`, 'success')
+    fetchData()
   }
 
   // Filtering
@@ -762,7 +817,7 @@ export function POSSystem() {
                 <span>${subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-white/50">
-                <span>Tax (8%)</span>
+                <span>Tax ({((taxRate ?? 0.08) * 100).toFixed(taxRate && taxRate % 0.01 !== 0 ? 3 : 0)}%)</span>
                 <span>${tax.toFixed(2)}</span>
               </div>
 
@@ -902,41 +957,41 @@ export function POSSystem() {
           ) : (
             <>
               {activeTab === 'bookings' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                   {filteredBookings.length === 0 ? (
                     <p className="text-white/40 col-span-full text-center py-10">No pending checkouts for today.</p>
                   ) : (
                     filteredBookings.map(b => {
                       const isLate = new Date() > new Date(b.raw_start_time) && (b.status === 'confirmed' || b.status === 'pending');
                       return (
-                      <div key={b.id} onClick={() => loadBookingIntoCart(b)} className={`cursor-pointer group p-5 bg-white/5 border rounded-2xl transition-all ${linkedBookingId === b.id ? 'border-luxe-gold box-glow' : isLate ? 'border-red-500/30 bg-red-500/5' : 'border-white/10 hover:border-white/30'}`}>
-                        <div className="flex justify-between items-start mb-3">
+                      <div key={b.id} onClick={() => loadBookingIntoCart(b)} className={`cursor-pointer group p-3.5 bg-white/5 border rounded-xl transition-all ${linkedBookingId === b.id ? 'border-luxe-gold box-glow' : isLate ? 'border-red-500/30 bg-red-500/5' : 'border-white/10 hover:border-white/30'}`}>
+                        <div className="flex justify-between items-start mb-2">
                           <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className={`text-xs font-bold px-2 py-1 rounded-md ${isLate ? 'bg-red-500/20 text-red-400' : 'bg-white/10 text-white/70'}`}>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isLate ? 'bg-red-500/20 text-red-400' : 'bg-white/10 text-white/70'}`}>
                                 {b.start_time} {isLate && ' • LATE'}
                               </span>
                             </div>
-                            <h4 className="text-lg font-bold text-white group-hover:text-luxe-gold transition-colors">{b.client_name}</h4>
-                            {b.stylist_name && <p className="text-xs text-luxe-gold/70 mt-1 uppercase tracking-wider font-bold">Stylist: {b.stylist_name}</p>}
+                            <h4 className="text-sm font-bold text-white group-hover:text-luxe-gold transition-colors">{b.client_name}</h4>
+                            {b.stylist_name && <p className="text-[10px] text-luxe-gold/70 mt-0.5 uppercase tracking-wider font-bold">Stylist: {b.stylist_name}</p>}
                           </div>
                           {b.deposit_paid > 0 && (
-                            <span className="text-xs font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">Paid: ${b.deposit_paid}</span>
+                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">Paid: ${b.deposit_paid}</span>
                           )}
                         </div>
-                        <p className="text-white/50 text-sm mb-4 line-clamp-1">{b.service_names}</p>
+                        <p className="text-white/50 text-xs mb-2.5 line-clamp-1">{b.service_names}</p>
                         <div className="flex items-center justify-between mt-auto">
-                          <span className="font-bold text-lg text-white">${b.total_price.toFixed(2)}</span>
-                          <div className="flex items-center gap-3">
+                          <span className="font-bold text-sm text-white">${b.total_price.toFixed(2)}</span>
+                          <div className="flex items-center gap-2">
                             {(isLate || b.status === 'confirmed' || b.status === 'pending') && (
                               <button 
                                 onClick={(e) => handleMarkNoShow(e, b.id)}
-                                className="px-3 py-1.5 rounded bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500 hover:text-white transition-colors"
+                                className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-[10px] font-bold hover:bg-red-500 hover:text-white transition-colors"
                               >
                                 No-Show
                               </button>
                             )}
-                            <span className="text-luxe-gold text-sm font-semibold group-hover:translate-x-1 transition-transform">Checkout →</span>
+                            <span className="text-luxe-gold text-xs font-semibold group-hover:translate-x-0.5 transition-transform">Checkout →</span>
                           </div>
                         </div>
                       </div>
@@ -946,50 +1001,84 @@ export function POSSystem() {
               )}
 
               {activeTab === 'walkin' && (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                   {filteredServices.map(s => (
-                    <div key={s.id} onClick={() => addToCart(s, 'service')} className="cursor-pointer group p-4 bg-white/5 border border-white/10 rounded-2xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-center flex flex-col h-full">
-                      <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                        <Scissors className="w-5 h-5 text-luxe-gold" />
+                    <div key={s.id} onClick={() => addToCart(s, 'service')} className="cursor-pointer group p-2.5 bg-white/5 border border-white/10 rounded-xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-center flex flex-col h-full">
+                      <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-1.5 group-hover:scale-105 transition-transform">
+                        <Scissors className="w-3.5 h-3.5 text-luxe-gold" />
                       </div>
-                      <h4 className="font-semibold text-white text-sm mb-1">{s.name}</h4>
-                      <p className="text-white/40 text-xs mb-3">{s.duration} min</p>
-                      <div className="mt-auto font-bold text-luxe-gold">${s.price.toFixed(2)}</div>
+                      <h4 className="font-semibold text-white text-xs mb-0.5 line-clamp-1 leading-tight">{s.name}</h4>
+                      <p className="text-white/40 text-[10px] mb-2">{s.duration} min</p>
+                      <div className="mt-auto font-bold text-luxe-gold text-xs">${s.price.toFixed(2)}</div>
                     </div>
                   ))}
                 </div>
               )}
 
               {activeTab === 'retail' && (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {filteredProducts.map(p => (
-                    <div key={p.id} onClick={() => p.stock > 0 && addToCart(p, 'product')} className={`cursor-pointer group p-4 border rounded-2xl transition-all text-center flex flex-col h-full ${p.stock <= 0 ? 'bg-red-500/5 border-red-500/20 opacity-50 cursor-not-allowed' : 'bg-white/5 border-white/10 hover:border-emerald-400 hover:bg-emerald-400/5'}`}>
-                      <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                        <ShoppingBag className={`w-5 h-5 ${p.stock <= 0 ? 'text-red-400' : 'text-emerald-400'}`} />
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                  {filteredProducts.map(p => {
+                    const threshold = p.low_stock_threshold ?? 5;
+                    const isLow = p.stock > 0 && p.stock <= threshold;
+                    const isOut = p.stock <= 0;
+                    return (
+                    <div key={p.id} className={`group relative border rounded-xl transition-all flex flex-col h-full overflow-hidden ${
+                      isOut ? 'bg-red-500/5 border-red-500/20' : isLow ? 'bg-yellow-500/5 border-yellow-500/30' : 'bg-white/5 border-white/10'
+                    }`}>
+                      {/* Clickable area to add to cart */}
+                      <div
+                        onClick={() => !isOut && addToCart(p, 'product')}
+                        className={`p-2.5 text-center flex-1 flex flex-col ${isOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5'} transition-all`}
+                      >
+                        <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <ShoppingBag className={`w-4 h-4 ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-emerald-400'}`} />
+                        </div>
+                        <h4 className="font-semibold text-white text-xs mb-0.5 line-clamp-1 leading-tight">{p.name}</h4>
+                        <p className="text-white/40 text-[9px] mb-2">SKU: {p.sku || 'N/A'}</p>
+                        <div className="mt-auto flex items-center justify-between w-full gap-1">
+                          <span className="font-bold text-white text-xs">${p.price.toFixed(2)}</span>
+                          <span className={`text-[9px] font-bold px-1 py-0.5 rounded truncate max-w-[65px] ${
+                            isOut ? 'bg-red-500/20 text-red-400' : isLow ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/10 text-white/50'
+                          }`}>
+                            {isOut ? 'Out' : `${p.stock}`}
+                          </span>
+                        </div>
+                        {isLow && !isOut && <p className="text-yellow-400/60 text-[8px] mt-0.5">⚠️ Low ({threshold})</p>}
                       </div>
-                      <h4 className="font-semibold text-white text-sm mb-1 line-clamp-2 leading-tight">{p.name}</h4>
-                      <p className="text-white/40 text-xs mb-3">SKU: {p.sku || 'N/A'}</p>
-                      <div className="mt-auto flex items-center justify-between w-full">
-                        <span className="font-bold text-white">${p.price.toFixed(2)}</span>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${p.stock <= 0 ? 'bg-red-500/20 text-red-500' : p.stock < 5 ? 'bg-yellow-500/20 text-yellow-500' : 'bg-white/10 text-white/50'}`}>
-                          {p.stock} in stock
-                        </span>
+                      {/* Action buttons */}
+                      <div className="flex border-t border-white/5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setRestockProductId(p.id); setRestockProductName(p.name); setRestockThreshold(String(threshold)); setRestockQty(''); }}
+                          title="Restock"
+                          className="flex-1 py-1 text-[9px] font-bold text-emerald-400 hover:bg-emerald-400/10 transition-colors flex items-center justify-center gap-0.5 border-r border-white/5"
+                        >
+                          <Plus className="w-2.5 h-2.5" /> Stock
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteProduct(p.id, p.name); }}
+                          title="Remove product"
+                          className="flex-1 py-1 text-[9px] font-bold text-red-400/60 hover:bg-red-400/10 hover:text-red-400 transition-colors flex items-center justify-center gap-0.5"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" /> Delete
+                        </button>
                       </div>
                     </div>
-                  ))}
-                  <div onClick={() => addToCart({ id: 'custom', name: 'Custom Charge', price: 10 }, 'custom')} className="cursor-pointer group p-4 bg-white/5 border-y border-x border-white/10 border-dashed rounded-2xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-center flex items-center justify-center flex-col min-h-[160px]">
-                      <Plus className="w-8 h-8 text-white/40 group-hover:text-luxe-gold mb-2" />
-                      <span className="font-semibold text-white/50 group-hover:text-luxe-gold">Custom Item</span>
+                  )})}
+                  {/* Custom Item */}
+                  <div onClick={() => addToCart({ id: 'custom', name: 'Custom Charge', price: 10 }, 'custom')} className="cursor-pointer group p-2.5 bg-white/5 border-y border-x border-white/10 border-dashed rounded-xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-center flex items-center justify-center flex-col min-h-[110px]">
+                      <Plus className="w-5 h-5 text-white/40 group-hover:text-luxe-gold mb-1" />
+                      <span className="font-semibold text-white/50 group-hover:text-luxe-gold text-xs">Custom</span>
                   </div>
-                  <div onClick={() => setShowAddProductModal(true)} className="cursor-pointer group p-4 bg-emerald-500/5 border border-emerald-500/30 border-dashed rounded-2xl hover:border-emerald-400 hover:bg-emerald-400/10 transition-all text-center flex items-center justify-center flex-col min-h-[160px]">
-                      <Plus className="w-8 h-8 text-emerald-400/50 group-hover:text-emerald-400 mb-2" />
-                      <span className="font-semibold text-emerald-400/70 group-hover:text-emerald-400">Add New Product</span>
+                  {/* Add New Product */}
+                  <div onClick={() => setShowAddProductModal(true)} className="cursor-pointer group p-2.5 bg-emerald-500/5 border border-emerald-500/30 border-dashed rounded-xl hover:border-emerald-400 hover:bg-emerald-400/10 transition-all text-center flex items-center justify-center flex-col min-h-[110px]">
+                      <Plus className="w-5 h-5 text-emerald-400/50 group-hover:text-emerald-400 mb-1" />
+                      <span className="font-semibold text-emerald-400/70 group-hover:text-emerald-400 text-xs">New Prod</span>
                   </div>
                 </div>
               )}
 
               {activeTab === 'packages' && (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                   {filteredPackages.length === 0 ? (
                     <div className="col-span-full py-12 text-center text-white/40">
                       <PackageIcon className="w-12 h-12 text-white/20 mx-auto mb-4" />
@@ -998,15 +1087,15 @@ export function POSSystem() {
                     </div>
                   ) : (
                     filteredPackages.map(p => (
-                      <div key={p.id} onClick={() => addToCart(p, 'package')} className="cursor-pointer group p-5 bg-gradient-to-br from-white/5 to-transparent border border-white/10 rounded-2xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-left flex flex-col h-full h-min-[140px]">
-                        <div className="flex justify-between items-start mb-2">
-                          <PackageIcon className="w-6 h-6 text-luxe-gold group-hover:scale-110 transition-transform" />
-                          <span className="text-xs font-bold bg-white/10 px-2 py-0.5 rounded text-white/70">{p.total_uses} credits</span>
+                      <div key={p.id} onClick={() => addToCart(p, 'package')} className="cursor-pointer group p-3 bg-gradient-to-br from-white/5 to-transparent border border-white/10 rounded-xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-left flex flex-col h-full min-h-[110px]">
+                        <div className="flex justify-between items-start mb-1.5">
+                          <PackageIcon className="w-4 h-4 text-luxe-gold group-hover:scale-105 transition-transform" />
+                          <span className="text-[9px] font-bold bg-white/10 px-1 py-0.5 rounded text-white/70">{p.total_uses} cr</span>
                         </div>
-                        <h4 className="font-bold text-white text-md mb-3 min-h-[44px]">{p.name}</h4>
-                        <div className="mt-auto flex items-end justify-between w-full">
-                          <span className="font-black text-luxe-gold text-lg">${p.price.toFixed(2)}</span>
-                          <span className="text-xs text-white/30 font-medium">Auto-Issue →</span>
+                        <h4 className="font-bold text-white text-xs mb-2 line-clamp-2 leading-tight">{p.name}</h4>
+                        <div className="mt-auto flex items-end justify-between w-full gap-1">
+                          <span className="font-black text-luxe-gold text-xs">${p.price.toFixed(2)}</span>
+                          <span className="text-[9px] text-white/30 font-medium">Issue →</span>
                         </div>
                       </div>
                     ))
@@ -1083,14 +1172,18 @@ export function POSSystem() {
                 <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Product Name <span className="text-red-400">*</span></label>
                 <input required type="text" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-400" placeholder="e.g. Olaplex No. 7" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Price ($) <span className="text-red-400">*</span></label>
-                  <input required type="number" step="0.01" min="0" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-400" placeholder="30.00" />
+                  <input required type="number" step="0.01" min="0" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-emerald-400" placeholder="30.00" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Initial Stock</label>
-                  <input type="number" min="0" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-400" placeholder="10" />
+                  <input type="number" min="0" value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-emerald-400" placeholder="10" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-yellow-400/70 uppercase tracking-wider mb-2">⚠️ Alert Below</label>
+                  <input type="number" min="0" value={newProduct.threshold} onChange={e => setNewProduct({...newProduct, threshold: e.target.value})} className="w-full bg-black/40 border border-yellow-400/20 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-yellow-400" placeholder="5" />
                 </div>
               </div>
               <div>
@@ -1101,6 +1194,52 @@ export function POSSystem() {
                 {isProcessing ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : "Save Product"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+      {/* RESTOCK MODAL */}
+      {restockProductId && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-[#1A1A1A] border border-emerald-500/30 p-8 rounded-2xl max-w-sm w-full shadow-2xl relative">
+            <button onClick={() => setRestockProductId(null)} className="absolute top-6 right-6 text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
+            <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-3">
+              <ShoppingBag className="w-5 h-5 text-emerald-400" />
+              Restock Product
+            </h2>
+            <p className="text-white/40 text-sm mb-6">{restockProductName}</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Units to Add <span className="text-red-400">*</span></label>
+                <input
+                  autoFocus type="number" min="1" value={restockQty}
+                  onChange={e => setRestockQty(e.target.value)}
+                  className="w-full bg-black/40 border border-emerald-400/30 rounded-xl px-4 py-3 text-white text-xl font-bold focus:outline-none focus:border-emerald-400"
+                  placeholder="e.g. 20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-yellow-400/70 uppercase tracking-wider mb-2">⚠️ Send Alert Email When Below</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number" min="0" value={restockThreshold}
+                    onChange={e => setRestockThreshold(e.target.value)}
+                    className="w-full bg-black/40 border border-yellow-400/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-yellow-400"
+                    placeholder="5"
+                  />
+                  <span className="text-white/30 text-sm whitespace-nowrap">units</span>
+                </div>
+                <p className="text-white/30 text-xs mt-1">Email alert goes to your owner notification email</p>
+              </div>
+              <button
+                onClick={handleRestock}
+                disabled={isRestocking || !restockQty}
+                className="w-full py-3 rounded-xl bg-emerald-500 text-white font-bold hover:bg-emerald-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {isRestocking
+                  ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  : <><Plus className="w-4 h-4" /> Confirm Restock</>}
+              </button>
+            </div>
           </div>
         </div>
       )}
