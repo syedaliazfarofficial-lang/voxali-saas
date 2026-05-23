@@ -127,6 +127,53 @@ export const BookingsCalendar: React.FC = () => {
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+
+    const [currentHour, setCurrentHour] = useState<number | null>(null);
+
+    const openBookingFor = (stylistId: string, time24h: string) => {
+        const padHour = (t: string) => {
+            const [h, m] = t.split(':');
+            return `${h.padStart(2, '0')}:${m}`;
+        };
+        const paddedTime = padHour(time24h);
+        
+        setShowModal(true);
+        setWServiceItems([
+            { id: 'initial-1', serviceId: '', stylistId: stylistId, startTime: paddedTime, endTime: '', guestName: '' }
+        ]);
+    };
+
+    useEffect(() => {
+        if (viewMode !== 'today' || dateOffset !== 0) {
+            setCurrentHour(null);
+            return;
+        }
+
+        const updateTime = () => {
+            const tz = timezone || 'America/New_York';
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: tz,
+                hour: 'numeric',
+                minute: 'numeric',
+                hour12: false
+            }).formatToParts(new Date());
+
+            const h = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+            const m = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+            const decimalHour = h + m / 60;
+            
+            // Only show if within our slot range (8:00 to 21:00)
+            if (decimalHour >= 8 && decimalHour <= 21) {
+                setCurrentHour(decimalHour);
+            } else {
+                setCurrentHour(null);
+            }
+        };
+
+        updateTime();
+        const interval = setInterval(updateTime, 60000); // update every minute
+        return () => clearInterval(interval);
+    }, [viewMode, dateOffset, timezone]);
     
     // Get current time in salon's timezone
     const getSalonTime = () => {
@@ -896,26 +943,54 @@ export const BookingsCalendar: React.FC = () => {
                     {/* Scrollable Grid */}
                     <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
                         <div className="relative" style={{ gridTemplateColumns: `80px repeat(${displayStaff.length}, 1fr)`, display: 'grid' }}>
+                            {/* Current Time Indicator Line */}
+                            {currentHour !== null && (
+                                <div 
+                                    className="absolute left-[80px] right-0 border-t-2 border-luxe-gold z-20 pointer-events-none flex items-center"
+                                    style={{ 
+                                        top: `${(currentHour - 8) * 80}px`,
+                                    }}
+                                >
+                                    <div className="w-2.5 h-2.5 rounded-full bg-luxe-gold -ml-1 shadow-[0_0_10px_#D4AF37]" />
+                                </div>
+                            )}
+
                             <div className="flex flex-col">
-                                {timeSlots.map(time => (
-                                    <div key={time} className="h-20 border-r border-b border-white/5 flex items-start justify-center pt-2">
-                                        <span className="text-[10px] font-bold text-white/20 uppercase tracking-tighter">{time}</span>
-                                    </div>
-                                ))}
+                                {timeSlots.map(time => {
+                                    const formatTime12h = (t: string) => {
+                                        const [h] = t.split(':').map(Number);
+                                        const ampm = h >= 12 ? 'PM' : 'AM';
+                                        const h12 = h % 12 || 12;
+                                        return `${h12}:00 ${ampm}`;
+                                    };
+                                    return (
+                                        <div key={time} className="h-20 border-r border-b border-white/5 flex items-start justify-center pt-2 bg-white/[0.01]">
+                                            <span className="text-[9px] font-black text-white/35 uppercase tracking-wider">{formatTime12h(time)}</span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                             {displayStaff.map(s => (
                                 <div key={s.id} className="relative border-r border-white/5 min-h-full">
                                     {timeSlots.map(time => (
-                                        <div key={time} className="h-20 border-b border-white/5 w-full pointer-events-none" />
+                                        <div 
+                                            key={time} 
+                                            onClick={() => openBookingFor(s.id, time)}
+                                            className="h-20 border-b border-white/5 w-full hover:bg-white/[0.03] transition-all cursor-pointer flex items-center justify-center group/cell relative"
+                                            title={`Click to book at ${time} with ${s.full_name.split(' ')[0]}`}
+                                        >
+                                            <Plus className="w-3.5 h-3.5 text-white/0 group-hover/cell:text-luxe-gold/30 group-hover/cell:scale-110 transition-all pointer-events-none" />
+                                        </div>
                                     ))}
                                     {filteredBookings.filter(b => b.stylist_id === s.id).map(b => {
                                         const colors = statusColors[b.status] || statusColors.pending;
                                         const isCancelled = b.status === 'cancelled';
+                                        const isConfirmed = b.status === 'confirmed';
                                         return (
                                             <div
                                                 key={b.id}
                                                 onClick={() => setSelectedBooking(b)}
-                                                className={`absolute left-1 right-1 rounded-xl p-3 border shadow-2xl transition-all hover:scale-[1.02] cursor-pointer group z-10 ${colors.bg} ${colors.text} ${colors.border} ${isCancelled ? 'opacity-45 line-through' : ''}`}
+                                                className={`absolute left-1.5 right-1.5 rounded-xl p-3 border shadow-2xl transition-all duration-300 ease-out hover:scale-[1.02] cursor-pointer group z-10 ${colors.bg} ${colors.text} ${colors.border} ${isCancelled ? 'opacity-45 line-through' : ''} ${isConfirmed ? 'hover:shadow-[0_0_15px_rgba(212,175,55,0.35)]' : 'hover:shadow-lg'}`}
                                                 style={{
                                                     top: `${(b.start_hour - 8) * 80}px`,
                                                     height: `${Math.max(b.duration_hours * 80, 40)}px`
