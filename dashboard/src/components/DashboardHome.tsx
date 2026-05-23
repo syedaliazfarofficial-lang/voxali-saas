@@ -299,11 +299,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                         borderRadius: '10px',
                                         border: '1px solid rgba(255,255,255,0.1)',
                                         backgroundColor: '#1c1c20',
-                                        color: '#F0F0F2',
                                         boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                                         fontSize: '11px',
-                                        fontWeight: 600
+                                        fontWeight: 600,
+                                        padding: '6px 10px'
                                     }}
+                                    labelStyle={{ color: '#ffffff', fontWeight: 700 }}
+                                    itemStyle={{ color: '#ffffff', padding: 0 }}
                                     formatter={(value: number) => [`$${value.toFixed(0)}`, 'Revenue']}
                                 />
                                 <Bar dataKey="revenue" radius={[5, 5, 0, 0]} minPointSize={3}>
