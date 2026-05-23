@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
     Plus, Clock, Scissors, Loader2, X, UserPlus, UserX,
-    Calendar as CalendarIcon, ChevronLeft, ChevronRight, XCircle, CreditCard, Banknote, AlertTriangle
+    Calendar as CalendarIcon, ChevronLeft, ChevronRight, XCircle, CreditCard, Banknote, AlertTriangle,
+    Search, MoreHorizontal
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -9,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { showToast } from './ui/ToastNotification';
 import { CalendarSkeleton } from './ui/Skeleton';
 
-interface Staff { id: string; full_name: string; role: string; color: string; }
+interface Staff { id: string; full_name: string; role: string; color: string; photo_url?: string | null; }
 interface Service { id: string; name: string; duration: number; price: number; }
 interface Booking {
     id: string; stylist_id: string; client_id: string; client_name: string; service_name: string;
@@ -112,6 +113,20 @@ export const BookingsCalendar: React.FC = () => {
     // Walk-in form
     const [wName, setWName] = useState('');
     const [wPhone, setWPhone] = useState('');
+    const [search, setSearch] = useState('');
+    const [showActionsMenu, setShowActionsMenu] = useState(false);
+    const actionsMenuRef = useRef<HTMLDivElement>(null);
+
+    // Close actions menu on click outside
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+                setShowActionsMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
     
     // Get current time in salon's timezone
     const getSalonTime = () => {
@@ -145,7 +160,7 @@ export const BookingsCalendar: React.FC = () => {
 
         // Fetch staff
         const { data: staffData } = await supabase
-            .from('staff').select('id, full_name, role, color')
+            .from('staff').select('id, full_name, role, color, photo_url')
             .eq('tenant_id', tenantId).eq('is_active', true).order('created_at');
 
         // Fetch services
@@ -703,8 +718,18 @@ export const BookingsCalendar: React.FC = () => {
         }
     };
 
+    // Filter bookings by client name or service name
+    const filteredBookings = bookings.filter(b => 
+        (b.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
+        (b.service_name || '').toLowerCase().includes(search.toLowerCase())
+    );
+
+    const totalBookings = bookings.length;
+    const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length;
+    const pendingBookings = bookings.filter(b => b.status === 'pending' || b.status === 'pending_deposit').length;
+
     // Group bookings by date for list view
-    const bookingsByDate = bookings.reduce<Record<string, Booking[]>>((acc, b) => {
+    const bookingsByDate = filteredBookings.reduce<Record<string, Booking[]>>((acc, b) => {
         const key = b.date_label;
         if (!acc[key]) acc[key] = [];
         acc[key].push(b);
@@ -724,8 +749,85 @@ export const BookingsCalendar: React.FC = () => {
         <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 overflow-hidden">
 
 
-            {/* Header with View Tabs */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-2">
+                {/* Left Side: Icon + Title + Unified Capsule Inline */}
+                <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap min-w-0">
+                    <div className="flex items-center gap-2.5 flex-shrink-0">
+                        <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
+                            <CalendarIcon className="w-5 h-5 text-luxe-gold" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold whitespace-nowrap text-white">Bookings Calendar</h3>
+                            <p className="text-[9px] text-white/40 uppercase tracking-widest whitespace-nowrap">Schedule & Appointments</p>
+                        </div>
+                    </div>
+                    
+                    {/* Unified Premium Stats Capsule */}
+                    <div className="flex items-center gap-3.5 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs text-white/50 flex-shrink-0">
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">Bookings</span>
+                            <span className="font-bold text-white">{totalBookings}</span>
+                        </div>
+                        <div className="h-3 w-[1px] bg-white/10" />
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">Confirmed</span>
+                            <span className="font-bold text-emerald-400">{confirmedBookings}</span>
+                        </div>
+                        <div className="h-3 w-[1px] bg-white/10" />
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">Pending</span>
+                            <span className="font-bold text-yellow-400">{pendingBookings}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Right Side: Search + Add Walk-in + Action Menu */}
+                <div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto justify-end">
+                    <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                        <input
+                            type="text" placeholder="Search bookings..." value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="bg-white/5 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-xs outline-none focus:border-white/20 w-44 transition-all text-white placeholder-white/30"
+                        />
+                    </div>
+                    
+                    {!isStaff && (
+                        <button
+                            onClick={() => setShowModal(true)}
+                            className="bg-gold-gradient text-luxe-obsidian px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-white/90 active:scale-[0.98] transition-all whitespace-nowrap"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            ADD WALK-IN
+                        </button>
+                    )}
+
+                    {/* More Actions Dropdown (3-dots) */}
+                    <div className="relative" ref={actionsMenuRef}>
+                        <button
+                            onClick={() => setShowActionsMenu(!showActionsMenu)}
+                            className="p-1.5 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all flex items-center justify-center"
+                        >
+                            <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                        
+                        {showActionsMenu && (
+                            <div className="absolute right-0 top-full mt-2 w-44 bg-luxe-obsidian border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                <button
+                                    onClick={() => { setShowActionsMenu(false); fetchData(true); }}
+                                    className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-2 hover:bg-white/5 text-white/80 transition-colors"
+                                >
+                                    <Clock className="w-3.5 h-3.5 text-luxe-gold" /> Refresh Calendar
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Sub-Header Calendar Navigation Bar */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/[0.02] border border-white/5 p-3 rounded-2xl">
                 <div className="flex items-center gap-3">
                     {/* View Mode Tabs */}
                     <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10">
@@ -742,16 +844,6 @@ export const BookingsCalendar: React.FC = () => {
                             </button>
                         ))}
                     </div>
-                    {pendingRefunds.length > 0 && (
-                        <button
-                            onClick={() => setShowPendingRefunds(true)}
-                            className="bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold px-4 py-2 rounded-xl text-xs uppercase hover:bg-amber-500/20 transition-all flex items-center gap-2 animate-pulse shadow-[0_0_15px_rgba(251,191,36,0.2)]"
-                            title="Action Required: Pending Refunds"
-                        >
-                            <AlertTriangle className="w-4 h-4" />
-                            {pendingRefunds.length} PENDING REFUND{pendingRefunds.length !== 1 ? 'S' : ''}
-                        </button>
-                    )}
                     {/* Date Navigation */}
                     <div className="flex items-center gap-2">
                         <button
@@ -778,20 +870,19 @@ export const BookingsCalendar: React.FC = () => {
                         </button>
                     </div>
                     {/* Date Label */}
-                    <span className="text-sm text-white/40 font-medium hidden md:block">{rangeLabel}</span>
+                    <span className="text-sm text-white/80 font-bold hidden md:block">{rangeLabel}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                    {/* Walk-in button: hidden for staff */}
-                    {!isStaff && (
-                        <button
-                            onClick={() => setShowModal(true)}
-                            className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                        >
-                            <Plus className="w-5 h-5" />
-                            <span className="text-sm">ADD WALK-IN</span>
-                        </button>
-                    )}
-                </div>
+                
+                {pendingRefunds.length > 0 && (
+                    <button
+                        onClick={() => setShowPendingRefunds(true)}
+                        className="bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold px-4 py-2 rounded-xl text-xs uppercase hover:bg-amber-500/20 transition-all flex items-center gap-2 animate-pulse shadow-[0_0_15px_rgba(251,191,36,0.2)] w-full sm:w-auto justify-center"
+                        title="Action Required: Pending Refunds"
+                    >
+                        <AlertTriangle className="w-4 h-4" />
+                        {pendingRefunds.length} PENDING REFUND{pendingRefunds.length !== 1 ? 'S' : ''}
+                    </button>
+                )}
             </div>
 
             {/* Calendar Grid (Today View) */}
@@ -803,9 +894,13 @@ export const BookingsCalendar: React.FC = () => {
                             <Clock className="w-4 h-4 text-white/20" />
                         </div>
                         {displayStaff.map(s => (
-                            <div key={s.id} className="p-4 border-r border-white/5 flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold" style={{ color: s.color }}>
-                                    {s.full_name.charAt(0)}
+                            <div key={s.id} className="p-4 border-r border-white/5 flex flex-col items-center justify-center text-center gap-2">
+                                <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold overflow-hidden" style={{ color: s.color, borderColor: s.color || 'rgba(255,255,255,0.1)' }}>
+                                    {s.photo_url ? (
+                                        <img src={s.photo_url} alt={s.full_name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        s.full_name.charAt(0)
+                                    )}
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-xs font-bold truncate">{s.full_name.split(' ')[0]}</p>
@@ -830,7 +925,7 @@ export const BookingsCalendar: React.FC = () => {
                                     {timeSlots.map(time => (
                                         <div key={time} className="h-20 border-b border-white/5 w-full pointer-events-none" />
                                     ))}
-                                    {bookings.filter(b => b.stylist_id === s.id).map(b => {
+                                    {filteredBookings.filter(b => b.stylist_id === s.id).map(b => {
                                         const colors = statusColors[b.status] || statusColors.pending;
                                         const isCancelled = b.status === 'cancelled';
                                         return (
@@ -915,10 +1010,14 @@ export const BookingsCalendar: React.FC = () => {
                                                 {/* Stylist */}
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <div
-                                                        className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-bold"
-                                                        style={{ color: stylist?.color || '#999' }}
+                                                        className="w-7 h-7 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-[10px] font-bold"
+                                                        style={{ color: stylist?.color || '#999', borderColor: stylist?.color || 'rgba(255,255,255,0.1)' }}
                                                     >
-                                                        {stylist?.full_name?.charAt(0) || '?'}
+                                                        {stylist?.photo_url ? (
+                                                            <img src={stylist.photo_url} alt={stylist.full_name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            stylist?.full_name?.charAt(0) || '?'
+                                                        )}
                                                     </div>
                                                     <span className="text-xs text-white/40 hidden lg:block">{stylist?.full_name?.split(' ')[0] || '—'}</span>
                                                 </div>
