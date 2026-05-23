@@ -3,14 +3,14 @@
 @theme {
   --color-luxe-obsidian: #0D0D0D;
   --color-luxe-obsidian-light: #1A1A1A;
-  --color-luxe-gold: #D4AF37;
-  --color-luxe-gold-muted: rgba(212, 175, 55, 0.1);
+  --color-luxe-gold: #ffffff;
+  --color-luxe-gold-muted: rgba(255, 255, 255, 0.1);
   --color-luxe-white: #F5F5F7;
   --color-luxe-glass: rgba(255, 255, 255, 0.03);
 
   --font-sans: 'Outfit', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
-  --background-image-gold-gradient: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+  --background-image-gold-gradient: linear-gradient(135deg, #ffffff 0%, #e5e5e7 100%);
 
   /* Super Admin Theme */
   --color-sa-midnight: #0B1120;
@@ -85,7 +85,7 @@
   }
 
   select option:checked {
-    background-color: rgba(212, 175, 55, 0.3);
+    background-color: rgba(255, 255, 255, 0.15);
   }
 
   select option:hover {
