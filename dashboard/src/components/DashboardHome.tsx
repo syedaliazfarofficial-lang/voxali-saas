@@ -10,7 +10,8 @@ import {
     Bot,
     Loader2,
     BarChart3,
-    CalendarDays
+    CalendarDays,
+    Clock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
@@ -63,7 +64,7 @@ interface DashboardHomeProps {
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) => {
-    const { tenantId, planTier } = useTenant();
+    const { tenantId, planTier, timezone } = useTenant();
     const { isOwner, isSuperAdmin } = useAuth();
     const isOwnerPrivilege = isOwner || isSuperAdmin;
     const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -76,6 +77,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
     const [aiActive, setAiActive] = useState<boolean | null>(null);
     const [aiToggling, setAiToggling] = useState(false);
     const [chartRange, setChartRange] = useState('week');
+    const [liveTime, setLiveTime] = useState(new Date());
+
+    // Live clock — updates every second
+    useEffect(() => {
+        const timer = setInterval(() => setLiveTime(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     const fetchAll = useCallback(async () => {
         if (!tenantId) return;
@@ -191,6 +199,33 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-lg font-bold text-on-surface tracking-tight">Overview</h1>
+                </div>
+                {/* Live Date & Time */}
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                        <CalendarIcon className="w-3.5 h-3.5 text-luxe-gold" strokeWidth={2} />
+                        <span className="text-[11px] font-semibold text-white/80">
+                            {liveTime.toLocaleDateString('en-US', {
+                                timeZone: timezone || 'America/New_York',
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                            })}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                        <Clock className="w-3.5 h-3.5 text-luxe-gold" strokeWidth={2} />
+                        <span className="text-[11px] font-bold text-white tabular-nums">
+                            {liveTime.toLocaleTimeString('en-US', {
+                                timeZone: timezone || 'America/New_York',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                            })}
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -481,7 +516,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
 
                             {/* Manage Settings — clear footer with border-top */}
                             <button
-                                onClick={() => setActiveTab?.('ai')}
+                                onClick={() => setActiveTab?.('bella')}
                                 className="flex items-center justify-between px-3 py-2.5 bg-surface-container-high rounded-xl border border-outline-variant hover:bg-surface-container transition-colors mt-1"
                                 style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
                             >

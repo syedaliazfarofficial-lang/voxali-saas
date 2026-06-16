@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useTenant } from '../context/TenantContext'
 import { useAuth } from '../context/AuthContext'
 import { showToast } from './ui/ToastNotification'
 import {
   CreditCard, Banknote, ShoppingBag, Scissors, CalendarCheck,
-  Search, Plus, Minus, Trash2, X, CheckCircle, SplitSquareVertical, Receipt, Gift
+  Search, Plus, Minus, Trash2, X, CheckCircle, SplitSquareVertical, Receipt, Gift,
+  MoreHorizontal, Clock, User, ChevronRight, Check
 } from 'lucide-react'
 import { generateReceiptPDF } from '../utils/receiptGenerator'
 
@@ -115,6 +116,21 @@ export function POSSystem() {
   const [terminalStatus, setTerminalStatus] = useState<'idle' | 'connecting' | 'waiting' | 'success'>('idle')
   const [cashAmount, setCashAmount] = useState<number>(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  
+  // Actions Dropdown State
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const actionsMenuRef = useRef<HTMLDivElement>(null)
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setShowActionsMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // 1. Fetch available inventory / services / bookings
   useEffect(() => {
@@ -709,11 +725,129 @@ export function POSSystem() {
   const filteredPackages = packageTemplates.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   return (
-    <div className="flex h-[calc(100vh-100px)] gap-6 animate-fade-in">
+    <div className="flex flex-col h-[calc(100vh-50px)] gap-4 animate-fade-in">
       
-      {/* LEFT COLUMN - THE CART */}
-      <div className="w-[400px] flex-shrink-0 glass-panel flex flex-col overflow-hidden relative">
-        <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
+      {/* PAGE HEADER (ClientCRM style: Icon + Title + Unified Stats Capsule) */}
+      <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 flex-shrink-0">
+        
+        {/* Left Side: Icon + Title + Stats Capsule */}
+        <div className="flex items-center gap-4 flex-nowrap min-w-0">
+          <div className="flex items-center gap-2.5 flex-shrink-0">
+            <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
+              <CreditCard className="w-5 h-5 text-luxe-gold" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold whitespace-nowrap text-white">POS Terminal</h3>
+              <p className="text-[9px] text-white/40 uppercase tracking-widest whitespace-nowrap">Checkout & Sales</p>
+            </div>
+          </div>
+          
+          {/* Unified Stats Capsule */}
+          <div className="flex items-center gap-3.5 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs text-white/50 flex-shrink-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">Tickets</span>
+              <span className="font-bold text-white">{todayBookings.length}</span>
+            </div>
+            <div className="h-3 w-[1px] bg-white/10" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">Cart Items</span>
+              <span className="font-bold text-luxe-gold">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>
+            </div>
+            <div className="h-3 w-[1px] bg-white/10" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">Tax Rate</span>
+              <span className="font-bold text-blue-400">{((taxRate ?? 0.08) * 100).toFixed(0)}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Tab segmented control + Search input + 3-dots actions menu */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Segmented Control Tabs */}
+          <div className="flex bg-white/5 border border-white/10 rounded-full p-1 gap-1 flex-shrink-0">
+            <button 
+              onClick={() => { setActiveTab('bookings'); setSearchQuery(''); }}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'bookings' ? 'bg-white text-black shadow-md' : 'text-white/40 hover:text-white'}`}
+            >
+              <CalendarCheck className="w-3.5 h-3.5" /> Bookings
+            </button>
+            <button 
+              onClick={() => { setActiveTab('walkin'); setSearchQuery(''); }}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'walkin' ? 'bg-white text-black shadow-md' : 'text-white/40 hover:text-white'}`}
+            >
+              <Scissors className="w-3.5 h-3.5" /> Services
+            </button>
+            <button 
+              onClick={() => { setActiveTab('retail'); setSearchQuery(''); }}
+              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'retail' ? 'bg-white text-black shadow-md' : 'text-white/40 hover:text-white'}`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" /> Retail
+            </button>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative w-44 max-w-full">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            <input
+              type="text"
+              placeholder={activeTab === 'giftcards' ? "Search not available..." : `Search ${activeTab === 'walkin' ? 'services' : activeTab}...`}
+              value={searchQuery}
+              disabled={activeTab === 'giftcards'}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-xs text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-all disabled:opacity-50"
+            />
+          </div>
+
+          {/* Actions Dropdown Button (3-dots) */}
+          <div className="relative" ref={actionsMenuRef}>
+            <button
+              onClick={() => setShowActionsMenu(!showActionsMenu)}
+              className={`p-1.5 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-all flex items-center justify-center ${showActionsMenu || activeTab === 'packages' || activeTab === 'giftcards' ? 'text-luxe-gold border-luxe-gold/30 bg-white/10' : 'text-white/60 hover:text-white'}`}
+              title="More Actions"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            
+            {showActionsMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 bg-luxe-obsidian border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <button
+                  onClick={() => { setShowActionsMenu(false); setActiveTab('packages'); setSearchQuery(''); }}
+                  className={`w-full px-4 py-2.5 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-colors ${activeTab === 'packages' ? 'text-luxe-gold font-bold bg-white/5' : 'text-white/80'}`}
+                >
+                  <PackageIcon className="w-3.5 h-3.5 text-luxe-gold" /> Sell Packages
+                </button>
+                <button
+                  onClick={() => { setShowActionsMenu(false); setActiveTab('giftcards'); setSearchQuery(''); }}
+                  className={`w-full px-4 py-2.5 text-left text-xs flex items-center gap-2 hover:bg-white/5 transition-colors ${activeTab === 'giftcards' ? 'text-purple-400 font-bold bg-white/5' : 'text-white/80'}`}
+                >
+                  <Gift className="w-3.5 h-3.5 text-purple-400" /> Issue Gift Cards
+                </button>
+                <div className="h-[1px] bg-white/10 my-1" />
+                <button
+                  onClick={() => { setShowActionsMenu(false); setShowAddProductModal(true); }}
+                  className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-2 hover:bg-white/5 text-white/80 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5 text-emerald-400" /> Add New Product
+                </button>
+                <button
+                  onClick={() => { setShowActionsMenu(false); addToCart({ id: 'custom', name: 'Custom Charge', price: 10 }, 'custom'); }}
+                  className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-2 hover:bg-white/5 text-white/80 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5 text-blue-400" /> Custom Charge
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* COLUMNS CONTAINER */}
+      <div className="flex flex-1 gap-6 overflow-hidden min-h-0">
+        
+        {/* LEFT COLUMN - THE CART */}
+        <div className="w-[380px] flex-shrink-0 glass-panel flex flex-col overflow-hidden relative">
+          <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
           <h3 className="font-bold text-lg text-white">Current Ticket</h3>
           <button onClick={clearCart} className="text-white/40 hover:text-red-400 text-sm transition-colors flex items-center gap-1">
             <Trash2 className="w-4 h-4" /> Clear
@@ -721,7 +855,7 @@ export function POSSystem() {
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-white/30">
               <ShoppingBag className="w-12 h-12 mb-3 opacity-20" />
@@ -729,39 +863,39 @@ export function POSSystem() {
             </div>
           ) : (
             cart.map((item, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 group">
-                <div className="flex-1 min-w-0 pr-3">
-                  <div className="flex items-center gap-2">
-                    {item.type === 'service' ? <Scissors className="w-3.5 h-3.5 text-luxe-gold" /> : 
-                     item.type === 'product' ? <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" /> : 
-                     item.type === 'package' ? <PackageIcon className="w-3.5 h-3.5 text-luxe-gold" /> : 
-                     item.type === 'gift_card' ? <Gift className="w-3.5 h-3.5 text-purple-400" /> : 
-                     <ShoppingBag className="w-3.5 h-3.5 text-white/40" />}
-                    <h4 className="font-medium text-white truncate text-sm">{item.name}</h4>
+              <div key={i} className="flex items-center justify-between p-1.5 rounded-lg bg-white/5 border border-white/5 group">
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    {item.type === 'service' ? <Scissors className="w-3 h-3 text-luxe-gold" /> : 
+                     item.type === 'product' ? <ShoppingBag className="w-3 h-3 text-emerald-400" /> : 
+                     item.type === 'package' ? <PackageIcon className="w-3 h-3 text-luxe-gold" /> : 
+                     item.type === 'gift_card' ? <Gift className="w-3 h-3 text-purple-400" /> : 
+                     <ShoppingBag className="w-3 h-3 text-white/40" />}
+                    <h4 className="font-semibold text-white truncate text-[11px]">{item.name}</h4>
                   </div>
                   {item.stylist_name && (
-                    <div className="text-[10px] text-luxe-gold/80 uppercase font-black tracking-wider mt-1">
+                    <div className="text-[8px] text-luxe-gold/80 uppercase font-black tracking-wider mt-0.5 pl-4.5">
                       Stylist: {item.stylist_name}
                     </div>
                   )}
-                  <p className="text-white/40 text-xs mt-1">${item.price.toFixed(2)} each</p>
+                  <p className="text-white/40 text-[9px] mt-0.5 pl-4.5">${item.price.toFixed(2)} each</p>
                 </div>
                 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {item.type === 'product' && (
-                    <div className="flex items-center gap-2 bg-black/40 rounded-lg p-1">
-                      <button onClick={() => updateQuantity(i, -1)} className="w-6 h-6 rounded flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors"><Minus className="w-3 h-3" /></button>
-                      <span className="w-4 text-center text-sm font-semibold">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(i, 1)} className="w-6 h-6 rounded flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors"><Plus className="w-3 h-3" /></button>
+                    <div className="flex items-center gap-1 bg-black/40 rounded-full p-0.5">
+                      <button onClick={() => updateQuantity(i, -1)} className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors"><Minus className="w-2 h-2" /></button>
+                      <span className="w-3.5 text-center text-[10px] font-semibold">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(i, 1)} className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-white/10 text-white/60 transition-colors"><Plus className="w-2 h-2" /></button>
                     </div>
                   )}
-                  <div className="text-right w-16">
+                  <div className="text-right w-14 relative flex items-center justify-end">
                     {item.type !== 'product' && (
-                      <button onClick={() => updateQuantity(i, -1)} className="text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity absolute right-4 mt-[-6px]">
-                        <X className="w-4 h-4" />
+                      <button onClick={() => updateQuantity(i, -1)} className="text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity absolute right-16">
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <span className="font-bold text-white text-sm">${(item.price * item.quantity).toFixed(2)}</span>
+                    <span className="font-bold text-white text-[11px]">${(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -771,94 +905,92 @@ export function POSSystem() {
 
         {/* Totals & Tipping */}
         {cart.length > 0 && (
-          <div className="bg-black/40 border-t border-white/10 p-5 mt-auto">
+          <div className="bg-black/40 border-t border-white/10 p-3.5 mt-auto">
             
             {/* Split Booking Notice */}
             {linkedBookingId && depositAlreadyPaid > 0 && (
-              <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex justify-between items-center">
-                <span className="text-sm font-medium text-emerald-400">Advance Deposit Paid</span>
-                <span className="font-bold text-emerald-400">-${depositAlreadyPaid.toFixed(2)}</span>
+              <div className="mb-3 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex justify-between items-center">
+                <span className="text-xs font-medium text-emerald-400">Advance Deposit Paid</span>
+                <span className="font-bold text-emerald-400 text-xs">-${depositAlreadyPaid.toFixed(2)}</span>
               </div>
             )}
 
-            {/* Tip Selection */}
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-semibold text-white/50 uppercase tracking-wider">Add Tip</label>
-                <div className="relative w-24">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-white/50">$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Custom"
-                    value={customTip || ''}
-                    onChange={(e) => setCustomTip(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg py-1.5 pl-6 pr-2 text-white text-sm focus:outline-none focus:border-luxe-gold"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
+            {/* Tip Selection - Compact Inline Row */}
+            <div className="flex items-center justify-between gap-1.5 mb-2 bg-white/5 border border-white/10 p-1 rounded-full">
+              <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider pl-3.5 flex-shrink-0">Tip</span>
+              <div className="flex gap-1 flex-1">
                 {[0, 2, 5, 10, 20].map(amt => (
                   <button
                     key={amt}
                     onClick={() => { setCustomTip(amt) }}
-                    className={`flex-1 py-1.5 rounded-lg text-sm font-bold transition-all border ${customTip === amt ? 'bg-luxe-gold text-black border-luxe-gold' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
+                    className={`flex-1 py-1 rounded-full text-[10px] font-bold transition-all border ${customTip === amt ? 'bg-white text-black border-white shadow-sm' : 'bg-transparent border-transparent text-white/40 hover:text-white'}`}
                   >
-                    {amt === 0 ? 'No Tip' : `$${amt}`}
+                    {amt === 0 ? 'No' : `$${amt}`}
                   </button>
                 ))}
               </div>
+              <div className="relative w-16 pl-1.5 border-l border-white/10">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold text-white/40 text-[9px]">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Custom"
+                  value={customTip || ''}
+                  onChange={(e) => setCustomTip(parseFloat(e.target.value) || 0)}
+                  className="w-full bg-transparent border-none py-0.5 pl-4.5 pr-2 text-white text-[10px] focus:outline-none text-right font-bold placeholder:font-normal placeholder:text-white/20"
+                />
+              </div>
             </div>
 
-            {/* Subtotals */}
-            <div className="pt-4 border-t border-white/5 space-y-3">
-              <div className="flex justify-between text-sm text-white/50">
+            {/* Subtotals - Compact */}
+            <div className="pt-2 border-t border-white/5 space-y-1">
+              <div className="flex justify-between text-[11px] text-white/50">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span className="font-semibold text-white/70">${subtotal.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm text-white/50">
+              <div className="flex justify-between text-[11px] text-white/50">
                 <span>Tax ({((taxRate ?? 0.08) * 100).toFixed(taxRate && taxRate % 0.01 !== 0 ? 3 : 0)}%)</span>
-                <span>${tax.toFixed(2)}</span>
+                <span className="font-semibold text-white/70">${tax.toFixed(2)}</span>
               </div>
 
               {depositAlreadyPaid > 0 && (
-                <div className="flex justify-between text-sm text-blue-400">
+                <div className="flex justify-between text-[11px] text-blue-400">
                   <span>Deposit Applied</span>
                   <span>-${depositAlreadyPaid.toFixed(2)}</span>
                 </div>
               )}
 
               {appliedGiftCard && (
-                <div className="flex flex-col gap-1 p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
-                  <div className="flex justify-between text-sm text-purple-400 font-bold">
+                <div className="flex flex-col gap-0.5 p-1.5 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                  <div className="flex justify-between text-[11px] text-purple-400 font-bold">
                     <span className="flex items-center gap-1"><Gift className="w-3 h-3" /> Gift Card ({appliedGiftCard.code.slice(-4)})</span>
                     <span>-${giftCardDiscount.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-end text-[10px] text-purple-400/50">
-                     Balance remaining after checkout: ${(appliedGiftCard.current_balance - giftCardDiscount).toFixed(2)}
+                  <div className="flex justify-end text-[9px] text-purple-400/50">
+                     Remaining: ${(appliedGiftCard.current_balance - giftCardDiscount).toFixed(2)}
                   </div>
                 </div>
               )}
 
               {customTip > 0 && (
-                <div className="flex justify-between text-sm text-white/60">
+                <div className="flex justify-between text-[11px] text-white/60">
                   <span>Tip</span>
                   <span>${customTip.toFixed(2)}</span>
                 </div>
               )}
             </div>
 
-            {/* Grand Total */}
-            <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-xl">
+            {/* Grand Total - Compact */}
+            <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center text-sm">
               <span className="font-bold text-white">Total</span>
               <span className="font-black text-luxe-gold">${finalCharge.toFixed(2)}</span>
             </div>
 
             {/* Redeem Gift Card inline */}
             {!appliedGiftCard && cart.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-dashed border-white/10">
+              <div className="mt-2 pt-2 border-t border-dashed border-white/10">
                  {!showGiftCardInput ? (
-                    <button onClick={() => setShowGiftCardInput(true)} className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 font-bold">
+                    <button onClick={() => setShowGiftCardInput(true)} className="text-[10px] text-purple-400 hover:text-purple-300 flex items-center gap-1 font-bold">
                       <Gift className="w-3 h-3" /> Apply Gift Card
                     </button>
                  ) : (
@@ -867,12 +999,12 @@ export function POSSystem() {
                          value={giftCardCode} 
                          onChange={e => setGiftCardCode(e.target.value.toUpperCase())}
                          placeholder="XXXX-XXXX-XXXX" 
-                         className="flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-purple-400 font-mono"
+                         className="flex-1 bg-white/5 border border-white/10 rounded-full px-3 py-1 text-xs text-white uppercase focus:outline-none focus:border-purple-400 font-mono"
                        />
                        <button 
                          onClick={handleApplyGiftCard}
                          disabled={checkingGiftCard || !giftCardCode}
-                         className="bg-purple-500 text-white px-3 py-2 rounded text-xs font-bold hover:bg-purple-400 disabled:opacity-50"
+                         className="bg-purple-500 text-white px-3 py-1 rounded-full text-xs font-bold hover:bg-purple-400 disabled:opacity-50"
                        >
                          {checkingGiftCard ? '...' : 'Apply'}
                        </button>
@@ -885,10 +1017,9 @@ export function POSSystem() {
             {/* Checkout Button */}
             <button
               onClick={() => {
-                // If they have packages, set payment default to 'package' possibly
                 setShowPaymentModal(true)
               }}
-              className="w-full mt-6 py-4 rounded-xl bg-gold-gradient text-luxe-obsidian font-black text-lg uppercase tracking-wider hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-luxe-gold/20"
+              className="w-full mt-3 py-2 rounded-full bg-gold-gradient text-luxe-obsidian font-black text-xs uppercase tracking-wider hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-luxe-gold/20"
             >
               Checkout — ${finalCharge.toFixed(2)}
             </button>
@@ -899,55 +1030,6 @@ export function POSSystem() {
       {/* RIGHT COLUMN - INVENTORY / APPOINTMENTS SEARCH */}
       <div className="flex-1 glass-panel flex flex-col overflow-hidden">
         
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-white/5 overflow-x-auto custom-scrollbar">
-          <button 
-            onClick={() => setActiveTab('bookings')}
-            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'bookings' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
-          >
-            <CalendarCheck className="w-4 h-4" /> Bookings
-          </button>
-          <button 
-            onClick={() => setActiveTab('walkin')}
-            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'walkin' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
-          >
-            <Scissors className="w-4 h-4" /> Services
-          </button>
-          <button 
-            onClick={() => setActiveTab('retail')}
-            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'retail' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
-          >
-            <ShoppingBag className="w-4 h-4" /> Retail
-          </button>
-          {/* <button 
-            onClick={() => setActiveTab('packages')}
-            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'packages' ? 'text-luxe-gold border-b-2 border-luxe-gold bg-luxe-gold/5' : 'text-white/40 hover:bg-white/5'}`}
-          >
-            <PackageIcon className="w-4 h-4" /> Packages
-          </button> */}
-          {/* <button 
-            onClick={() => setActiveTab('giftcards')}
-            className={`flex-shrink-0 px-6 py-4 flex items-center justify-center gap-2 font-bold transition-colors ${activeTab === 'giftcards' ? 'text-VXL-purple border-b-2 border-purple-500 bg-purple-500/5' : 'text-white/40 hover:bg-white/5'}`}
-          >
-            <Gift className="w-4 h-4 text-purple-400" /> Gift Cards
-          </button> */}
-        </div>
-
-        {/* Search Bar */}
-        <div className="p-4 bg-black/20 border-b border-white/5">
-          <div className="relative">
-            <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
-            <input
-              type="text"
-              placeholder={activeTab === 'giftcards' ? "Search not available..." : `Search ${activeTab}...`}
-              value={searchQuery}
-              disabled={activeTab === 'giftcards'}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-luxe-gold focus:ring-1 focus:ring-luxe-gold transition-all disabled:opacity-50"
-            />
-          </div>
-        </div>
-
         {/* Content Grid */}
         <div className="p-6 overflow-y-auto custom-scrollbar flex-1 relative">
           {loading ? (
@@ -963,35 +1045,70 @@ export function POSSystem() {
                   ) : (
                     filteredBookings.map(b => {
                       const isLate = new Date() > new Date(b.raw_start_time) && (b.status === 'confirmed' || b.status === 'pending');
+                      const isSelected = linkedBookingId === b.id;
                       return (
-                      <div key={b.id} onClick={() => loadBookingIntoCart(b)} className={`cursor-pointer group p-3.5 bg-white/5 border rounded-xl transition-all ${linkedBookingId === b.id ? 'border-luxe-gold box-glow' : isLate ? 'border-red-500/30 bg-red-500/5' : 'border-white/10 hover:border-white/30'}`}>
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isLate ? 'bg-red-500/20 text-red-400' : 'bg-white/10 text-white/70'}`}>
-                                {b.start_time} {isLate && ' • LATE'}
-                              </span>
-                            </div>
-                            <h4 className="text-sm font-bold text-white group-hover:text-luxe-gold transition-colors">{b.client_name}</h4>
-                            {b.stylist_name && <p className="text-[10px] text-luxe-gold/70 mt-0.5 uppercase tracking-wider font-bold">Stylist: {b.stylist_name}</p>}
-                          </div>
-                          {b.deposit_paid > 0 && (
-                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">Paid: ${b.deposit_paid}</span>
+                      <div 
+                        key={b.id} 
+                        onClick={() => loadBookingIntoCart(b)} 
+                        className={`cursor-pointer group p-3.5 rounded-xl transition-all duration-300 relative border flex flex-col justify-between ${
+                          isSelected 
+                            ? 'border-luxe-gold bg-luxe-gold/[0.04] shadow-[0_4px_20px_rgba(212,175,55,0.15)] ring-1 ring-luxe-gold/20' 
+                            : isLate 
+                              ? 'border-red-500/20 bg-red-500/[0.01] hover:border-red-500/40' 
+                              : 'border-white/5 bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        {/* Time & Price Header Row */}
+                        <div className="flex justify-between items-center gap-2 mb-2.5">
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${isLate ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-white/5 text-white/60 border border-white/10'}`}>
+                            {b.start_time} {isLate && ' • LATE'}
+                          </span>
+                          <span className="font-extrabold text-[11px] text-white bg-white/5 px-2 py-0.5 rounded-full border border-white/5 shrink-0">
+                            ${b.total_price.toFixed(2)}
+                          </span>
+                        </div>
+
+                        {/* Client details & Stylist */}
+                        <div className="mb-2">
+                          <h4 className="text-[13px] font-bold text-white group-hover:text-luxe-gold transition-colors truncate">
+                            {b.client_name}
+                          </h4>
+                          {b.stylist_name && (
+                            <p className="text-[9px] text-white/40 mt-0.5 truncate">
+                              Stylist: <span className="text-luxe-gold/80 font-bold">{b.stylist_name}</span>
+                            </p>
                           )}
                         </div>
-                        <p className="text-white/50 text-xs mb-2.5 line-clamp-1">{b.service_names}</p>
-                        <div className="flex items-center justify-between mt-auto">
-                          <span className="font-bold text-sm text-white">${b.total_price.toFixed(2)}</span>
-                          <div className="flex items-center gap-2">
+
+                        {/* Services List Block (Simple, one-line truncated text to save vertical space) */}
+                        <p className="text-white/50 text-[11px] mb-3 line-clamp-1 truncate">
+                          {b.service_names}
+                        </p>
+
+                        {/* Bottom Actions Row */}
+                        <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-white/5 mt-auto">
+                          {/* Deposit Status or empty spacer */}
+                          {b.deposit_paid > 0 ? (
+                            <span className="text-[8px] font-black text-emerald-400 uppercase tracking-wider shrink-0">
+                              ✓ Paid: ${b.deposit_paid}
+                            </span>
+                          ) : (
+                            <span />
+                          )}
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* No Show Button */}
                             {(isLate || b.status === 'confirmed' || b.status === 'pending') && (
                               <button 
-                                onClick={(e) => handleMarkNoShow(e, b.id)}
-                                className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-[10px] font-bold hover:bg-red-500 hover:text-white transition-colors"
+                                onClick={(e) => { e.stopPropagation(); handleMarkNoShow(e, b.id); }}
+                                className="px-2 py-1 rounded bg-red-500/15 hover:bg-red-500/30 text-red-400 text-[9px] font-bold transition-colors whitespace-nowrap"
                               >
                                 No-Show
                               </button>
                             )}
-                            <span className="text-luxe-gold text-xs font-semibold group-hover:translate-x-0.5 transition-transform">Checkout →</span>
+                            <span className="text-luxe-gold text-[9px] font-black uppercase tracking-wider group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 whitespace-nowrap">
+                              Checkout →
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1002,16 +1119,34 @@ export function POSSystem() {
 
               {activeTab === 'walkin' && (
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                  {filteredServices.map(s => (
-                    <div key={s.id} onClick={() => addToCart(s, 'service')} className="cursor-pointer group p-2.5 bg-white/5 border border-white/10 rounded-xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-center flex flex-col h-full">
-                      <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-1.5 group-hover:scale-105 transition-transform">
-                        <Scissors className="w-3.5 h-3.5 text-luxe-gold" />
+                  {filteredServices.map(s => {
+                    const isInCart = cart.some(item => item.type === 'service' && item.service_id === s.id);
+                    const cartItem = cart.find(item => item.type === 'service' && item.service_id === s.id);
+                    const qty = cartItem ? cartItem.quantity : 0;
+                    return (
+                      <div 
+                        key={s.id} 
+                        onClick={() => addToCart(s, 'service')} 
+                        className={`cursor-pointer group p-2.5 rounded-xl transition-all text-center flex flex-col h-full relative ${
+                          isInCart 
+                            ? 'border-luxe-gold bg-luxe-gold/5 box-glow' 
+                            : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        {isInCart && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-luxe-gold text-luxe-obsidian flex items-center justify-center text-[9px] font-black shadow-lg animate-fade-in">
+                            {qty}
+                          </div>
+                        )}
+                        <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-1.5 group-hover:scale-105 transition-transform">
+                          <Scissors className="w-3.5 h-3.5 text-luxe-gold" />
+                        </div>
+                        <h4 className="font-semibold text-white text-xs mb-0.5 line-clamp-1 leading-tight">{s.name}</h4>
+                        <p className="text-white/40 text-[10px] mb-2">{s.duration} min</p>
+                        <div className="mt-auto font-bold text-luxe-gold text-xs">${s.price.toFixed(2)}</div>
                       </div>
-                      <h4 className="font-semibold text-white text-xs mb-0.5 line-clamp-1 leading-tight">{s.name}</h4>
-                      <p className="text-white/40 text-[10px] mb-2">{s.duration} min</p>
-                      <div className="mt-auto font-bold text-luxe-gold text-xs">${s.price.toFixed(2)}</div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
 
@@ -1021,23 +1156,37 @@ export function POSSystem() {
                     const threshold = p.low_stock_threshold ?? 5;
                     const isLow = p.stock > 0 && p.stock <= threshold;
                     const isOut = p.stock <= 0;
+                    const isInCart = cart.some(item => item.type === 'product' && item.id === p.id);
+                    const cartItem = cart.find(item => item.type === 'product' && item.id === p.id);
+                    const qty = cartItem ? cartItem.quantity : 0;
                     return (
                     <div key={p.id} className={`group relative border rounded-xl transition-all flex flex-col h-full overflow-hidden ${
-                      isOut ? 'bg-red-500/5 border-red-500/20' : isLow ? 'bg-yellow-500/5 border-yellow-500/30' : 'bg-white/5 border-white/10'
+                      isInCart
+                        ? 'border-luxe-gold bg-luxe-gold/5 box-glow'
+                        : isOut 
+                          ? 'bg-red-500/5 border-red-500/20' 
+                          : isLow 
+                            ? 'bg-yellow-500/5 border-yellow-500/30' 
+                            : 'bg-white/5 border-white/10 hover:border-white/30'
                     }`}>
                       {/* Clickable area to add to cart */}
                       <div
                         onClick={() => !isOut && addToCart(p, 'product')}
-                        className={`p-2.5 text-center flex-1 flex flex-col ${isOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5'} transition-all`}
+                        className={`p-2.5 text-center flex-1 flex flex-col relative ${isOut ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5'} transition-all`}
                       >
-                        <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-2">
+                        {isInCart && (
+                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-luxe-gold text-luxe-obsidian flex items-center justify-center text-[9px] font-black shadow-lg animate-fade-in">
+                            {qty}
+                          </div>
+                        )}
+                        <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-2 group-hover:scale-105 transition-transform duration-200">
                           <ShoppingBag className={`w-4 h-4 ${isOut ? 'text-red-400' : isLow ? 'text-yellow-400' : 'text-emerald-400'}`} />
                         </div>
                         <h4 className="font-semibold text-white text-xs mb-0.5 line-clamp-1 leading-tight">{p.name}</h4>
                         <p className="text-white/40 text-[9px] mb-2">SKU: {p.sku || 'N/A'}</p>
                         <div className="mt-auto flex items-center justify-between w-full gap-1">
                           <span className="font-bold text-white text-xs">${p.price.toFixed(2)}</span>
-                          <span className={`text-[9px] font-bold px-1 py-0.5 rounded truncate max-w-[65px] ${
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full truncate max-w-[65px] ${
                             isOut ? 'bg-red-500/20 text-red-400' : isLow ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/10 text-white/50'
                           }`}>
                             {isOut ? 'Out' : `${p.stock}`}
@@ -1050,30 +1199,21 @@ export function POSSystem() {
                         <button
                           onClick={(e) => { e.stopPropagation(); setRestockProductId(p.id); setRestockProductName(p.name); setRestockThreshold(String(threshold)); setRestockQty(''); }}
                           title="Restock"
-                          className="flex-1 py-1 text-[9px] font-bold text-emerald-400 hover:bg-emerald-400/10 transition-colors flex items-center justify-center gap-0.5 border-r border-white/5"
+                          className="flex-1 py-1.5 text-[9px] font-bold text-emerald-400 hover:bg-emerald-400/10 transition-colors flex items-center justify-center gap-0.5 border-r border-white/5"
                         >
                           <Plus className="w-2.5 h-2.5" /> Stock
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleDeleteProduct(p.id, p.name); }}
                           title="Remove product"
-                          className="flex-1 py-1 text-[9px] font-bold text-red-400/60 hover:bg-red-400/10 hover:text-red-400 transition-colors flex items-center justify-center gap-0.5"
+                          className="flex-1 py-1.5 text-[9px] font-bold text-red-400/60 hover:bg-red-400/10 hover:text-red-400 transition-colors flex items-center justify-center gap-0.5"
                         >
                           <Trash2 className="w-2.5 h-2.5" /> Delete
                         </button>
                       </div>
                     </div>
                   )})}
-                  {/* Custom Item */}
-                  <div onClick={() => addToCart({ id: 'custom', name: 'Custom Charge', price: 10 }, 'custom')} className="cursor-pointer group p-2.5 bg-white/5 border-y border-x border-white/10 border-dashed rounded-xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-center flex items-center justify-center flex-col min-h-[110px]">
-                      <Plus className="w-5 h-5 text-white/40 group-hover:text-luxe-gold mb-1" />
-                      <span className="font-semibold text-white/50 group-hover:text-luxe-gold text-xs">Custom</span>
-                  </div>
-                  {/* Add New Product */}
-                  <div onClick={() => setShowAddProductModal(true)} className="cursor-pointer group p-2.5 bg-emerald-500/5 border border-emerald-500/30 border-dashed rounded-xl hover:border-emerald-400 hover:bg-emerald-400/10 transition-all text-center flex items-center justify-center flex-col min-h-[110px]">
-                      <Plus className="w-5 h-5 text-emerald-400/50 group-hover:text-emerald-400 mb-1" />
-                      <span className="font-semibold text-emerald-400/70 group-hover:text-emerald-400 text-xs">New Prod</span>
-                  </div>
+
                 </div>
               )}
 
@@ -1086,19 +1226,37 @@ export function POSSystem() {
                       <span className="text-xs">Create templates in the Packages module first.</span>
                     </div>
                   ) : (
-                    filteredPackages.map(p => (
-                      <div key={p.id} onClick={() => addToCart(p, 'package')} className="cursor-pointer group p-3 bg-gradient-to-br from-white/5 to-transparent border border-white/10 rounded-xl hover:border-luxe-gold hover:bg-luxe-gold/5 transition-all text-left flex flex-col h-full min-h-[110px]">
-                        <div className="flex justify-between items-start mb-1.5">
-                          <PackageIcon className="w-4 h-4 text-luxe-gold group-hover:scale-105 transition-transform" />
-                          <span className="text-[9px] font-bold bg-white/10 px-1 py-0.5 rounded text-white/70">{p.total_uses} cr</span>
+                    filteredPackages.map(p => {
+                      const isInCart = cart.some(item => item.type === 'package' && item.template_id === p.id);
+                      const cartItem = cart.find(item => item.type === 'package' && item.template_id === p.id);
+                      const qty = cartItem ? cartItem.quantity : 0;
+                      return (
+                        <div 
+                          key={p.id} 
+                          onClick={() => addToCart(p, 'package')} 
+                          className={`cursor-pointer group p-3 bg-gradient-to-br from-white/5 to-transparent border rounded-xl transition-all text-left flex flex-col h-full min-h-[110px] relative ${
+                            isInCart 
+                              ? 'border-luxe-gold bg-luxe-gold/5 box-glow' 
+                              : 'border-white/10 hover:border-white/30'
+                          }`}
+                        >
+                          {isInCart && (
+                            <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-luxe-gold text-luxe-obsidian flex items-center justify-center text-[9px] font-black shadow-lg animate-fade-in">
+                              {qty}
+                            </div>
+                          )}
+                          <div className="flex justify-between items-start mb-1.5">
+                            <PackageIcon className="w-4 h-4 text-luxe-gold group-hover:scale-105 transition-transform" />
+                            <span className="text-[9px] font-bold bg-white/10 px-1 py-0.5 rounded text-white/70">{p.total_uses} cr</span>
+                          </div>
+                          <h4 className="font-bold text-white text-xs mb-2 line-clamp-2 leading-tight">{p.name}</h4>
+                          <div className="mt-auto flex items-end justify-between w-full gap-1">
+                            <span className="font-black text-luxe-gold text-xs">${p.price.toFixed(2)}</span>
+                            <span className="text-[9px] text-white/30 font-medium">Issue →</span>
+                          </div>
                         </div>
-                        <h4 className="font-bold text-white text-xs mb-2 line-clamp-2 leading-tight">{p.name}</h4>
-                        <div className="mt-auto flex items-end justify-between w-full gap-1">
-                          <span className="font-black text-luxe-gold text-xs">${p.price.toFixed(2)}</span>
-                          <span className="text-[9px] text-white/30 font-medium">Issue →</span>
-                        </div>
-                      </div>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               )}
@@ -1158,9 +1316,11 @@ export function POSSystem() {
         </div>
       </div>
 
+      </div> {/* Close columns container */}
+
       {/* ADD PRODUCT MODAL */}
       {showAddProductModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-[#1A1A1A] border border-white/10 p-8 rounded-2xl max-w-md w-full shadow-2xl relative">
             <button onClick={() => setShowAddProductModal(false)} className="absolute top-6 right-6 text-white/40 hover:text-white"><X className="w-5 h-5" /></button>
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
@@ -1246,75 +1406,98 @@ export function POSSystem() {
 
       {/* PAYMENT MODAL */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-8 rounded-3xl max-w-md w-full shadow-2xl relative">
-            <button onClick={() => setShowPaymentModal(false)} className="absolute top-6 right-6 text-white/40 hover:text-white"><X className="w-6 h-6" /></button>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-zinc-950/95 backdrop-blur-xl border border-white/10 p-6 rounded-2xl max-w-sm w-full shadow-[0_10px_50px_rgba(0,0,0,0.8)] relative">
+            <button 
+              onClick={() => setShowPaymentModal(false)} 
+              className="absolute top-5 right-5 text-white/40 hover:text-white hover:bg-white/5 p-1 rounded-full transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
             
-            <h2 className="text-2xl font-black text-white mb-2">Complete Payment</h2>
-            <p className="text-white/50 mb-8">Select a payment method to finalize the transaction for <strong className="text-white">${finalCharge.toFixed(2)}</strong>.</p>
+            <h2 className="text-lg font-bold text-white tracking-tight mb-0.5">Complete Payment</h2>
+            <p className="text-xs text-white/40 mb-5">Select a payment method to finalize the transaction for <strong className="text-white">${finalCharge.toFixed(2)}</strong>.</p>
             
             {/* TERMINAL OVERLAY (Active when sending to Stripe Terminal) */}
             {terminalStatus !== 'idle' ? (
-              <div className="flex flex-col items-center justify-center py-10 space-y-6">
-                <div className="relative w-24 h-24 flex items-center justify-center">
+              <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                <div className="relative w-20 h-20 flex items-center justify-center">
                   {terminalStatus === 'connecting' && (
                     <>
-                      <div className="absolute inset-0 border-4 border-luxe-gold/20 rounded-full animate-ping"></div>
-                      <CreditCard className="w-10 h-10 text-luxe-gold animate-pulse" />
+                      <div className="absolute inset-0 border-4 border-white/20 rounded-full animate-ping"></div>
+                      <CreditCard className="w-8 h-8 text-white animate-pulse" />
                     </>
                   )}
                   {terminalStatus === 'waiting' && (
                     <>
-                      <div className="absolute inset-0 border-4 border-luxe-gold border-t-transparent rounded-full animate-spin"></div>
-                      <CreditCard className="w-10 h-10 text-white" />
+                      <div className="absolute inset-0 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <CreditCard className="w-8 h-8 text-white" />
                     </>
                   )}
                   {terminalStatus === 'success' && (
-                    <div className="w-24 h-24 bg-emerald-400/20 rounded-full flex items-center justify-center scale-110 transition-transform">
-                      <CheckCircle className="w-12 h-12 text-emerald-400" />
+                    <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center scale-110 transition-transform">
+                      <Check className="w-10 h-10 text-white stroke-[2.5]" />
                     </div>
                   )}
                 </div>
                 
-                <div className="text-center">
-                  {terminalStatus === 'connecting' && <h3 className="text-xl font-bold text-white mb-1">Connecting to Terminal...</h3>}
-                  {terminalStatus === 'waiting' && <h3 className="text-xl font-bold text-white mb-1">Waiting for Card...</h3>}
-                  {terminalStatus === 'success' && <h3 className="text-xl font-bold text-emerald-400 mb-1">Payment Approved!</h3>}
+                <div className="text-center px-2">
+                  {terminalStatus === 'connecting' && <h3 className="text-base font-bold text-white mb-1">Connecting to Terminal...</h3>}
+                  {terminalStatus === 'waiting' && <h3 className="text-base font-bold text-white mb-1">Waiting for Card...</h3>}
+                  {terminalStatus === 'success' && <h3 className="text-base font-bold text-white mb-1">Payment Approved!</h3>}
                   
-                  {terminalStatus === 'waiting' && <p className="text-white/50 text-sm">Please ask the customer to tap, insert, or swipe their card on the Stripe WisePOS E terminal.</p>}
-                  {terminalStatus === 'connecting' && <p className="text-white/50 text-sm">Waking up Voxali Reader 1...</p>}
-                  {terminalStatus === 'success' && <p className="text-white/50 text-sm">Processing transaction records...</p>}
+                  {terminalStatus === 'waiting' && <p className="text-white/50 text-[11px] leading-relaxed">Please ask the customer to tap, insert, or swipe their card on the Stripe WisePOS E terminal.</p>}
+                  {terminalStatus === 'connecting' && <p className="text-white/50 text-[11px] leading-relaxed">Waking up Voxali Reader 1...</p>}
+                  {terminalStatus === 'success' && <p className="text-white/50 text-[11px] leading-relaxed">Processing transaction records...</p>}
                 </div>
               </div>
             ) : (
               <>
-            <div className="space-y-3 mb-8">
-              <div className="flex flex-col gap-2">
+            <div className="space-y-2 mb-5">
+              <div className="flex flex-col gap-1">
                 <button 
                   onClick={() => setPaymentMethod('card')}
-                  className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${paymentMethod === 'card' ? 'border-luxe-gold bg-luxe-gold/10' : 'border-white/10 bg-white/5 hover:border-white/30'}`}
+                  className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all duration-200 ${
+                    paymentMethod === 'card' 
+                      ? 'border-white bg-white/[0.04] shadow-[0_0_15px_rgba(255,255,255,0.05)] scale-[1.01]' 
+                      : 'border-white/5 bg-white/[0.01] hover:border-white/15 hover:bg-white/[0.02]'
+                  }`}
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${paymentMethod === 'card' ? 'bg-luxe-gold text-black' : 'bg-white/10 text-white'}`}>
-                    <CreditCard className="w-5 h-5" />
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${
+                    paymentMethod === 'card' ? 'bg-white text-black border-white' : 'bg-white/5 border-white/5 text-white/60'
+                  }`}>
+                    <CreditCard className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <h4 className="font-bold text-white">Credit / Debit Card</h4>
-                    <p className="text-white/40 text-sm">{cardEntryMethod === 'terminal' ? 'Send to Stripe Terminal' : 'Manual Entry / Standalone'}</p>
+                    <h4 className={`font-semibold text-sm transition-colors ${paymentMethod === 'card' ? 'text-white' : 'text-white/80'}`}>Credit / Debit Card</h4>
+                    <p className="text-white/40 text-[10px]">{cardEntryMethod === 'terminal' ? 'Send to Stripe Terminal' : 'Manual Entry / Standalone'}</p>
                   </div>
-                  {paymentMethod === 'card' && <CheckCircle className="w-5 h-5 text-luxe-gold ml-auto" />}
+                  {paymentMethod === 'card' && (
+                    <div className="ml-auto w-4.5 h-4.5 rounded-full bg-white flex items-center justify-center">
+                      <Check className="w-3 h-3 text-black stroke-[3]" />
+                    </div>
+                  )}
                 </button>
                 
                 {paymentMethod === 'card' && (
-                  <div className="p-3 bg-black/40 border border-white/10 rounded-xl flex gap-2 animate-fade-in shadow-xl mx-2">
+                  <div className="p-1 bg-white/[0.02] border border-white/5 rounded-lg flex gap-1 mx-1.5 mt-0.5 animate-fade-in shadow-inner">
                     <button 
                       onClick={() => setCardEntryMethod('terminal')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${cardEntryMethod === 'terminal' ? 'bg-luxe-gold text-black border-luxe-gold' : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/30'}`}
+                      className={`flex-1 py-1.5 px-2.5 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                        cardEntryMethod === 'terminal' 
+                          ? 'bg-white/10 text-white shadow-sm border border-white/10' 
+                          : 'text-white/40 hover:text-white/60'
+                      }`}
                     >
-                      <CreditCard className="w-4 h-4" /> Stripe Terminal
+                      <CreditCard className="w-3.5 h-3.5" /> Stripe Terminal
                     </button>
                     <button 
                       onClick={() => setCardEntryMethod('manual')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all border flex items-center justify-center gap-1.5 ${cardEntryMethod === 'manual' ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/30'}`}
+                      className={`flex-1 py-1.5 px-2.5 rounded-md text-[11px] font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                        cardEntryMethod === 'manual' 
+                          ? 'bg-white/10 text-white shadow-sm border border-white/10' 
+                          : 'text-white/40 hover:text-white/60'
+                      }`}
                     >
                       Manual Machine
                     </button>
@@ -1324,66 +1507,94 @@ export function POSSystem() {
 
               <button 
                 onClick={() => setPaymentMethod('cash')}
-                className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${paymentMethod === 'cash' ? 'border-emerald-400 bg-emerald-400/10' : 'border-white/10 bg-white/5 hover:border-white/30'}`}
+                className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all duration-200 ${
+                  paymentMethod === 'cash' 
+                    ? 'border-white bg-white/[0.04] shadow-[0_0_15px_rgba(255,255,255,0.05)] scale-[1.01]' 
+                    : 'border-white/5 bg-white/[0.01] hover:border-white/15 hover:bg-white/[0.02]'
+                }`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${paymentMethod === 'cash' ? 'bg-emerald-400 text-black' : 'bg-white/10 text-white'}`}>
-                  <Banknote className="w-5 h-5" />
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${
+                  paymentMethod === 'cash' ? 'bg-white text-black border-white' : 'bg-white/5 border-white/5 text-white/60'
+                }`}>
+                  <Banknote className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <h4 className="font-bold text-white">Cash</h4>
-                  <p className="text-white/40 text-sm">Collect cash at register</p>
+                  <h4 className={`font-semibold text-sm transition-colors ${paymentMethod === 'cash' ? 'text-white' : 'text-white/80'}`}>Cash</h4>
+                  <p className="text-white/40 text-[10px]">Collect cash at register</p>
                 </div>
-                {paymentMethod === 'cash' && <CheckCircle className="w-5 h-5 text-emerald-400 ml-auto" />}
+                {paymentMethod === 'cash' && (
+                  <div className="ml-auto w-4.5 h-4.5 rounded-full bg-white flex items-center justify-center">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                )}
               </button>
 
               <button 
                 onClick={() => setPaymentMethod('split')}
-                className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${paymentMethod === 'split' ? 'border-blue-400 bg-blue-400/10' : 'border-white/10 bg-white/5 hover:border-white/30'}`}
+                className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all duration-200 ${
+                  paymentMethod === 'split' 
+                    ? 'border-white bg-white/[0.04] shadow-[0_0_15px_rgba(255,255,255,0.05)] scale-[1.01]' 
+                    : 'border-white/5 bg-white/[0.01] hover:border-white/15 hover:bg-white/[0.02]'
+                }`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${paymentMethod === 'split' ? 'bg-blue-400 text-black' : 'bg-white/10 text-white'}`}>
-                  <SplitSquareVertical className="w-5 h-5" />
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${
+                  paymentMethod === 'split' ? 'bg-white text-black border-white' : 'bg-white/5 border-white/5 text-white/60'
+                }`}>
+                  <SplitSquareVertical className="w-4 h-4" />
                 </div>
                 <div className="text-left">
-                  <h4 className="font-bold text-white">Split Payment</h4>
-                  <p className="text-white/40 text-sm">Part Cash, Part Card</p>
+                  <h4 className={`font-semibold text-sm transition-colors ${paymentMethod === 'split' ? 'text-white' : 'text-white/80'}`}>Split Payment</h4>
+                  <p className="text-white/40 text-[10px]">Part Cash, Part Card</p>
                 </div>
-                {paymentMethod === 'split' && <CheckCircle className="w-5 h-5 text-blue-400 ml-auto" />}
+                {paymentMethod === 'split' && (
+                  <div className="ml-auto w-4.5 h-4.5 rounded-full bg-white flex items-center justify-center">
+                    <Check className="w-3 h-3 text-black stroke-[3]" />
+                  </div>
+                )}
               </button>
 
               {/* Package Redemption */}
               {availablePackages.length > 0 && (
-                <div className="pt-2">
+                <div className="pt-0.5">
                   <button 
                     onClick={() => setPaymentMethod('package')}
-                    className={`w-full p-4 rounded-xl border flex items-center gap-4 transition-all ${paymentMethod === 'package' ? 'border-purple-400 bg-purple-400/10' : 'border-white/10 bg-white/5 hover:border-purple-400/30 hover:bg-purple-400/5'}`}
+                    className={`w-full p-3 rounded-xl border flex items-center gap-3 transition-all duration-200 ${
+                      paymentMethod === 'package' 
+                        ? 'border-white bg-white/[0.04] shadow-[0_0_15px_rgba(255,255,255,0.05)] scale-[1.01]' 
+                        : 'border-white/5 bg-white/[0.01] hover:border-white/15 hover:bg-white/[0.02]'
+                    }`}
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${paymentMethod === 'package' ? 'bg-purple-400 text-black' : 'bg-white/10 text-white'}`}>
-                      <ShoppingBag className="w-5 h-5" />
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${
+                      paymentMethod === 'package' ? 'bg-white text-black border-white' : 'bg-white/5 border-white/5 text-white/60'
+                    }`}>
+                      <ShoppingBag className="w-4 h-4" />
                     </div>
                     <div className="text-left flex-1">
-                      <h4 className="font-bold text-white">Redeem Package Credit</h4>
-                      <p className={`text-sm ${paymentMethod === 'package' ? 'text-purple-300' : 'text-purple-400 font-bold'}`}>
-                        {availablePackages.length} active package(s) available
-                      </p>
+                      <h4 className={`font-semibold text-sm transition-colors ${paymentMethod === 'package' ? 'text-white' : 'text-white/80'}`}>Redeem Package Credit</h4>
+                      <p className="text-white/40 text-[10px]">{availablePackages.length} active package(s) available</p>
                     </div>
-                    {paymentMethod === 'package' && <CheckCircle className="w-5 h-5 text-purple-400 ml-auto" />}
+                    {paymentMethod === 'package' && (
+                      <div className="ml-auto w-4.5 h-4.5 rounded-full bg-white flex items-center justify-center">
+                        <Check className="w-3 h-3 text-black stroke-[3]" />
+                      </div>
+                    )}
                   </button>
                   
                   {paymentMethod === 'package' && (
-                    <div className="p-4 bg-black/40 border border-white/10 rounded-xl mt-2 mx-2 space-y-2">
-                      <p className="text-xs text-white/50 uppercase tracking-wider font-bold mb-2">Select Package to Redeem</p>
+                    <div className="p-2.5 bg-black/40 border border-white/10 rounded-xl mt-1.5 mx-1.5 space-y-1.5">
+                      <p className="text-[9px] text-white/50 uppercase tracking-wider font-bold mb-0.5">Select Package to Redeem</p>
                       {availablePackages.map(pkg => (
-                        <label key={pkg.id} className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-purple-400/10 hover:border-purple-400/30 transition-all">
+                        <label key={pkg.id} className="flex items-center gap-2 p-2 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 hover:border-white/30 transition-all text-xs">
                           <input 
                             type="radio" 
                             name="packageSelection" 
                             checked={selectedPackageId === pkg.id}
                             onChange={() => setSelectedPackageId(pkg.id)}
-                            className="w-4 h-4 accent-purple-500"
+                            className="w-3.5 h-3.5 accent-white"
                           />
                           <div className="flex-1">
-                            <span className="font-bold text-white">{pkg.template?.name}</span>
-                            <span className="block text-xs text-white/50">{pkg.remaining_uses} credits remaining</span>
+                            <span className="font-semibold text-white">{pkg.template?.name}</span>
+                            <span className="block text-[10px] text-white/50">{pkg.remaining_uses} credits remaining</span>
                           </div>
                         </label>
                       ))}
@@ -1394,22 +1605,22 @@ export function POSSystem() {
             </div>
 
             {paymentMethod === 'split' && (
-              <div className="mb-8 p-4 bg-black/40 rounded-xl border border-white/10 animate-fade-in mt-[-1rem]">
-                <label className="text-sm font-semibold text-white/50 block mb-2">Cash Amount Collected</label>
+              <div className="mb-4 p-3 bg-white/[0.02] border border-white/5 rounded-xl animate-fade-in mt-[-0.5rem]">
+                <label className="text-xs font-semibold text-white/50 block mb-1">Cash Amount Collected</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-white">$</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-white text-sm">$</span>
                   <input
                     type="number"
                     min="0"
                     max={finalCharge}
                     value={cashAmount || ''}
                     onChange={(e) => setCashAmount(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-8 pr-4 text-white font-bold focus:outline-none focus:border-blue-400 transition-colors"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-7 pr-3 text-white text-sm font-bold focus:outline-none focus:border-white transition-colors"
                   />
                 </div>
-                <div className="flex justify-between mt-3 text-sm">
-                  <span className="text-white/50">Remaining on Card:</span>
-                  <span className="font-bold text-luxe-gold">${Math.max(0, finalCharge - cashAmount).toFixed(2)}</span>
+                <div className="flex justify-between mt-2 text-xs">
+                  <span className="text-white/40">Remaining on Card:</span>
+                  <span className="font-bold text-white">${Math.max(0, finalCharge - cashAmount).toFixed(2)}</span>
                 </div>
               </div>
             )}
@@ -1417,14 +1628,14 @@ export function POSSystem() {
             <button
               onClick={processCheckout}
               disabled={isProcessing}
-              className={`w-full py-4 rounded-xl font-black text-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg mt-4 ${
+              className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wide transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg mt-3 ${
                 paymentMethod === 'card' && cardEntryMethod === 'terminal' 
-                ? 'bg-blue-500 text-white shadow-blue-500/20' 
-                : 'bg-gold-gradient text-luxe-obsidian shadow-luxe-gold/20'
+                ? 'bg-blue-600 text-white shadow-blue-600/20 hover:bg-blue-500' 
+                : 'bg-white text-black hover:bg-white/90 active:scale-[0.98]'
               }`}
             >
               {isProcessing ? (
-                <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div> Processing...</>
+                <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div> Processing...</>
               ) : (
                 paymentMethod === 'card' && cardEntryMethod === 'terminal' ? 'Send to Terminal' : 'Confirm Transaction'
               )}

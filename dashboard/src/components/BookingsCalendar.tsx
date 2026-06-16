@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
     Plus, Clock, Scissors, Loader2, X, UserPlus, UserX,
     Calendar as CalendarIcon, ChevronLeft, ChevronRight, XCircle, CreditCard, Banknote, AlertTriangle,
-    Search, MoreHorizontal
+    Search, MoreHorizontal, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
@@ -91,15 +91,21 @@ export const BookingsCalendar: React.FC = () => {
     const [staff, setStaff] = useState<Staff[]>([]);
     const [services, setServices] = useState<Service[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
+    const [workingHours, setWorkingHours] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [saving, setSaving] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('today');
     const [dateOffset, setDateOffset] = useState(0);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const hourScrollRef = useRef<HTMLDivElement>(null);
+    const minuteScrollRef = useRef<HTMLDivElement>(null);
+    const ampmScrollRef = useRef<HTMLDivElement>(null);
+    const lastActivePickerRef = useRef<string | null>(null);
     const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
     const [refundMode, setRefundMode] = useState(false);
     const [refundMethod, setRefundMethod] = useState<'cash' | 'card' | 'stripe' | 'none'>('none');
+    const [isFetching, setIsFetching] = useState(false);
     
     // Policy Refund State
     const [calculatedRefund, setCalculatedRefund] = useState<number>(0);
@@ -108,25 +114,33 @@ export const BookingsCalendar: React.FC = () => {
     
     // Pending Refunds State
     const [showPendingRefunds, setShowPendingRefunds] = useState<boolean>(false);
+    const [activePicker, setActivePicker] = useState<string | null>(null);
     const [pendingRefunds, setPendingRefunds] = useState<Booking[]>([]);
 
     // Walk-in form
     const [wName, setWName] = useState('');
     const [wPhone, setWPhone] = useState('');
+    const [phoneError, setPhoneError] = useState('');
     const [search, setSearch] = useState('');
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
 
-    // Close actions menu on click outside
+    // Close actions menu & time pickers on click outside
     useEffect(() => {
         const handler = (e: MouseEvent) => {
             if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
                 setShowActionsMenu(false);
             }
+            const target = e.target as HTMLElement;
+            if (!target.closest('.time-picker-container')) {
+                setActivePicker(null);
+            }
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, []);
+ 
+
 
     const [currentHour, setCurrentHour] = useState<number | null>(null);
 
@@ -175,13 +189,19 @@ export const BookingsCalendar: React.FC = () => {
         return () => clearInterval(interval);
     }, [viewMode, dateOffset, timezone]);
     
-    // Get current time in salon's timezone
+    // Get current time in salon's timezone, clamped to business hours (08:00–21:00)
     const getSalonTime = () => {
         const tz = timezone || 'America/New_York';
-        const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
-        const h = parts.find(p => p.type === 'hour')?.value || '12';
+        const now = new Date();
+        const ms = 1000 * 60 * 10; // 10 minutes
+        const roundedDate = new Date(Math.round(now.getTime() / ms) * ms);
+        
+        const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(roundedDate);
+        const h = parseInt(parts.find(p => p.type === 'hour')?.value || '9');
         const m = parts.find(p => p.type === 'minute')?.value || '00';
-        return `${h}:${m}`;
+        // Clamp: if before 08:00, return 08:00; if after 21:00, return 09:00 (next day default)
+        if (h < 8 || h >= 21) return '09:00';
+        return `${String(h).padStart(2, '0')}:${m}`;
     };
 
     interface WServiceItem {
@@ -201,9 +221,61 @@ export const BookingsCalendar: React.FC = () => {
     const [wRecurring, setWRecurring] = useState('none');
     const [wRecurringCount, setWRecurringCount] = useState(4);
 
-    const fetchData = useCallback(async (showLoader = true) => {
+    // Scroll active time selection into view in custom time pickers
+    useEffect(() => {
+        if (!activePicker) {
+            lastActivePickerRef.current = null;
+            return;
+        }
+
+        const activeParts = activePicker.split('-');
+        const activeItemId = activeParts.slice(0, -1).join('-');
+        const activeField = activeParts[activeParts.length - 1] === 'start' ? 'startTime' : 'endTime';
+
+        const activeItem = wServiceItems.find(item => item.id === activeItemId);
+        if (!activeItem) return;
+
+        const timeVal = activeItem[activeField];
+        const isFirstOpen = lastActivePickerRef.current !== activePicker;
+        lastActivePickerRef.current = activePicker;
+
+        const scrollActiveIntoView = (smooth = true) => {
+            const centerActiveElement = (container: HTMLDivElement | null, selector: string) => {
+                if (!container) return;
+                const selected = container.querySelector(selector) as HTMLElement;
+                if (selected) {
+                    const top = selected.offsetTop - container.clientHeight / 2 + selected.clientHeight / 2;
+                    container.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+                }
+            };
+            centerActiveElement(hourScrollRef.current, '.text-luxe-gold');
+            centerActiveElement(minuteScrollRef.current, '.text-luxe-gold');
+            centerActiveElement(ampmScrollRef.current, '.bg-luxe-gold');
+        };
+
+        if (isFirstOpen) {
+            // Instant center on open
+            scrollActiveIntoView(false);
+            // Re-run shortly after to guarantee center position after layout completes
+            const t1 = setTimeout(() => scrollActiveIntoView(false), 30);
+            const t2 = setTimeout(() => scrollActiveIntoView(false), 100);
+            return () => {
+                clearTimeout(t1);
+                clearTimeout(t2);
+            };
+        } else {
+            // Smooth center when selected value changes
+            scrollActiveIntoView(true);
+        }
+    }, [activePicker, wServiceItems]);
+
+    const fetchData = useCallback(async (showLoader = false) => {
         if (!tenantId) return;
-        if (showLoader) setLoading(true);
+        if (showLoader) {
+            setLoading(true);
+        } else {
+            setIsFetching(true);
+        }
 
         // Fetch staff
         const { data: staffData } = await supabase
@@ -214,6 +286,14 @@ export const BookingsCalendar: React.FC = () => {
         const { data: svcData } = await supabase
             .from('services').select('id, name, duration, price')
             .eq('tenant_id', tenantId).eq('is_active', true).order('name');
+
+        // Fetch staff working hours
+        const { data: workingHoursData } = await supabase
+            .from('staff_working_hours')
+            .select('staff_id, day_of_week, start_time, end_time, is_working')
+            .eq('tenant_id', tenantId);
+
+        if (workingHoursData) setWorkingHours(workingHoursData);
 
         // Fetch global pending refunds (regardless of date range)
         let pendingQ = supabase
@@ -323,6 +403,7 @@ export const BookingsCalendar: React.FC = () => {
             if (staffData) setStaff(staffData);
             if (svcData) setServices(svcData);
             setLoading(false);
+            setIsFetching(false);
             return;
         }
 
@@ -359,9 +440,162 @@ export const BookingsCalendar: React.FC = () => {
             }));
         }
         setLoading(false);
+        setIsFetching(false);
     }, [viewMode, dateOffset, isStaff, staffId, tenantId, timezone]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
+
+    const getSalonDateStr = (offset: number, tz: string) => {
+        const d = new Date();
+        d.setDate(d.getDate() + offset);
+        return d.toLocaleDateString('en-CA', { timeZone: tz }); // "YYYY-MM-DD"
+    };
+
+    const getSalonDayOfWeek = (offset: number, tz: string) => {
+        const dateStr = getSalonDateStr(offset, tz);
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d).getDay(); // 0-6
+    };
+
+    const getStylistShift = (stylistId: string) => {
+        const tz = timezone || 'America/New_York';
+        const dayOfWeek = getSalonDayOfWeek(dateOffset, tz);
+        return workingHours.find(w => w.staff_id === stylistId && w.day_of_week === dayOfWeek);
+    };
+
+    const isSlotOffShift = (stylistId: string, slotTimeStr: string) => {
+        const shift = getStylistShift(stylistId);
+        if (!shift || !shift.is_working) return true;
+        const slotStart = slotTimeStr.padStart(5, '0') + ':00';
+        return slotStart < shift.start_time || slotStart >= shift.end_time;
+    };
+
+    // Get nearest FREE start time for a stylist: checks existing bookings, finds first available slot
+    const getSmartStartTime = (stylistId: string, serviceDurationMin: number = 30) => {
+        const tz = timezone || 'America/New_York';
+        const shift = getStylistShift(stylistId);
+        const currentTime = getSalonTime(); // "HH:MM" in salon tz
+
+        if (!shift || !shift.is_working || !shift.start_time || !shift.end_time) {
+            return currentTime;
+        }
+
+        const shiftStart = shift.start_time.substring(0, 5); // "09:00"
+        const shiftEnd   = shift.end_time.substring(0, 5);   // "21:00"
+
+        // Start searching from max(currentTime, shiftStart)
+        const candidate = currentTime < shiftStart ? shiftStart : currentTime;
+        if (candidate >= shiftEnd) return shiftStart; // shift already over, default
+
+        // Helper: "HH:MM" <-> minutes
+        const toMins  = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+        const toHHMM  = (mins: number) => `${String(Math.floor(mins / 60) % 24).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+
+        // Get today's date string in salon timezone
+        const todayStr = getSalonDateStr(dateOffset, tz);
+
+        // Build list of busy intervals for this stylist today (sorted by start)
+        const busySlots = bookings
+            .filter(b => {
+                if (b.stylist_id !== stylistId) return false;
+                if (['cancelled', 'no_show'].includes(b.status)) return false;
+                const bDate = new Date(b.start_time).toLocaleDateString('en-CA', { timeZone: tz });
+                return bDate === todayStr;
+            })
+            .map(b => {
+                const startDt = new Date(b.start_time);
+                const endDt   = new Date(startDt.getTime() + b.duration_hours * 3600000);
+                const fmtHHMM = (d: Date) => {
+                    const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+                    const h = p.find(x => x.type === 'hour')?.value || '00';
+                    const m = p.find(x => x.type === 'minute')?.value || '00';
+                    return `${h}:${m}`;
+                };
+                return { start: fmtHHMM(startDt), end: fmtHHMM(endDt) };
+            })
+            .sort((a, b) => a.start.localeCompare(b.start));
+
+        const shiftEndMins = toMins(shiftEnd);
+        let slotMins = toMins(candidate);
+
+        // Snap to nearest 10-min boundary
+        slotMins = Math.ceil(slotMins / 10) * 10;
+
+        // Walk through 10-min increments until we find a free slot
+        while (slotMins + serviceDurationMin <= shiftEndMins) {
+            const slotStart = toHHMM(slotMins);
+            const slotEnd   = toHHMM(slotMins + serviceDurationMin);
+
+            const overlaps = busySlots.some(b => slotStart < b.end && slotEnd > b.start);
+            if (!overlaps) return slotStart;
+
+            // Jump to the end of the conflicting booking
+            const conflicting = busySlots.find(b => slotStart < b.end && slotEnd > b.start);
+            if (conflicting) {
+                const jumpTo = Math.ceil(toMins(conflicting.end) / 10) * 10;
+                slotMins = Math.max(slotMins + 10, jumpTo);
+            } else {
+                slotMins += 10;
+            }
+        }
+
+        // No free slot found within shift — return shift start as fallback
+        return shiftStart;
+    };
+
+    const formatDbTime12h = (t: string) => {
+        if (!t) return '';
+        const [hStr, mStr] = t.split(':');
+        const h = parseInt(hStr);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        return `${h12}:${mStr} ${ampm}`;
+    };
+
+    const parse24hTime = (t: string) => {
+        if (!t) return { h12: 12, m: 0, ampm: 'AM' };
+        const [hStr, mStr] = t.split(':');
+        const h = parseInt(hStr);
+        const m = parseInt(mStr);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        return { h12, m, ampm };
+    };
+
+    const convert12hTo24h = (h12: number, m: number, ampm: string) => {
+        let h24 = h12;
+        if (ampm === 'PM' && h12 < 12) h24 += 12;
+        if (ampm === 'AM' && h12 === 12) h24 = 0;
+        return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    };
+
+    const getNextMinute = (currentM: number, step: number) => {
+        const validMinutes = [0, 10, 20, 30, 40, 50];
+        let snapped = 0;
+        let minDist = Infinity;
+        for (const vm of validMinutes) {
+            const dist = Math.abs(vm - (currentM % 60));
+            if (dist < minDist) {
+                minDist = dist;
+                snapped = vm;
+            }
+        }
+        const idx = validMinutes.indexOf(snapped);
+        if (step > 0) {
+            return validMinutes[(idx + 1) % validMinutes.length];
+        } else {
+            return validMinutes[(idx - 1 + validMinutes.length) % validMinutes.length];
+        }
+    };
+
+    const format24hTo12h = (t: string) => {
+        if (!t) return '--:-- --';
+        const [hStr, mStr] = t.split(':');
+        const h = parseInt(hStr);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 || 12;
+        return `${String(h12).padStart(2, '0')}:${mStr} ${ampm}`;
+    };
 
     // Auto-calc end time when service or start time changes
     const calcEndTime = (start: string, dur: number) => {
@@ -374,14 +608,36 @@ export const BookingsCalendar: React.FC = () => {
         setWServiceItems(prev => prev.map(item => {
             if (item.id !== id) return item;
             const updated = { ...item, [field]: value };
-            
-            // Auto calculate end time
-            if (field === 'serviceId' || field === 'startTime') {
+
+            // When stylist changes, auto-find the nearest FREE slot considering existing bookings
+            if (field === 'stylistId' && value) {
+                const svc = services.find(s => s.id === updated.serviceId);
+                const durationMin = svc ? svc.duration : 30;
+                const smartTime = getSmartStartTime(value, durationMin);
+                updated.startTime = smartTime;
+                if (svc && smartTime) {
+                    updated.endTime = calcEndTime(smartTime, svc.duration);
+                }
+            }
+
+            // When service changes, re-find free slot for current stylist with new duration
+            if (field === 'serviceId' && value && updated.stylistId) {
+                const svc = services.find(s => s.id === value);
+                if (svc) {
+                    const smartTime = getSmartStartTime(updated.stylistId, svc.duration);
+                    updated.startTime = smartTime;
+                    updated.endTime = calcEndTime(smartTime, svc.duration);
+                }
+            }
+
+            // If only start time changed manually, just recalc end time
+            if (field === 'startTime') {
                 const svc = services.find(s => s.id === updated.serviceId);
                 if (svc && updated.startTime) {
                     updated.endTime = calcEndTime(updated.startTime, svc.duration);
                 }
             }
+
             return updated;
         }));
     };
@@ -405,8 +661,36 @@ export const BookingsCalendar: React.FC = () => {
         }
     };
 
-    const isFormValid = wName.trim() !== '' && wPhone.trim() !== '' && 
-                        wServiceItems.length > 0 && 
+    // Phone validation — Worldwide international format (E.164: 7–15 digits)
+    const validatePhone = (raw: string): string => {
+        if (!raw.trim()) return 'Phone number is required';
+        // Strip spaces, dashes, parentheses — keep digits and leading +
+        const cleaned = raw.replace(/[\s\-().]/g, '');
+        const hasPlus = cleaned.startsWith('+');
+        const digits = cleaned.replace(/[^\d]/g, '');
+        if (digits.length < 7)  return `Too short — minimum 7 digits required (got ${digits.length})`;
+        if (digits.length > 15) return `Too long — maximum 15 digits allowed (E.164 standard)`;
+        // If + prefix used, must have at least 1 country code digit
+        if (hasPlus && digits.length < 8) return 'Invalid international format — include country code after +';
+        return ''; // valid
+    };
+
+    // Clean and normalize to a readable international format
+    const formatPhoneDisplay = (raw: string): string => {
+        const cleaned = raw.replace(/[\s\-().]/g, '');
+        const hasPlus = cleaned.startsWith('+');
+        const digits = cleaned.replace(/[^\d]/g, '');
+        if (digits.length >= 7 && digits.length <= 15) {
+            // Return with + prefix if provided, else just digits
+            return hasPlus ? `+${digits}` : digits;
+        }
+        return raw; // invalid — return as-is
+    };
+
+    const isPhoneValid = validatePhone(wPhone) === '';
+
+    const isFormValid = wName.trim() !== '' && isPhoneValid &&
+                        wServiceItems.length > 0 &&
                         wServiceItems.every(i => i.serviceId && i.stylistId && i.startTime && i.endTime);
 
     const constructISOInTz = (dateStr: string, timeStr: string, tz: string) => {
@@ -434,7 +718,9 @@ export const BookingsCalendar: React.FC = () => {
 
         try {
             const tz = timezone || 'America/New_York';
-            const today = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+            const targetDate = new Date();
+            targetDate.setDate(targetDate.getDate() + dateOffset);
+            const today = targetDate.toLocaleDateString('en-CA', { timeZone: tz });
 
             // Prepare all booking objects to insert
             const bookingsToInsert = [];
@@ -450,7 +736,8 @@ export const BookingsCalendar: React.FC = () => {
                 const endISO = constructISOInTz(today, item.endTime, tz);
 
                 // Check Shift Hours
-                const dayOfWeek = new Date(`${today}T00:00:00`).getDay();
+                const [y, m, d] = today.split('-').map(Number);
+                const dayOfWeek = new Date(y, m - 1, d).getDay();
                 const { data: workingH } = await supabase
                     .from('staff_working_hours')
                     .select('start_time, end_time')
@@ -460,13 +747,13 @@ export const BookingsCalendar: React.FC = () => {
                     .maybeSingle();
 
                 if (!workingH) {
-                    throw new Error(`${st.full_name} is OFF on this day.`);
+                    throw new Error(`${st.full_name.trim()} is OFF on this day.`);
                 }
 
                 const reqStart = item.startTime + ':00';
                 const reqEnd = item.endTime + ':00';
                 if (reqStart < workingH.start_time || reqEnd > workingH.end_time) {
-                    throw new Error(`${st.full_name} works from ${workingH.start_time.substring(0,5)} to ${workingH.end_time.substring(0,5)}. Requested time is out of shift.`);
+                    throw new Error(`${st.full_name.trim()} works from ${workingH.start_time.substring(0,5)} to ${workingH.end_time.substring(0,5)}. Requested time is out of shift.`);
                 }
 
                 // Check Leaves
@@ -479,7 +766,7 @@ export const BookingsCalendar: React.FC = () => {
                     .gte('end_date', today);
                 
                 if (leaves && leaves.length > 0) {
-                     throw new Error(`${st.full_name} is on Leave/Vacation (${leaves[0].reason || 'Off'}) on ${new Date(today).toLocaleDateString()}.`);
+                     throw new Error(`${st.full_name.trim()} is on Leave/Vacation (${leaves[0].reason || 'Off'}) on ${new Date(today).toLocaleDateString()}.`);
                 }
 
                 // Check conflict: overlaps if existing.start < new.end AND existing.end > new.start
@@ -493,7 +780,7 @@ export const BookingsCalendar: React.FC = () => {
                     .gt('end_time', startISO);
 
                 if (conflicts && conflicts.length > 0) {
-                    throw new Error(`Conflict: ${st.full_name} is already booked between ${item.startTime} and ${item.endTime}.`);
+                    throw new Error(`Conflict: ${st.full_name.trim()} is already booked between ${item.startTime} and ${item.endTime}.`);
                 }
 
                 bookingsToInsert.push({
@@ -589,7 +876,7 @@ export const BookingsCalendar: React.FC = () => {
             // Success
             showToast(wRecurring === 'none' ? 'Booking(s) confirmed!' : `Booked ${wRecurringCount} recurring appointments!`);
             setShowModal(false);
-            setWName(''); setWPhone(''); 
+            setWName(''); setWPhone(''); setPhoneError(''); 
             setWServiceItems([{ id: 'initial-1', serviceId: '', stylistId: '', startTime: getSalonTime(), endTime: '', guestName: '' }]);
             setWRecurring('none'); setWRecurringCount(4);
             fetchData();
@@ -855,7 +1142,10 @@ export const BookingsCalendar: React.FC = () => {
                         </div>
 
                         {/* Date Label */}
-                        <span className="text-xs text-white/80 font-bold whitespace-nowrap">{rangeLabel}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-white/80 font-bold whitespace-nowrap">{rangeLabel}</span>
+                            {isFetching && <Loader2 className="w-3.5 h-3.5 animate-spin text-luxe-gold" />}
+                        </div>
 
                         {/* Pending Refunds (if any) */}
                         {pendingRefunds.length > 0 && (
@@ -884,7 +1174,10 @@ export const BookingsCalendar: React.FC = () => {
                     
                     {!isStaff && (
                         <button
-                            onClick={() => setShowModal(true)}
+                            onClick={() => {
+                                setWServiceItems([{ id: 'initial-1', serviceId: '', stylistId: '', startTime: getSalonTime(), endTime: '', guestName: '' }]);
+                                setShowModal(true);
+                            }}
                             className="bg-gold-gradient text-luxe-obsidian px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-white/90 active:scale-[0.98] transition-all whitespace-nowrap"
                         >
                             <Plus className="w-3.5 h-3.5" />
@@ -917,7 +1210,7 @@ export const BookingsCalendar: React.FC = () => {
 
             {/* Calendar Grid (Today View) */}
             {viewMode === 'today' && (
-                <div className="flex-1 glass-panel border border-white/5 flex flex-col overflow-hidden relative">
+                <div className={`flex-1 glass-panel border border-white/5 flex flex-col overflow-hidden relative transition-opacity duration-200 ${isFetching ? 'opacity-65' : 'opacity-100'}`}>
                     {/* Staff Header */}
                     <div className="grid border-b border-white/5 bg-white/5" style={{ gridTemplateColumns: `80px repeat(${displayStaff.length}, 1fr)` }}>
                         <div className="p-4 border-r border-white/5 flex items-center justify-center">
@@ -929,11 +1222,11 @@ export const BookingsCalendar: React.FC = () => {
                                     {s.photo_url ? (
                                         <img src={s.photo_url} alt={s.full_name} className="w-full h-full object-cover" />
                                     ) : (
-                                        s.full_name.charAt(0)
+                                        s.full_name.trim().charAt(0)
                                     )}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-bold truncate">{s.full_name.split(' ')[0]}</p>
+                                    <p className="text-xs font-bold truncate">{s.full_name.trim().split(' ')[0]}</p>
                                     <p className="text-[9px] text-white/30 uppercase tracking-tighter truncate">{s.role}</p>
                                 </div>
                             </div>
@@ -972,43 +1265,74 @@ export const BookingsCalendar: React.FC = () => {
                             </div>
                             {displayStaff.map(s => (
                                 <div key={s.id} className="relative border-r border-white/5 min-h-full">
-                                    {timeSlots.map(time => (
-                                        <div 
-                                            key={time} 
-                                            onClick={() => openBookingFor(s.id, time)}
-                                            className="h-20 border-b border-white/5 w-full hover:bg-white/[0.03] transition-all cursor-pointer flex items-center justify-center group/cell relative"
-                                            title={`Click to book at ${time} with ${s.full_name.split(' ')[0]}`}
-                                        >
-                                            <Plus className="w-3.5 h-3.5 text-white/0 group-hover/cell:text-luxe-gold/30 group-hover/cell:scale-110 transition-all pointer-events-none" />
-                                        </div>
-                                    ))}
+                                    {timeSlots.map(time => {
+                                        const offShift = isSlotOffShift(s.id, time);
+                                        return (
+                                            <div 
+                                                key={time} 
+                                                onClick={() => !offShift && openBookingFor(s.id, time)}
+                                                className={`h-20 border-b border-white/5 w-full transition-all relative ${
+                                                    offShift 
+                                                        ? 'bg-black/40 opacity-40 cursor-not-allowed bg-[linear-gradient(45deg,rgba(255,255,255,0.03)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.03)_50%,rgba(255,255,255,0.03)_75%,transparent_75%,transparent)] bg-[length:8px_8px]' 
+                                                        : 'hover:bg-white/[0.03] cursor-pointer group/cell'
+                                                }`}
+                                                title={offShift ? 'Stylist is off-shift' : `Click to book at ${time} with ${s.full_name.trim().split(' ')[0]}`}
+                                            >
+                                                {!offShift && (
+                                                    <Plus className="w-3.5 h-3.5 text-white/0 group-hover/cell:text-luxe-gold/30 group-hover/cell:scale-110 transition-all pointer-events-none" />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                     {filteredBookings.filter(b => b.stylist_id === s.id).map(b => {
                                         const colors = statusColors[b.status] || statusColors.pending;
                                         const isCancelled = b.status === 'cancelled';
                                         const isConfirmed = b.status === 'confirmed';
+                                        const isCompact = b.duration_hours < 0.75;
                                         return (
                                             <div
                                                 key={b.id}
                                                 onClick={() => setSelectedBooking(b)}
-                                                className={`absolute left-1.5 right-1.5 rounded-xl p-3 border shadow-2xl transition-all duration-300 ease-out hover:scale-[1.02] cursor-pointer group z-10 ${colors.bg} ${colors.text} ${colors.border} ${isCancelled ? 'opacity-45 line-through' : ''} ${isConfirmed ? 'hover:shadow-[0_0_15px_rgba(212,175,55,0.35)]' : 'hover:shadow-lg'}`}
+                                                className={`absolute left-1.5 right-1.5 rounded-xl border shadow-2xl transition-all duration-300 ease-out hover:scale-[1.02] cursor-pointer group z-10 ${colors.bg} ${colors.text} ${colors.border} ${isCancelled ? 'opacity-45 line-through' : ''} ${isConfirmed ? 'hover:shadow-[0_0_15px_rgba(212,175,55,0.35)]' : 'hover:shadow-lg'} ${isCompact ? 'p-2 flex flex-col justify-center' : 'p-3 flex flex-col'}`}
                                                 style={{
                                                     top: `${(b.start_hour - 8) * 80}px`,
-                                                    height: `${Math.max(b.duration_hours * 80, 40)}px`
+                                                    height: `${Math.max(b.duration_hours * 80, 42)}px`
                                                 }}
                                             >
-                                                <div className="flex justify-between items-start">
-                                                    <div className="min-w-0">
-                                                        <p className="text-[11px] font-black uppercase tracking-tight truncate">{b.client_name}</p>
-                                                        <p className="text-[10px] font-bold mt-0.5 truncate opacity-70">{b.service_name}</p>
+                                                {isCompact ? (
+                                                    <div className="flex flex-col justify-between h-full min-w-0">
+                                                        <div className="flex justify-between items-center min-w-0 gap-1">
+                                                            <p className="text-[10px] font-black uppercase tracking-tight truncate flex-1 min-w-0">
+                                                                {b.client_name}
+                                                            </p>
+                                                            <span className="text-[9px] font-bold opacity-75 truncate max-w-[45%] shrink-0">
+                                                                {b.service_name}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-[8px] font-bold opacity-60 mt-0.5">
+                                                            <span>
+                                                                {toSalonTimeStr(b.start_time, timezone || 'America/Chicago')}
+                                                            </span>
+                                                            <span className="uppercase">{b.status.replace('_', ' ')}</span>
+                                                        </div>
                                                     </div>
-                                                    <Scissors className="w-3 h-3 opacity-40" />
-                                                </div>
-                                                <div className="mt-auto pt-1 flex items-center justify-between">
-                                                    <span className="text-[9px] font-bold opacity-50">
-                                                        {toSalonTimeStr(b.start_time, timezone || 'America/Chicago')}
-                                                    </span>
-                                                    <span className="text-[8px] font-bold uppercase opacity-60">{b.status.replace('_', ' ')}</span>
-                                                </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="min-w-0">
+                                                                <p className="text-[11px] font-black uppercase tracking-tight truncate">{b.client_name}</p>
+                                                                <p className="text-[10px] font-bold mt-0.5 truncate opacity-70">{b.service_name}</p>
+                                                            </div>
+                                                            <Scissors className="w-3 h-3 opacity-40" />
+                                                        </div>
+                                                        <div className="mt-auto pt-1 flex items-center justify-between">
+                                                            <span className="text-[9px] font-bold opacity-50">
+                                                                {toSalonTimeStr(b.start_time, timezone || 'America/Chicago')}
+                                                            </span>
+                                                            <span className="text-[8px] font-bold uppercase opacity-60">{b.status.replace('_', ' ')}</span>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -1021,7 +1345,7 @@ export const BookingsCalendar: React.FC = () => {
 
             {/* List View (Weekly / Monthly) */}
             {(viewMode === 'weekly' || viewMode === 'monthly') && (
-                <div className="flex-1 glass-panel border border-white/5 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                <div className={`flex-1 glass-panel border border-white/5 overflow-y-auto custom-scrollbar p-6 space-y-6 transition-opacity duration-200 ${isFetching ? 'opacity-65' : 'opacity-100'}`}>
                     {Object.keys(bookingsByDate).length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-48 text-white/30">
                             <CalendarIcon className="w-12 h-12 mb-3 opacity-30" />
@@ -1053,107 +1377,100 @@ export const BookingsCalendar: React.FC = () => {
                                                         setSelectedBooking(b);
                                                     }
                                                 }}
-                                                className={`flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-white/5 cursor-pointer ${colors.border} bg-white/[0.02] ${isCancelled ? 'opacity-45 line-through' : ''}`}
+                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all hover:bg-white/5 cursor-pointer ${colors.border} bg-white/[0.02] ${isCancelled ? 'opacity-45 line-through' : ''}`}
                                             >
-                                                <div className="w-14 text-center shrink-0">
-                                                    <p className="text-sm font-black text-white/70">{timeStr}</p>
+                                                {/* Time */}
+                                                <div className="w-16 shrink-0 text-center">
+                                                    <p className="text-xs font-black text-white/70 leading-tight whitespace-nowrap">{timeStr}</p>
                                                 </div>
-                                                {/* Divider */}
-                                                <div className={`w-1 h-10 rounded-full ${colors.bg}`} />
-                                                {/* Details */}
+                                                {/* Status bar */}
+                                                <div className={`w-1 h-8 rounded-full shrink-0 ${colors.bg}`} />
+                                                {/* Client + Service */}
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-bold truncate">{b.client_name}</p>
-                                                    <p className="text-xs text-white/40 truncate">{b.service_name}</p>
+                                                    <p className="text-sm font-bold truncate leading-tight">{b.client_name}</p>
+                                                    <p className="text-[10px] text-white/40 truncate leading-tight">{b.service_name}</p>
                                                 </div>
-                                                {/* Stylist */}
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <div
-                                                        className="w-7 h-7 rounded-full bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center text-[10px] font-bold"
-                                                        style={{ color: stylist?.color || '#999', borderColor: stylist?.color || 'rgba(255,255,255,0.1)' }}
-                                                    >
-                                                        {stylist?.photo_url ? (
-                                                            <img src={stylist.photo_url} alt={stylist.full_name} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            stylist?.full_name?.charAt(0) || '?'
-                                                        )}
+                                                {/* RIGHT SIDE — all on one line */}
+                                                <div className="flex items-center gap-2 shrink-0 ml-auto">
+                                                    {/* Stylist avatar + name */}
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div
+                                                            className="w-6 h-6 rounded-full bg-white/5 border overflow-hidden flex items-center justify-center text-[9px] font-bold shrink-0"
+                                                            style={{ borderColor: stylist?.color || 'rgba(255,255,255,0.1)', color: stylist?.color || '#999' }}
+                                                        >
+                                                            {stylist?.photo_url ? (
+                                                                <img src={stylist.photo_url} alt={stylist.full_name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                stylist?.full_name?.trim().charAt(0) || '?'
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[10px] text-white/50 font-medium hidden lg:block whitespace-nowrap">{stylist?.full_name?.trim().split(' ')[0] || '—'}</span>
                                                     </div>
-                                                    <span className="text-xs text-white/40 hidden lg:block">{stylist?.full_name?.split(' ')[0] || '—'}</span>
-                                                </div>
-                                                {/* Price */}
-                                                <div className="text-right shrink-0 w-14">
-                                                    <p className="text-sm font-bold text-luxe-gold">${b.price}</p>
-                                                </div>
-                                                {/* Status Badge */}
-                                                <span
-                                                    onClick={() => handleStatusCycle(b)}
-                                                    title={
-                                                        b.status === 'pending_deposit' ? 'Deposit required — cannot advance'
-                                                            : STATUS_FLOW[b.status] ? `Click → ${STATUS_FLOW[b.status].replace('_', ' ')}`
-                                                                : 'Final status'
-                                                    }
-                                                    className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 ${colors.bg} ${colors.text} ${b.status !== 'pending_deposit' && STATUS_FLOW[b.status] ? 'cursor-pointer hover:opacity-80 transition-opacity' : b.status === 'pending_deposit' ? 'cursor-not-allowed opacity-70' : ''
-                                                        }`}
-                                                >
-                                                    {b.status.replace('_', ' ')}
-                                                </span>
-                                                {/* Smart Payment Badges */}
-                                                {(() => {
-                                                    const isWalkin = b.client_name === 'Walk-in';
-                                                    const hasDeposit = b.deposit_amount > 0;
-                                                    const depositPaid = b.deposit_paid_amount > 0;
-                                                    const remaining = b.price - (b.deposit_paid_amount || 0);
-                                                    const isCompleted = b.status === 'completed';
+                                                    {/* Price */}
+                                                    <span className="text-xs font-bold text-luxe-gold w-10 text-right shrink-0">${b.price}</span>
+                                                    {/* Status Badge */}
+                                                    <span
+                                                        onClick={() => handleStatusCycle(b)}
+                                                        title={
+                                                            b.status === 'pending_deposit' ? 'Deposit required — cannot advance'
+                                                                : STATUS_FLOW[b.status] ? `Click → ${STATUS_FLOW[b.status].replace('_', ' ')}`
+                                                                    : 'Final status'
+                                                        }
+                                                        className={`text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap ${colors.bg} ${colors.text} ${b.status !== 'pending_deposit' && STATUS_FLOW[b.status] ? 'cursor-pointer hover:opacity-80 transition-opacity' : b.status === 'pending_deposit' ? 'cursor-not-allowed opacity-70' : ''}`}
+                                                    >
+                                                        {b.status.replace(/_/g, ' ')}
+                                                    </span>
+                                                    {/* Smart Payment Badge */}
+                                                    {(() => {
+                                                        const isWalkin = b.client_name === 'Walk-in';
+                                                        const hasDeposit = b.deposit_amount > 0;
+                                                        const depositPaid = b.deposit_paid_amount > 0;
+                                                        const isCompleted = b.status === 'completed';
 
-                                                    if (isWalkin && !hasDeposit) {
-                                                        // Walk-in without deposit
-                                                        return (
-                                                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-orange-500/15 text-orange-300 border border-orange-500/30">
-                                                                🚶 Walk-in
-                                                            </span>
-                                                        );
-                                                    }
-
-                                                    if (!hasDeposit) {
-                                                        // No deposit required — show total only
-                                                        return (
-                                                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-luxe-gold/10 text-luxe-gold border border-luxe-gold/20">
-                                                                ${b.price}
-                                                            </span>
-                                                        );
-                                                    }
-
-                                                    if (isCompleted) {
-                                                        // Completed — show full paid
-                                                        return (
-                                                            <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-green-500/15 text-green-300 border border-green-500/30">
-                                                                ✓ ${b.price} Paid
-                                                            </span>
-                                                        );
-                                                    }
-
-                                                    if (depositPaid) {
-                                                        // Deposit paid — show paid + remaining
-                                                        return (
-                                                            <>
-                                                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-green-500/15 text-green-300 border border-green-500/30">
-                                                                    ✓ ${b.deposit_paid_amount} Paid
+                                                        if (isWalkin && !hasDeposit) {
+                                                            return (
+                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-orange-500/15 text-orange-300 border border-orange-500/30">
+                                                                    Walk-in
                                                                 </span>
-                                                                {remaining > 0 && (
-                                                                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
-                                                                        ${remaining} Due
+                                                            );
+                                                        }
+                                                        if (!hasDeposit) {
+                                                            return (
+                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-luxe-gold/10 text-luxe-gold border border-luxe-gold/20">
+                                                                    ${b.price}
+                                                                </span>
+                                                            );
+                                                        }
+                                                        if (isCompleted) {
+                                                            return (
+                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-green-500/15 text-green-300 border border-green-500/30">
+                                                                    ✓ Paid
+                                                                </span>
+                                                            );
+                                                        }
+                                                        if (depositPaid) {
+                                                            const remaining = b.price - (b.deposit_paid_amount || 0);
+                                                            return (
+                                                                <>
+                                                                    <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-green-500/15 text-green-300 border border-green-500/30">
+                                                                        ✓ ${b.deposit_paid_amount} Paid
                                                                     </span>
-                                                                )}
-                                                            </>
+                                                                    {remaining > 0 && (
+                                                                        <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+                                                                            ${remaining} Due
+                                                                        </span>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        }
+                                                        // Deposit required but not paid
+                                                        return (
+                                                            <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-red-500/15 text-red-300 border border-red-500/30">
+                                                                ⏳ ${b.deposit_amount} Due
+                                                            </span>
                                                         );
-                                                    }
-
-                                                    // Deposit required but not paid
-                                                    return (
-                                                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg shrink-0 bg-red-500/15 text-red-300 border border-red-500/30">
-                                                            ⏳ ${b.deposit_amount} Due
-                                                        </span>
-                                                    );
-                                                })()}
+                                                    })()}
+                                                </div>
                                             </div>
                                         );
                                     })}
@@ -1194,7 +1511,7 @@ export const BookingsCalendar: React.FC = () => {
                                 <UserPlus className="w-5 h-5 text-luxe-gold" />
                                 Add Walk-in Customer
                             </h3>
-                            <button onClick={() => setShowModal(false)} title="Close" className="p-1.5 hover:bg-white/10 rounded-xl transition-all text-white/50 hover:text-white">
+                            <button onClick={() => { setShowModal(false); setPhoneError(''); }} title="Close" className="p-1.5 hover:bg-white/10 rounded-xl transition-all text-white/50 hover:text-white">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
@@ -1212,12 +1529,41 @@ export const BookingsCalendar: React.FC = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider mb-1 block">Phone Number *</label>
+                                    <label className="text-[10px] font-bold text-white/50 uppercase tracking-wider mb-1 block">Phone Number *
+                                        <span className="ml-1 font-normal normal-case text-white/30">(International)</span>
+                                    </label>
                                     <input
-                                        value={wPhone} onChange={e => setWPhone(e.target.value)}
-                                        placeholder="+1 555-0101"
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs outline-none focus:border-luxe-gold/50 transition-all text-white placeholder-white/30"
+                                        value={wPhone}
+                                        onChange={e => {
+                                            setWPhone(e.target.value);
+                                            if (phoneError) setPhoneError(validatePhone(e.target.value));
+                                        }}
+                                        onBlur={e => {
+                                            const err = validatePhone(e.target.value);
+                                            setPhoneError(err);
+                                            // Auto-format on blur if valid
+                                            if (!err) setWPhone(formatPhoneDisplay(e.target.value));
+                                        }}
+                                        placeholder="+1 555-0101 or +44 7911 123456"
+                                        maxLength={20}
+                                        className={`w-full bg-white/5 border rounded-xl px-3 py-2 text-xs outline-none transition-all text-white placeholder-white/30 ${
+                                            phoneError
+                                                ? 'border-red-500/70 focus:border-red-500'
+                                                : wPhone && isPhoneValid
+                                                    ? 'border-emerald-500/60 focus:border-emerald-500'
+                                                    : 'border-white/10 focus:border-luxe-gold/50'
+                                        }`}
                                     />
+                                    {phoneError && (
+                                        <p className="text-[9px] text-red-400 mt-1 flex items-center gap-1">
+                                            <span>⚠</span> {phoneError}
+                                        </p>
+                                    )}
+                                    {!phoneError && wPhone && isPhoneValid && (
+                                        <p className="text-[9px] text-emerald-400 mt-1 flex items-center gap-1">
+                                            <span>✓</span> Valid international number
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
@@ -1254,28 +1600,381 @@ export const BookingsCalendar: React.FC = () => {
                                                     className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white"
                                                 >
                                                     <option value="">Select stylist...</option>
-                                                    {staff.map(s => <option key={s.id} value={s.id}>{s.full_name.split(' ')[0]} ({s.role})</option>)}
+                                                    {staff.map(s => <option key={s.id} value={s.id}>{s.full_name.trim().split(' ')[0]} ({s.role})</option>)}
                                                 </select>
+                                                {(() => {
+                                                    if (!item.stylistId) return null;
+                                                    const shift = getStylistShift(item.stylistId);
+                                                    if (!shift || !shift.is_working) {
+                                                        return <p className="text-[8px] text-red-400 mt-1 font-semibold">⚠️ Selected stylist is OFF today</p>;
+                                                    }
+                                                    return (
+                                                        <p className="text-[8px] text-luxe-gold/80 mt-1 font-semibold">
+                                                            🕒 Shift: {formatDbTime12h(shift.start_time)} - {formatDbTime12h(shift.end_time)}
+                                                        </p>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
-                                            <div>
+                                            {/* Start Time Custom Picker */}
+                                            <div className="relative time-picker-container">
                                                 <label className="text-[9px] font-bold text-white/40 uppercase mb-0.5 block">Start *</label>
-                                                <input 
-                                                    type="time" 
-                                                    value={item.startTime} 
-                                                    onChange={e => updateServiceItem(item.id, 'startTime', e.target.value)} 
-                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white"
-                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActivePicker(activePicker === `${item.id}-start` ? null : `${item.id}-start`)}
+                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs text-white text-left flex items-center justify-between hover:border-luxe-gold/50 transition-all h-8"
+                                                >
+                                                    <span>{format24hTo12h(item.startTime)}</span>
+                                                    <Clock className="w-3.5 h-3.5 text-white/30" />
+                                                </button>
+                                                
+                                                {activePicker === `${item.id}-start` && (
+                                                    <div className="absolute left-0 bottom-full mb-1.5 bg-luxe-obsidian border border-white/10 rounded-xl p-3 shadow-2xl z-50 flex flex-col gap-2.5 w-52 animate-in fade-in slide-in-from-bottom-1 duration-150">
+                                                        {/* Quick Actions */}
+                                                        <div className="flex gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    updateServiceItem(item.id, 'startTime', getSalonTime());
+                                                                    setActivePicker(null);
+                                                                }}
+                                                                className="flex-1 bg-luxe-gold/10 border border-luxe-gold/20 hover:bg-luxe-gold/20 text-luxe-gold font-bold py-1 rounded text-[9px] uppercase tracking-wider transition-colors"
+                                                            >
+                                                                Current Time
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setActivePicker(null)}
+                                                                className="px-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 py-1 rounded text-[9px] uppercase font-bold transition-colors"
+                                                            >
+                                                                Close
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        {/* Scroller Columns Frame */}
+                                                        <div className="relative border border-white/5 bg-black/35 rounded-lg p-1.5 flex items-center justify-between">
+                                                            {/* Hours Column */}
+                                                            <div className="flex-1 flex flex-col items-center">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.startTime);
+                                                                        const nextH = h12 === 1 ? 12 : h12 - 1;
+                                                                        updateServiceItem(item.id, 'startTime', convert12hTo24h(nextH, m, ampm));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <div ref={activePicker === `${item.id}-start` ? hourScrollRef : null} className="h-8 overflow-y-auto scroll-smooth flex flex-col w-full py-[6px] relative scrollbar-none">
+                                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(h => {
+                                                                        const { h12 } = parse24hTime(item.startTime);
+                                                                        const isSelected = h12 === h;
+                                                                        return (
+                                                                            <button
+                                                                                key={h}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const { m, ampm } = parse24hTime(item.startTime);
+                                                                                    updateServiceItem(item.id, 'startTime', convert12hTo24h(h, m, ampm));
+                                                                                }}
+                                                                                className={`py-0.5 text-xs w-full text-center transition-all ${isSelected ? 'text-luxe-gold font-black scale-110' : 'text-white/40 hover:text-white/80'}`}
+                                                                            >
+                                                                                {String(h).padStart(2, '0')}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.startTime);
+                                                                        const nextH = h12 === 12 ? 1 : h12 + 1;
+                                                                        updateServiceItem(item.id, 'startTime', convert12hTo24h(nextH, m, ampm));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                            
+                                                            <span className="text-white/20 font-black text-xs shrink-0 mx-0.5">:</span>
+                                                            
+                                                            {/* Minutes Column */}
+                                                            <div className="flex-1 flex flex-col items-center">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.startTime);
+                                                                        const nextM = getNextMinute(m, -10);
+                                                                        updateServiceItem(item.id, 'startTime', convert12hTo24h(h12, nextM, ampm));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <div ref={activePicker === `${item.id}-start` ? minuteScrollRef : null} className="h-8 overflow-y-auto scroll-smooth flex flex-col w-full py-[6px] relative scrollbar-none">
+                                                                    {[0, 10, 20, 30, 40, 50].map(m => {
+                                                                        const { m: currentM } = parse24hTime(item.startTime);
+                                                                        let snappedM = Math.round(currentM / 10) * 10;
+                                                                        if (snappedM === 60) snappedM = 0;
+                                                                        const isSelected = snappedM === m;
+                                                                        return (
+                                                                            <button
+                                                                                key={m}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const { h12, ampm } = parse24hTime(item.startTime);
+                                                                                    updateServiceItem(item.id, 'startTime', convert12hTo24h(h12, m, ampm));
+                                                                                }}
+                                                                                className={`py-0.5 text-xs w-full text-center transition-all ${isSelected ? 'text-luxe-gold font-black scale-110' : 'text-white/40 hover:text-white/80'}`}
+                                                                            >
+                                                                                {String(m).padStart(2, '0')}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.startTime);
+                                                                        const nextM = getNextMinute(m, 10);
+                                                                        updateServiceItem(item.id, 'startTime', convert12hTo24h(h12, nextM, ampm));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                            
+                                                            {/* AM/PM Column */}
+                                                            <div className="flex-1 flex flex-col items-center border-l border-white/5 ml-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.startTime);
+                                                                        const nextAp = ampm === 'AM' ? 'PM' : 'AM';
+                                                                        updateServiceItem(item.id, 'startTime', convert12hTo24h(h12, m, nextAp));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <div ref={activePicker === `${item.id}-start` ? ampmScrollRef : null} className="h-8 overflow-y-auto scroll-smooth flex flex-col w-full py-[6px] relative scrollbar-none">
+                                                                    {['AM', 'PM'].map(ap => {
+                                                                        const { ampm } = parse24hTime(item.startTime);
+                                                                        const isSelected = ampm === ap;
+                                                                        return (
+                                                                            <button
+                                                                                key={ap}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const { h12, m } = parse24hTime(item.startTime);
+                                                                                    updateServiceItem(item.id, 'startTime', convert12hTo24h(h12, m, ap));
+                                                                                }}
+                                                                                className={`py-0.5 px-2 text-[9px] font-black rounded transition-all ${isSelected ? 'bg-luxe-gold text-luxe-obsidian scale-105' : 'text-white/40 hover:text-white/80'}`}
+                                                                            >
+                                                                                {ap}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.startTime);
+                                                                        const nextAp = ampm === 'AM' ? 'PM' : 'AM';
+                                                                        updateServiceItem(item.id, 'startTime', convert12hTo24h(h12, m, nextAp));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>
+
+                                            {/* End Time Custom Picker */}
+                                            <div className="relative time-picker-container">
                                                 <label className="text-[9px] font-bold text-white/40 uppercase mb-0.5 block">End *</label>
-                                                <input 
-                                                    type="time" 
-                                                    value={item.endTime} 
-                                                    onChange={e => updateServiceItem(item.id, 'endTime', e.target.value)} 
-                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs outline-none focus:border-luxe-gold/50 text-white"
-                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setActivePicker(activePicker === `${item.id}-end` ? null : `${item.id}-end`)}
+                                                    className="w-full bg-black/40 border border-white/10 rounded-lg p-1.5 text-xs text-white text-left flex items-center justify-between hover:border-luxe-gold/50 transition-all h-8"
+                                                >
+                                                    <span>{format24hTo12h(item.endTime)}</span>
+                                                    <Clock className="w-3.5 h-3.5 text-white/30" />
+                                                </button>
+                                                
+                                                {activePicker === `${item.id}-end` && (
+                                                    <div className="absolute right-0 bottom-full mb-1.5 bg-luxe-obsidian border border-white/10 rounded-xl p-3 shadow-2xl z-50 flex flex-col gap-2.5 w-52 animate-in fade-in slide-in-from-bottom-1 duration-150">
+                                                        {/* Quick Actions */}
+                                                        <div className="flex gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    updateServiceItem(item.id, 'endTime', getSalonTime());
+                                                                    setActivePicker(null);
+                                                                }}
+                                                                className="flex-1 bg-luxe-gold/10 border border-luxe-gold/20 hover:bg-luxe-gold/20 text-luxe-gold font-bold py-1 rounded text-[9px] uppercase tracking-wider transition-colors"
+                                                            >
+                                                                Current Time
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setActivePicker(null)}
+                                                                className="px-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 py-1 rounded text-[9px] uppercase font-bold transition-colors"
+                                                            >
+                                                                Close
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        {/* Scroller Columns Frame */}
+                                                        <div className="relative border border-white/5 bg-black/35 rounded-lg p-1.5 flex items-center justify-between">
+                                                            {/* Hours Column */}
+                                                            <div className="flex-1 flex flex-col items-center">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.endTime);
+                                                                        const nextH = h12 === 1 ? 12 : h12 - 1;
+                                                                        updateServiceItem(item.id, 'endTime', convert12hTo24h(nextH, m, ampm));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <div ref={activePicker === `${item.id}-end` ? hourScrollRef : null} className="h-8 overflow-y-auto scroll-smooth flex flex-col w-full py-[6px] relative scrollbar-none">
+                                                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(h => {
+                                                                        const { h12 } = parse24hTime(item.endTime);
+                                                                        const isSelected = h12 === h;
+                                                                        return (
+                                                                            <button
+                                                                                key={h}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const { m, ampm } = parse24hTime(item.endTime);
+                                                                                    updateServiceItem(item.id, 'endTime', convert12hTo24h(h, m, ampm));
+                                                                                }}
+                                                                                className={`py-0.5 text-xs w-full text-center transition-all ${isSelected ? 'text-luxe-gold font-black scale-110' : 'text-white/40 hover:text-white/80'}`}
+                                                                            >
+                                                                                {String(h).padStart(2, '0')}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.endTime);
+                                                                        const nextH = h12 === 12 ? 1 : h12 + 1;
+                                                                        updateServiceItem(item.id, 'endTime', convert12hTo24h(nextH, m, ampm));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                            
+                                                            <span className="text-white/20 font-black text-xs shrink-0 mx-0.5">:</span>
+                                                            
+                                                            {/* Minutes Column */}
+                                                            <div className="flex-1 flex flex-col items-center">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.endTime);
+                                                                        const nextM = getNextMinute(m, -10);
+                                                                        updateServiceItem(item.id, 'endTime', convert12hTo24h(h12, nextM, ampm));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <div ref={activePicker === `${item.id}-end` ? minuteScrollRef : null} className="h-8 overflow-y-auto scroll-smooth flex flex-col w-full py-[6px] relative scrollbar-none">
+                                                                    {[0, 10, 20, 30, 40, 50].map(m => {
+                                                                        const { m: currentM } = parse24hTime(item.endTime);
+                                                                        let snappedM = Math.round(currentM / 10) * 10;
+                                                                        if (snappedM === 60) snappedM = 0;
+                                                                        const isSelected = snappedM === m;
+                                                                        return (
+                                                                            <button
+                                                                                key={m}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const { h12, ampm } = parse24hTime(item.endTime);
+                                                                                    updateServiceItem(item.id, 'endTime', convert12hTo24h(h12, m, ampm));
+                                                                                }}
+                                                                                className={`py-0.5 text-xs w-full text-center transition-all ${isSelected ? 'text-luxe-gold font-black scale-110' : 'text-white/40 hover:text-white/80'}`}
+                                                                            >
+                                                                                {String(m).padStart(2, '0')}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.endTime);
+                                                                        const nextM = getNextMinute(m, 10);
+                                                                        updateServiceItem(item.id, 'endTime', convert12hTo24h(h12, nextM, ampm));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                            
+                                                            {/* AM/PM Column */}
+                                                            <div className="flex-1 flex flex-col items-center border-l border-white/5 ml-1">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.endTime);
+                                                                        const nextAp = ampm === 'AM' ? 'PM' : 'AM';
+                                                                        updateServiceItem(item.id, 'endTime', convert12hTo24h(h12, m, nextAp));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronUp className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <div ref={activePicker === `${item.id}-end` ? ampmScrollRef : null} className="h-8 overflow-y-auto scroll-smooth flex flex-col w-full py-[6px] relative scrollbar-none">
+                                                                    {['AM', 'PM'].map(ap => {
+                                                                        const { ampm } = parse24hTime(item.endTime);
+                                                                        const isSelected = ampm === ap;
+                                                                        return (
+                                                                            <button
+                                                                                key={ap}
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const { h12, m } = parse24hTime(item.endTime);
+                                                                                    updateServiceItem(item.id, 'endTime', convert12hTo24h(h12, m, ap));
+                                                                                }}
+                                                                                className={`py-0.5 px-2 text-[9px] font-black rounded transition-all ${isSelected ? 'bg-luxe-gold text-luxe-obsidian scale-105' : 'text-white/40 hover:text-white/80'}`}
+                                                                            >
+                                                                                {ap}
+                                                                            </button>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const { h12, m, ampm } = parse24hTime(item.endTime);
+                                                                        const nextAp = ampm === 'AM' ? 'PM' : 'AM';
+                                                                        updateServiceItem(item.id, 'endTime', convert12hTo24h(h12, m, nextAp));
+                                                                    }}
+                                                                    className="text-white/40 hover:text-luxe-gold p-0.5 transition-colors"
+                                                                >
+                                                                    <ChevronDown className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                         {/* Optional Guest Name for group bookings */}

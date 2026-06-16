@@ -77,6 +77,16 @@
     @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
   }
 
+  /* Hide scrollbars for time picker columns */
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+
   /* Fix native select/option dropdowns in dark theme */
   select,
   select option {

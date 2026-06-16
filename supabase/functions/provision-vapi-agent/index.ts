@@ -293,6 +293,15 @@ Your warmth and personality carry through the language fully.`;
 
         const fullSystemPrompt = systemPrompt + langInstruction;
 
+        // ── Helper: tenant_id as locked enum so AI can never miss it ──────────
+        const tenantParam = {
+            tenant_id: {
+                type: "string",
+                enum: [tenantId],
+                description: `Always use exactly: "${tenantId}"`
+            }
+        };
+
         // Tool definitions
         const vapiTools = [
             {
@@ -300,39 +309,27 @@ Your warmth and personality carry through the language fully.`;
                 function: {
                     name: "get_salon_info",
                     description: "CALL THIS FIRST at the start of every conversation. Returns salon details, current date/time, business hours, and pre-computed date_expressions (today, tomorrow, etc.). Required for all date/time awareness.",
-                    parameters: {
-                        type: "object",
-                        properties: { tenant_id: { type: "string" } },
-                        required: ["tenant_id"]
-                    }
+                    parameters: { type: "object", properties: { ...tenantParam }, required: ["tenant_id"] }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
             {
                 type: "function",
                 function: {
                     name: "list_services",
                     description: "Get all available salon services with exact pricing, duration, and deposit requirements. Call when client asks about services or prices, or before booking.",
-                    parameters: {
-                        type: "object",
-                        properties: { tenant_id: { type: "string" } },
-                        required: ["tenant_id"]
-                    }
+                    parameters: { type: "object", properties: { ...tenantParam }, required: ["tenant_id"] }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
             {
                 type: "function",
                 function: {
                     name: "list_staff",
                     description: "Get all active stylists/staff at the salon. Call when client asks about who works there or requests a specific stylist.",
-                    parameters: {
-                        type: "object",
-                        properties: { tenant_id: { type: "string" } },
-                        required: ["tenant_id"]
-                    }
+                    parameters: { type: "object", properties: { ...tenantParam }, required: ["tenant_id"] }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
             {
                 type: "function",
@@ -342,14 +339,14 @@ Your warmth and personality carry through the language fully.`;
                     parameters: {
                         type: "object",
                         properties: {
-                            tenant_id: { type: "string" },
+                            ...tenantParam,
                             date: { type: "string", description: "YYYY-MM-DD — use ONLY from date_expressions" },
                             service_ids: { type: "string", description: "Comma-separated service UUIDs" }
                         },
                         required: ["tenant_id", "date"]
                     }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
             {
                 type: "function",
@@ -359,7 +356,7 @@ Your warmth and personality carry through the language fully.`;
                     parameters: {
                         type: "object",
                         properties: {
-                            tenant_id: { type: "string" },
+                            ...tenantParam,
                             client_name: { type: "string" },
                             client_phone: { type: "string" },
                             client_email: { type: "string", description: "Required for confirmation and payment link" },
@@ -371,98 +368,54 @@ Your warmth and personality carry through the language fully.`;
                         required: ["tenant_id", "client_name", "client_phone", "service_ids", "date", "time"]
                     }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
             {
                 type: "function",
                 function: {
                     name: "create_payment_link",
                     description: "Generate a Stripe payment link for a deposit. Call after create_booking if deposit is required. Never read the URL aloud — just confirm it was sent.",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            tenant_id: { type: "string" },
-                            booking_id: { type: "string" }
-                        },
-                        required: ["tenant_id", "booking_id"]
-                    }
+                    parameters: { type: "object", properties: { ...tenantParam, booking_id: { type: "string" } }, required: ["tenant_id", "booking_id"] }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
             {
                 type: "function",
                 function: {
                     name: "cancel_booking",
                     description: "Cancel an existing booking. Look up by client name and phone number.",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            tenant_id: { type: "string" },
-                            client_name: { type: "string" },
-                            client_phone: { type: "string" },
-                            booking_id: { type: "string" }
-                        },
-                        required: ["tenant_id"]
-                    }
+                    parameters: { type: "object", properties: { ...tenantParam, client_name: { type: "string" }, client_phone: { type: "string" }, booking_id: { type: "string" } }, required: ["tenant_id"] }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
             {
                 type: "function",
                 function: {
                     name: "reschedule_booking",
                     description: "Reschedule an existing booking to a new date/time. Look up by client name and phone. new_start_at format: YYYY-MM-DDTHH:mm:00",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            tenant_id: { type: "string" },
-                            client_name: { type: "string" },
-                            client_phone: { type: "string" },
-                            booking_id: { type: "string" },
-                            new_start_at: { type: "string", description: "YYYY-MM-DDTHH:mm:00" }
-                        },
-                        required: ["tenant_id", "new_start_at"]
-                    }
+                    parameters: { type: "object", properties: { ...tenantParam, client_name: { type: "string" }, client_phone: { type: "string" }, booking_id: { type: "string" }, new_start_at: { type: "string", description: "YYYY-MM-DDTHH:mm:00" } }, required: ["tenant_id", "new_start_at"] }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
+
+
             {
                 type: "function",
                 function: {
                     name: "add_to_waitlist",
                     description: "Add a client to the priority waitlist when no slots are available.",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            tenant_id: { type: "string" },
-                            client_name: { type: "string" },
-                            client_phone: { type: "string" },
-                            client_email: { type: "string" },
-                            preferred_date: { type: "string", description: "YYYY-MM-DD" },
-                            time_window: { type: "string" },
-                            notes: { type: "string" }
-                        },
-                        required: ["tenant_id", "client_name", "client_phone", "preferred_date"]
-                    }
+                    parameters: { type: "object", properties: { ...tenantParam, client_name: { type: "string" }, client_phone: { type: "string" }, client_email: { type: "string" }, preferred_date: { type: "string", description: "YYYY-MM-DD" }, time_window: { type: "string" }, notes: { type: "string" } }, required: ["tenant_id", "client_name", "client_phone", "preferred_date"] }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             },
             {
                 type: "function",
                 function: {
                     name: "escalate_to_human",
                     description: "Escalate to a human team member. Use ONLY when: client explicitly asks for manager/human, client is upset after 2 exchanges, or you cannot resolve after 2 genuine attempts.",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            tenant_id: { type: "string" },
-                            caller_phone: { type: "string" },
-                            issue_summary: { type: "string", description: "Brief 1-sentence reason for escalation" }
-                        },
-                        required: ["tenant_id", "caller_phone", "issue_summary"]
-                    }
+                    parameters: { type: "object", properties: { ...tenantParam, caller_phone: { type: "string" }, issue_summary: { type: "string", description: "Brief 1-sentence reason for escalation" } }, required: ["tenant_id", "caller_phone", "issue_summary"] }
                 },
-                server: { url: `${functionsUrl}/vapi-tools-gateway`, secret: 'LUXE-AUREA-SECRET-2026' }
+                server: { url: `${functionsUrl}/vapi-tools-gateway`, headers: { 'x-vapi-secret': 'LUXE-AUREA-SECRET-2026' } }
             }
         ];
 

@@ -897,6 +897,11 @@ export const Settings: React.FC = () => {
     const [logoUploading, setLogoUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Salon Cover Photo (booking page sidebar)
+    const [salonCoverUrl, setSalonCoverUrl] = useState<string | null>(null);
+    const [coverUploading, setCoverUploading] = useState(false);
+    const coverInputRef = useRef<HTMLInputElement>(null);
+
     const [services, setServices] = useState<Service[]>([]);
     const [hours, setHours] = useState<BusinessHour[]>([]);
     const [loading, setLoading] = useState(true);
@@ -1063,7 +1068,7 @@ export const Settings: React.FC = () => {
             .eq('tenant_id', tenantId).order('day_of_week');
 
         const { data: tenantData } = await supabaseAdmin
-            .from('tenants').select('loyalty_points_multiplier, salon_email, salon_website, google_review_url, owner_notification_email, owner_phone, tax_rate')
+            .from('tenants').select('loyalty_points_multiplier, salon_email, salon_website, google_review_url, owner_notification_email, owner_phone, tax_rate, salon_image_url')
             .eq('id', tenantId).single();
 
         if (svcData) setServices(svcData);
@@ -1076,6 +1081,7 @@ export const Settings: React.FC = () => {
             setOwnerNotifEmail(tenantData.owner_notification_email || '');
             setOwnerPhone(tenantData.owner_phone || '');
             if (tenantData.tax_rate != null) setTaxRate((tenantData.tax_rate * 100).toFixed(3).replace(/\.?0+$/, ''));
+            if (tenantData.salon_image_url) setSalonCoverUrl(tenantData.salon_image_url);
         }
         
         setLoading(false);
@@ -1083,38 +1089,55 @@ export const Settings: React.FC = () => {
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
 
-    // -- Branding --
+    // -- Cloudinary Upload Helper --
+    const uploadToCloudinary = async (file: File, folder: string): Promise<string> => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'voxali_uploads');
+        formData.append('folder', `voxali/${folder}/${tenantId}`);
+        const res = await fetch('https://api.cloudinary.com/v1_1/dntw71eel/image/upload', {
+            method: 'POST',
+            body: formData,
+        });
+        if (!res.ok) throw new Error('Cloudinary upload failed');
+        const data = await res.json();
+        return data.secure_url;
+    };
+
+    // -- Branding: Logo Upload via Cloudinary --
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !tenantId) return;
-
         // Show local preview immediately
         const reader = new FileReader();
         reader.onload = (ev) => setBLogoPreview(ev.target?.result as string);
         reader.readAsDataURL(file);
-
         setLogoUploading(true);
-        const ext = file.name.split('.').pop() || 'png';
-        const path = `${tenantId}/logo.${ext}`;
-
-        const { error: upErr } = await supabaseAdmin.storage
-            .from('logos')
-            .upload(path, file, { upsert: true, contentType: file.type });
-
-        if (upErr) {
-            showToast('❌ Upload failed: ' + upErr.message);
-            setLogoUploading(false);
-            return;
-        }
-
-        const { data: urlData } = supabaseAdmin.storage.from('logos').getPublicUrl(path);
-        if (urlData?.publicUrl) {
-            setBLogoPreview(urlData.publicUrl);
+        try {
+            const url = await uploadToCloudinary(file, 'logos');
+            setBLogoPreview(url);
             showToast('✅ Logo uploaded!');
-        } else {
-            showToast('❌ Failed to get public URL after upload.', 'error');
+        } catch (err: any) {
+            showToast('❌ Upload failed: ' + err.message, 'error');
         }
         setLogoUploading(false);
+    };
+
+    // -- Salon Cover Photo Upload via Cloudinary --
+    const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !tenantId) return;
+        setCoverUploading(true);
+        try {
+            const url = await uploadToCloudinary(file, 'salon-covers');
+            setSalonCoverUrl(url);
+            // Save immediately to DB
+            await supabaseAdmin.from('tenants').update({ salon_image_url: url }).eq('id', tenantId);
+            showToast('✅ Salon cover photo updated! Booking page will show it now.');
+        } catch (err: any) {
+            showToast('❌ Upload failed: ' + err.message, 'error');
+        }
+        setCoverUploading(false);
     };
 
     const handleRemoveLogo = () => {
@@ -1457,6 +1480,73 @@ export const Settings: React.FC = () => {
                     </div>
 
                     
+                    {/* ============ SALON COVER PHOTO (Booking Page) ============ */}
+                    <div className="flex items-center gap-3 mt-10 mb-6">
+                        <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
+                            <Upload className="w-6 h-6 text-luxe-gold" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold">Booking Page Cover Photo</h3>
+                            <p className="text-xs text-white/40 uppercase tracking-widest">Shown in sidebar on your booking page</p>
+                        </div>
+                    </div>
+
+                    <div className="glass-panel border border-white/5 p-6 mb-6">
+                        <div className="flex flex-col md:flex-row gap-6 items-start">
+                            {/* Preview */}
+                            <div className="flex-shrink-0">
+                                <div
+                                    onClick={() => coverInputRef.current?.click()}
+                                    className="w-48 h-32 rounded-xl border-2 border-dashed border-white/20 hover:border-luxe-gold/50 flex items-center justify-center cursor-pointer transition-all group overflow-hidden bg-white/5 relative"
+                                >
+                                    {salonCoverUrl ? (
+                                        <img src={salonCoverUrl} alt="Salon Cover" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-2 text-white/30 group-hover:text-luxe-gold transition-colors">
+                                            <Upload className="w-8 h-8" />
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-center">Click to Upload<br/>Cover Photo</span>
+                                        </div>
+                                    )}
+                                    {coverUploading && (
+                                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl">
+                                            <Loader2 className="w-6 h-6 text-luxe-gold animate-spin" />
+                                        </div>
+                                    )}
+                                </div>
+                                <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
+                            </div>
+                            {/* Info */}
+                            <div className="flex-1 space-y-3">
+                                <p className="text-sm text-white/60 leading-relaxed">
+                                    This photo appears in the <span className="text-luxe-gold font-bold">sidebar of your booking page</span> so customers can see your salon.
+                                </p>
+                                <p className="text-xs text-white/30">Recommended: Landscape photo, min 800×500px, JPG or PNG.</p>
+                                <div className="flex gap-3 mt-4">
+                                    <button
+                                        onClick={() => coverInputRef.current?.click()}
+                                        disabled={coverUploading}
+                                        className="bg-gold-gradient text-luxe-obsidian px-5 py-2 rounded-xl font-bold text-sm shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {coverUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                        {coverUploading ? 'Uploading...' : salonCoverUrl ? 'Change Photo' : 'Upload Photo'}
+                                    </button>
+                                    {salonCoverUrl && (
+                                        <button
+                                            onClick={async () => {
+                                                setSalonCoverUrl(null);
+                                                await supabaseAdmin.from('tenants').update({ salon_image_url: null }).eq('id', tenantId);
+                                                showToast('Cover photo removed');
+                                            }}
+                                            className="px-5 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition-all flex items-center gap-2"
+                                        >
+                                            <Trash2 className="w-4 h-4" /> Remove
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* ============ SALON CONTACT INFO ============ */}
                     <div className="flex items-center gap-3 mt-10 mb-6">
                         <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">

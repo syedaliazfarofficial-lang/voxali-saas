@@ -18,6 +18,7 @@ export interface ReceiptData {
     items: ReceiptItem[];
     subtotal: number;
     tax?: number;
+    taxRate?: number;
     tip: number;
     total: number;
     paymentMethod: string;
@@ -123,7 +124,9 @@ export const generateReceiptPDF = async (data: ReceiptData) => {
     currentY += 12;
 
     if (data.tax && data.tax > 0) {
-        doc.text('Tax:', 10, currentY);
+        const taxPct = data.taxRate ? (data.taxRate * 100).toFixed(data.taxRate % 0.001 !== 0 ? 3 : data.taxRate % 0.01 !== 0 ? 2 : 1) : '';
+        const taxLabel = taxPct ? `Tax (${taxPct}%):` : 'Tax:';
+        doc.text(taxLabel, 10, currentY);
         doc.text(`$${data.tax.toFixed(2)}`, 216, currentY, { align: 'right' });
         currentY += 12;
     }

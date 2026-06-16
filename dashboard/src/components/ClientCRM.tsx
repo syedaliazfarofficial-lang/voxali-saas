@@ -51,6 +51,10 @@ export const ClientCRM: React.FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importing, setImporting] = useState(false);
 
+    // Actions Menu (3-dots) state
+    const [showActionsMenu, setShowActionsMenu] = useState(false);
+    const actionsMenuRef = useRef<HTMLDivElement>(null);
+
     const fetchClients = useCallback(async () => {
         if (!tenantId) return;
         setLoading(true);
@@ -90,6 +94,9 @@ export const ClientCRM: React.FC = () => {
         const handler = (e: MouseEvent) => {
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
                 setOpenMenu(null);
+            }
+            if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+                setShowActionsMenu(false);
             }
         };
         document.addEventListener('mousedown', handler);
@@ -301,90 +308,110 @@ export const ClientCRM: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
-                        <Users className="w-6 h-6 text-luxe-gold" />
+            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+                {/* Left Side: Icon + Title + Unified Capsule Inline */}
+                <div className="flex items-center gap-4 flex-nowrap min-w-0">
+                    <div className="flex items-center gap-2.5 flex-shrink-0">
+                        <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
+                            <Users className="w-5 h-5 text-luxe-gold" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold whitespace-nowrap text-white">Client Database</h3>
+                            <p className="text-[9px] text-white/40 uppercase tracking-widest whitespace-nowrap">360° View</p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="text-xl font-bold">Client Database</h3>
-                        <p className="text-xs text-white/40 uppercase tracking-widest">360° Management View</p>
-                    </div>
+                    
+                    {/* Unified Premium Stats Capsule */}
+                    {loading ? (
+                        <div className="h-8 w-60 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 flex items-center justify-center flex-shrink-0">
+                            <Skeleton variant="text" width="80%" height={10} />
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-3.5 bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs text-white/50 flex-shrink-0">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">Clients</span>
+                                <span className="font-bold text-white">{totalClients}</span>
+                                <span className="text-[9px] text-emerald-400 font-bold bg-emerald-400/10 px-1.5 py-0.5 rounded-full">+{newThisMonth}</span>
+                            </div>
+                            <div className="h-3 w-[1px] bg-white/10" />
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">Avg Spend</span>
+                                <span className="font-bold text-luxe-gold">${avgSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            </div>
+                            <div className="h-3 w-[1px] bg-white/10" />
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-white/40 uppercase font-black tracking-wider">New</span>
+                                <span className="font-bold text-blue-400">{newThisMonth}</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <div className="flex items-center gap-3">
+                
+                {/* Right Side: Search + Add Client + Action Menu */}
+                <div className="flex items-center gap-2 flex-shrink-0">
                     <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
                         <input
                             type="text" placeholder="Search clients..." value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-luxe-gold/50 w-64"
+                            className="bg-white/5 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-xs outline-none focus:border-white/20 w-44 transition-all text-white placeholder-white/30"
                         />
                     </div>
-                    <button
-                        onClick={exportPDF}
-                        className="px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-luxe-gold hover:border-luxe-gold/30 transition-all flex items-center gap-2 text-xs font-bold whitespace-nowrap"
-                    >
-                        <FileText className="w-4 h-4" /> PDF
-                    </button>
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={importing}
-                        className="px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-luxe-gold hover:border-luxe-gold/30 transition-all flex items-center gap-2 text-xs font-bold disabled:opacity-50 whitespace-nowrap"
-                    >
-                        {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                        {importing ? 'IMPORTING...' : 'IMPORT CSV'}
-                    </button>
-                    <input 
-                        type="file" 
-                        accept=".csv" 
-                        ref={fileInputRef} 
-                        onChange={handleFileUpload} 
-                        className="hidden" 
-                    />
+                    
                     <button
                         onClick={() => setShowModal(true)}
-                        className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all whitespace-nowrap"
+                        className="bg-gold-gradient text-luxe-obsidian px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-white/90 active:scale-[0.98] transition-all whitespace-nowrap"
                     >
-                        <Plus className="w-5 h-5" />
+                        <Plus className="w-3.5 h-3.5" />
                         ADD CLIENT
                     </button>
+
+                    {/* More Actions Dropdown (3-dots) */}
+                    <div className="relative" ref={actionsMenuRef}>
+                        <button
+                            onClick={() => setShowActionsMenu(!showActionsMenu)}
+                            className="p-1.5 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 text-white/60 hover:text-white transition-all flex items-center justify-center"
+                        >
+                            <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                        
+                        {showActionsMenu && (
+                            <div className="absolute right-0 top-full mt-2 w-44 bg-luxe-obsidian border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                <button
+                                    onClick={() => { setShowActionsMenu(false); fileInputRef.current?.click(); }}
+                                    disabled={importing}
+                                    className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-2 hover:bg-white/5 text-white/80 transition-colors disabled:opacity-50"
+                                >
+                                    <Upload className="w-3.5 h-3.5 text-luxe-gold" /> Import CSV
+                                </button>
+                                <button
+                                    onClick={() => { setShowActionsMenu(false); exportPDF(); }}
+                                    className="w-full px-4 py-2.5 text-left text-xs flex items-center gap-2 hover:bg-white/5 text-white/80 transition-colors"
+                                >
+                                    <FileText className="w-3.5 h-3.5 text-luxe-gold" /> Export PDF
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {loading ? (
-                    [1,2,3].map(i => (
-                        <div key={i} className="glass-panel p-6">
-                            <Skeleton variant="text" width="60%" height={12} className="mb-3" />
-                            <Skeleton variant="text" width="40%" height={28} />
-                        </div>
-                    ))
-                ) : (
-                    <>
-                        <SummaryItem label="Total Clients" value={String(totalClients)} trend={`+${newThisMonth} this month`} />
-                        <SummaryItem label="Avg. Lifetime Value" value={`$${avgSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} trend="Per client" />
-                        <SummaryItem label="New This Month" value={String(newThisMonth)} trend="Active growth" />
-                    </>
-                )}
-            </div>
-
             {/* Client Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {loading ? (
-                    [1,2,3,4,5,6].map(i => (
-                        <div key={i} className="glass-panel p-6">
-                            <div className="flex items-center gap-4 mb-6">
-                                <Skeleton variant="rect" width={56} height={56} className="rounded-2xl" />
-                                <div className="space-y-2 flex-1">
+                    [1,2,3,4,5,6,7,8].map(i => (
+                        <div key={i} className="glass-panel p-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <Skeleton variant="rect" width={44} height={44} className="rounded-xl" />
+                                <div className="space-y-1.5 flex-1">
                                     <Skeleton variant="text" width="60%" />
                                     <Skeleton variant="text" width="80%" height={10} />
                                 </div>
                             </div>
                             <div className="grid grid-cols-3 gap-2 mb-4">
-                                <Skeleton variant="rect" height={52} />
-                                <Skeleton variant="rect" height={52} />
-                                <Skeleton variant="rect" height={52} />
+                                <Skeleton variant="rect" height={42} />
+                                <Skeleton variant="rect" height={42} />
+                                <Skeleton variant="rect" height={42} />
                             </div>
                             <Skeleton variant="text" width="50%" height={10} />
                         </div>
@@ -396,77 +423,77 @@ export const ClientCRM: React.FC = () => {
                         <div 
                             key={client.id} 
                             onClick={() => setProfileClientId(client.id)}
-                            className="glass-panel p-6 group hover:gold-border duration-300 transition-all relative overflow-visible flex flex-col h-full cursor-pointer"
+                            className="glass-panel p-4 group hover:gold-border duration-300 transition-all relative overflow-visible flex flex-col h-full cursor-pointer"
                         >
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-xl font-black text-luxe-gold group-hover:bg-luxe-gold/10 transition-colors">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-lg font-black text-luxe-gold group-hover:bg-luxe-gold/10 transition-colors flex-shrink-0">
                                         {client.name.charAt(0)}
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold tracking-tight">{client.name}</h4>
-                                        <p className="text-xs text-white/40 flex items-center gap-1.5 mt-0.5">
-                                            <Phone className="w-3 h-3" /> {client.phone}
+                                    <div className="min-w-0">
+                                        <h4 className="font-bold tracking-tight text-sm truncate">{client.name}</h4>
+                                        <p className="text-[11px] text-white/40 flex items-center gap-1.5 mt-0.5">
+                                            <Phone className="w-3 h-3 flex-shrink-0" /> <span className="truncate">{client.phone}</span>
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex flex-col items-end gap-2">
+                                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                                     {isVip && (
-                                        <span className="text-[9px] font-black uppercase tracking-widest bg-luxe-gold/20 text-luxe-gold px-2 py-1 rounded-full flex items-center gap-1">
+                                        <span className="text-[8px] font-black uppercase tracking-widest bg-luxe-gold/20 text-luxe-gold px-1.5 py-0.5 rounded-full flex items-center gap-1">
                                             <Tag className="w-2 h-2" /> VIP
                                         </span>
                                     )}
                                     {isNew && (
-                                        <span className="text-[9px] font-black uppercase tracking-widest bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full">NEW</span>
+                                        <span className="text-[8px] font-black uppercase tracking-widest bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-full">NEW</span>
                                     )}
                                 </div>
                             </div>
-                            <div className="grid grid-cols-3 gap-2 mb-6">
-                                <div className="p-3 bg-white/5 rounded-xl border border-white/5 group-hover:bg-white/10 transition-colors">
-                                    <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mb-1">Spent</p>
-                                    <p className="text-sm font-bold text-green-400">${client.total_spend.toLocaleString()}</p>
+                            <div className="grid grid-cols-3 gap-2 mb-4">
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/5 group-hover:bg-white/10 transition-colors text-center">
+                                    <p className="text-[8px] text-white/30 uppercase font-black tracking-widest mb-0.5">Spent</p>
+                                    <p className="text-xs font-bold text-green-400">${client.total_spend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                                 </div>
-                                <div className="p-3 bg-white/5 rounded-xl border border-white/5 group-hover:bg-white/10 transition-colors">
-                                    <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mb-1">Visits</p>
-                                    <p className="text-sm font-bold">{client.total_visits}</p>
+                                <div className="p-2 bg-white/5 rounded-lg border border-white/5 group-hover:bg-white/10 transition-colors text-center">
+                                    <p className="text-[8px] text-white/30 uppercase font-black tracking-widest mb-0.5">Visits</p>
+                                    <p className="text-xs font-bold text-white">{client.total_visits}</p>
                                 </div>
-                                <div className="p-3 bg-luxe-gold/5 rounded-xl border border-luxe-gold/10 group-hover:bg-luxe-gold/10 transition-colors">
-                                    <p className="text-[9px] text-luxe-gold/60 uppercase font-black tracking-widest mb-1">Points</p>
-                                    <p className="text-sm font-black text-luxe-gold">{client.loyalty_points || 0}</p>
+                                <div className="p-2 bg-luxe-gold/5 rounded-lg border border-luxe-gold/10 group-hover:bg-luxe-gold/10 transition-colors text-center">
+                                    <p className="text-[8px] text-luxe-gold/60 uppercase font-black tracking-widest mb-0.5">Points</p>
+                                    <p className="text-xs font-black text-luxe-gold">{client.loyalty_points || 0}</p>
                                 </div>
                             </div>
 
                             {/* Tags & Notes UI */}
                             {(client.tags && client.tags.length > 0) || client.notes ? (
-                                <div className="mb-6 space-y-3">
+                                <div className="mb-4 space-y-2">
                                     {client.tags && client.tags.length > 0 && (
-                                        <div className="flex flex-wrap gap-1.5">
+                                        <div className="flex flex-wrap gap-1">
                                             {client.tags.map((tag, idx) => (
-                                                <span key={idx} className="bg-luxe-gold/10 text-luxe-gold border border-luxe-gold/20 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
+                                                <span key={idx} className="bg-luxe-gold/10 text-luxe-gold border border-luxe-gold/20 text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                                                     {tag}
                                                 </span>
                                             ))}
                                         </div>
                                     )}
                                     {client.notes && (
-                                        <p className="text-xs text-white/50 bg-white/5 p-3 rounded-lg border border-white/5 italic">
+                                        <p className="text-xs text-white/50 bg-white/5 p-2 rounded-lg border border-white/5 italic line-clamp-2">
                                             "{client.notes}"
                                         </p>
                                     )}
                                 </div>
                             ) : null}
 
-                            <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
-                                <p className="text-[10px] text-white/30">
+                            <div className="mt-auto pt-3 border-t border-white/5 flex items-center justify-between">
+                                <p className="text-[10px] text-white/30 truncate max-w-[80%]">
                                     {client.email || 'No email'}
                                 </p>
                                 {/* 3-dots Dropdown */}
-                                <div className="relative" ref={openMenu === client.id ? menuRef : undefined}>
+                                <div className="relative flex-shrink-0" ref={openMenu === client.id ? menuRef : undefined}>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === client.id ? null : client.id); }}
-                                        className="p-2 bg-white/5 rounded-xl hover:bg-white/10 transition-all"
+                                        className="p-1.5 bg-white/5 rounded-lg hover:bg-white/10 transition-all"
                                     >
-                                        <MoreHorizontal className="w-4 h-4" />
+                                        <MoreHorizontal className="w-3.5 h-3.5" />
                                     </button>
                                     {openMenu === client.id && (
                                         <div className="absolute right-0 bottom-full mb-2 w-48 bg-luxe-obsidian border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -615,11 +642,11 @@ export const ClientCRM: React.FC = () => {
 };
 
 const SummaryItem: React.FC<{ label: string; value: string; trend: string }> = ({ label, value, trend }) => (
-    <div className="glass-panel p-6 border-b-2 border-transparent hover:border-luxe-gold/30 transition-all">
-        <p className="text-white/40 text-xs font-black uppercase tracking-[0.2em] mb-2">{label}</p>
-        <div className="flex items-end justify-between">
-            <h3 className="text-2xl font-black">{value}</h3>
-            <span className="text-[10px] font-bold text-luxe-gold bg-luxe-gold/10 px-2 py-1 rounded">{trend}</span>
+    <div className="glass-panel px-3 py-1.5 flex items-center gap-2.5 text-xs border border-white/5 hover:border-luxe-gold/20 transition-all rounded-xl">
+        <div>
+            <p className="text-white/40 text-[9px] font-bold uppercase tracking-wider leading-none mb-0.5">{label}</p>
+            <h4 className="text-xs font-black text-white leading-none">{value}</h4>
         </div>
+        <span className="text-[9px] font-bold text-luxe-gold bg-luxe-gold/10 px-1.5 py-0.5 rounded leading-none whitespace-nowrap">{trend}</span>
     </div>
 );

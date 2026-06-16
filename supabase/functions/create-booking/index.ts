@@ -17,10 +17,23 @@ Deno.serve(async (req) => {
         const tenantId = auth.tenantId || body.tenant_id;
         if (!tenantId) return errorResponse('Missing tenant_id');
 
+// Normalize spoken email: "user at gmail dot com" → "user@gmail.com"
+const normalizeEmail = (email: string): string => {
+    if (!email) return '';
+    return email
+        .toLowerCase()
+        .trim()
+        .replace(/\s+at\s+the\s+rate\s+(of\s+)?/g, '@')  // "at the rate of" / "at the rate"
+        .replace(/\s+at\s+(?=[a-z0-9])/g, '@')             // "user at gmail" → "user@gmail"
+        .replace(/\s+dot\s+/g, '.')                         // "gmail dot com" → "gmail.com"
+        .replace(/\s+dot$/g, '.')                           // trailing dot
+        .replace(/\s+/g, '');                               // remove any remaining spaces
+};
+
         const client = {
             name: body.client_name || body.name || (body.client?.name) || '',
             phone: body.client_phone || body.phone || (body.client?.phone) || '',
-            email: body.client_email || body.email || (body.client?.email) || '',
+            email: normalizeEmail(body.client_email || body.email || (body.client?.email) || ''),
         };
         if (!client.name && !client.phone) return errorResponse('Client name or phone is required');
 
@@ -131,6 +144,13 @@ Deno.serve(async (req) => {
         let clientId: string;
         if (clientRes.data?.id) {
             clientId = clientRes.data.id;
+            // Always update name and email with what the caller provided on this call
+            const updatePayload: Record<string, string> = {};
+            if (client.name) updatePayload.name = client.name;
+            if (client.email) updatePayload.email = client.email;
+            if (Object.keys(updatePayload).length > 0) {
+                await supabase.from('clients').update(updatePayload).eq('id', clientId);
+            }
         } else {
             const { data: newClient, error: clientErr } = await supabase
                 .from('clients')
@@ -177,7 +197,7 @@ Deno.serve(async (req) => {
                         'line_items[0][quantity]': '1',
                         'metadata[booking_id]': booking.id,
                         'metadata[tenant_id]': tenantId!,
-                        'success_url': `https://voxali-payment.pages.dev/?booking_id=${booking.id}`,
+                        'success_url': `https://voxali-payment.pages.dev/?booking_id=${booking.id}&session_id={CHECKOUT_SESSION_ID}`,
                         'cancel_url': `https://voxali-payment.pages.dev/?booking_id=${booking.id}&cancelled=true`,
                     };
 

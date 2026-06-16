@@ -78,12 +78,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         else { localStorage.clear(); sessionStorage.clear(); window.location.reload(); }
     };
 
-    // ── Match footer color ──
-    const SIDEBAR_BG   = '#1a1a2e';   // same as bottom nav footer
-    const ACTIVE_BG    = 'rgba(255,255,255,0.92)';
+    // ── Gold Theme Colors ──
+    const SIDEBAR_BG   = '#1a1a2e';
+    const ACTIVE_BG    = 'rgba(212,175,55,0.15)';
     const HOVER_BG     = 'rgba(255,255,255,0.07)';
     const ICON_COLOR   = 'rgba(255,255,255,0.5)';
-    const ICON_ACTIVE  = '#000000';
+    const ICON_ACTIVE  = '#ffffff';
     const DIVIDER      = 'rgba(255,255,255,0.08)';
 
     return (
@@ -298,7 +298,7 @@ const IconNavItem: React.FC<IconNavItemProps> = ({
                         top: '15%', bottom: '15%',
                         width: 3,
                         borderRadius: 99,
-                        background: '#ffffff',
+                        background: '#D4AF37',
                     }} />
                 )}
                 <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />

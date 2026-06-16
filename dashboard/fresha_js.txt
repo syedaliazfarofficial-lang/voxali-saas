@@ -1,0 +1,199 @@
+// ===== CURRENT STEP TRACKER =====
+window._currentStep = 0;
+
+// ===== CATEGORY TAB SCROLL =====
+function scrollCats(dir) {
+    var tabs = document.getElementById('cat-tabs');
+    if(tabs) tabs.scrollBy({ left: dir * 200, behavior: 'smooth' });
+}
+
+// ===== RENDER SERVICES =====
+function renderServices() {
+    var grouped = {};
+    SERVICES.forEach(function(s){ 
+        var cat = s.category || 'General'; 
+        if(!grouped[cat]) grouped[cat] = []; 
+        grouped[cat].push(s); 
+    });
+    var cats = Object.keys(grouped); 
+    window._activeCat = window._activeCat || cats[0] || ''; 
+    window._grouped = grouped;
+    
+    var tabsHtml = cats.map(function(c){ 
+        var safeC = c.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return '<button class="cat-tab' + (c === window._activeCat ? ' active' : '') + '" onclick="filterCat(\'' + safeC + '\')">' + c + '</button>'; 
+    }).join('');
+    document.getElementById('cat-tabs').innerHTML = tabsHtml;
+    renderServiceCards();
+}
+
+function filterCat(cat) { 
+    window._activeCat = cat; 
+    document.querySelectorAll('.cat-tab').forEach(function(t){ 
+        t.classList.toggle('active', t.textContent === cat); 
+    }); 
+    renderServiceCards(); 
+}
+
+function renderServiceCards() {
+    var cat = window._activeCat; 
+    var svcs = window._grouped[cat] || []; 
+    var html = '';
+    svcs.forEach(function(s){
+        var sel = selectedServiceIds.indexOf(s.id) > -1;
+        var safeId = s.id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        var icon = sel ? '<span style="display:flex;align-items:center;justify-content:center;line-height:1">✓</span>' : '<span style="display:flex;align-items:center;justify-content:center;line-height:1">+</span>';
+
+        html += '<div class="service-card' + (sel ? ' selected' : '') + '" data-id="' + s.id + '" onclick="toggleService(\'' + safeId + '\')">' +
+            '<div class="service-info">' +
+            '<div class="service-name">' + s.name + '</div>' +
+            '<div class="service-meta">' + (s.duration || 30) + ' min' + (s.description ? ' · ' + s.description : '') + '</div>' +
+            '</div>' +
+            '<div class="service-price-col">' +
+            '<div class="service-price">$' + (s.price || 0).toFixed(2) + '</div>' +
+            '<div class="add-btn">' + icon + '</div>' +
+            '</div>' +
+            '</div>';
+    });
+    document.getElementById('services-list').innerHTML = html || '<p style="color:#9ca3af;padding:20px 0;font-size:14px">No services in this category.</p>';
+}
+
+// ===== RENDER STAFF =====
+function renderStaff() {
+    var html = '';
+    STAFF.forEach(function(s){
+        var photoHtml = s.photo_url 
+            ? '<img class="staff-photo" src="' + s.photo_url + '" alt="' + (s.name || '') + '">'
+            : '<div class="staff-avatar-initials">' + (s.name || 'S')[0].toUpperCase() + '</div>';
+        var safeId = s.id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        html += '<div class="staff-card" data-id="' + s.id + '" onclick="selectStaff(\'' + safeId + '\')">' +
+            photoHtml +
+            '<div class="staff-name">' + (s.name || 'Staff') + '</div>' +
+            '<div class="staff-role">' + (s.specialty || s.role || 'Stylist') + '</div>' +
+            '</div>';
+    });
+    document.getElementById('staff-grid').innerHTML = html;
+}
+
+// ===== SELECT STAFF =====
+function selectStaff(id) {
+    selectedStaffId = id;
+    var anyCard = document.getElementById('any-staff-card');
+    var anyCheck = document.getElementById('any-check');
+    if(id === '') { 
+        anyCard.style.borderColor = 'var(--primary-light)'; 
+        anyCard.style.background = '#f9f9ff'; 
+        anyCheck.style.display = 'block'; 
+    } else { 
+        anyCard.style.borderColor = 'var(--border)'; 
+        anyCard.style.background = '#fff'; 
+        anyCheck.style.display = 'none'; 
+    }
+    document.querySelectorAll('.staff-card').forEach(function(c){ 
+        c.classList.toggle('selected', c.dataset.id === id); 
+    });
+    selectedSlot = null; 
+    document.getElementById('booking-time').value = ''; 
+    updateSidebar();
+}
+
+// ===== STEP NAVIGATION =====
+function goStep(n) {
+    if(n === 1 && selectedServiceIds.length === 0){ alert('Please select at least one service.'); return; }
+    if(n === 3){ 
+        if(!document.getElementById('booking-date').value || !document.getElementById('booking-time').value){ 
+            alert('Please select a date and time slot.'); return; 
+        } 
+    }
+    if(n === 4){ 
+        if(!document.getElementById('client-name').value.trim() || !document.getElementById('client-email').value.trim()){ 
+            alert('Please fill in your name and email.'); return; 
+        } 
+        buildSummary(); 
+    }
+    
+    window._currentStep = n;
+    document.querySelectorAll('.step').forEach(function(s){ s.classList.remove('active'); }); 
+    document.getElementById('step-' + n).classList.add('active');
+    
+    // Update breadcrumb
+    for(var i = 0; i < 4; i++) {
+        var el = document.getElementById('bc-' + i); 
+        if(!el) continue; 
+        el.className = 'breadcrumb-step';
+        if(i < n) el.className += ' done';
+        else if(i === n) el.className += ' active';
+    }
+    
+    // Sidebar Continue: show only on step 0, hide on all other steps
+    var sbContinueBtn = document.getElementById('sb-continue-btn');
+    if(n === 0) {
+        updateSidebar(); // refresh sidebar + mobile bar when coming back
+    } else {
+        if(sbContinueBtn) sbContinueBtn.style.display = 'none';
+        // Hide mobile bottom bar on all steps except step 0
+        var mobileBar = document.getElementById('mobile-cart-bar');
+        if(mobileBar) mobileBar.classList.remove('visible');
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+    if(n === 2) setTimeout(fetchSlots, 100);
+}
+
+// ===== DATE SELECTION =====
+function selectDate(dateStr) { 
+    document.getElementById('booking-date').value = dateStr; 
+    document.querySelectorAll('.date-btn').forEach(function(b){ b.classList.toggle('selected', b.dataset.date === dateStr); }); 
+    selectedSlot = null; 
+    document.getElementById('booking-time').value = ''; 
+    fetchSlots(); 
+}
+
+// ===== SIDEBAR UPDATE =====
+function updateSidebar() {
+    var selectedSvcs = SERVICES.filter(function(s){ return selectedServiceIds.indexOf(s.id) > -1; });
+    var total = 0, html = '';
+    
+    selectedSvcs.forEach(function(svc){ 
+        total += (svc.price || 0); 
+        html += '<div class="sidebar-item">' +
+            '<span class="sidebar-item-label">' + svc.name + '</span>' +
+            '<span class="sidebar-item-value">$' + (svc.price || 0).toFixed(2) + '</span>' +
+            '</div>'; 
+    });
+    
+    var sbItems = document.getElementById('sb-items');
+    var sbFooter = document.getElementById('sb-footer');
+    var sbTotalPrice = document.getElementById('sb-total-price');
+    var sbContinueBtn = document.getElementById('sb-continue-btn');
+    var onStep0 = (window._currentStep === 0);
+    
+    if(selectedSvcs.length > 0) {
+        sbItems.innerHTML = html;
+        sbFooter.style.display = 'block';
+        sbTotalPrice.textContent = '$' + total.toFixed(2);
+        // Continue button: only visible on step 0
+        if(sbContinueBtn) {
+            sbContinueBtn.style.display = onStep0 ? 'block' : 'none';
+        }
+    } else {
+        sbItems.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px 0">No services selected</div>';
+        sbFooter.style.display = 'none';
+    }
+
+    // ── Mobile bottom cart bar ──
+    var mobileBar = document.getElementById('mobile-cart-bar');
+    var mobileCount = document.getElementById('mobile-cart-count');
+    var mobileTotal = document.getElementById('mobile-cart-total');
+    if(mobileBar && mobileCount && mobileTotal) {
+        if(selectedSvcs.length > 0 && onStep0) {
+            var itemNames = selectedSvcs.map(function(s){ return s.name; }).join(', ');
+            mobileCount.textContent = selectedSvcs.length + ' service' + (selectedSvcs.length > 1 ? 's' : '') + ': ' + itemNames;
+            mobileTotal.textContent = '$' + total.toFixed(2);
+            mobileBar.classList.add('visible');
+        } else {
+            mobileBar.classList.remove('visible');
+        }
+    }
+}
+

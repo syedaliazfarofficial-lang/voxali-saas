@@ -1,0 +1,6 @@
+{
+  "name": "Luxe Salon",
+  "description": "Sophisticated salon management suite for high-end beauty and wellness businesses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

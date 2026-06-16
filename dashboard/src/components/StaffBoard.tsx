@@ -109,6 +109,17 @@ export const StaffBoard: React.FC = () => {
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const photoInputRef = useRef<HTMLInputElement>(null);
 
+    // Crop Modal
+    const [showCropModal, setShowCropModal] = useState(false);
+    const [cropSrc, setCropSrc] = useState<string | null>(null);
+    const [cropStaff, setCropStaff] = useState<StaffMember | null>(null);
+    const [cropZoom, setCropZoom] = useState(1);
+    const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+    const [cropDragging, setCropDragging] = useState(false);
+    const [cropDragStart, setCropDragStart] = useState({ x: 0, y: 0 });
+    const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+    const cropImgRef = useRef<HTMLImageElement | null>(null);
+
     const fetchStaff = useCallback(async () => {
         if (!tenantId) return;
         setLoading(true);
@@ -166,29 +177,27 @@ export const StaffBoard: React.FC = () => {
         setSaving(false);
     };
 
-    // ─── Photo Upload ───
+    // ─── Photo Upload (Cloudinary) ───
     const handlePhotoUpload = async (file: File, staffMember: StaffMember) => {
         if (!file || !staffMember) return;
         setUploadingPhoto(true);
         try {
-            const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-            const filePath = `staff-photos/${tenantId}/${staffMember.id}.${ext}`;
+            // Upload to Cloudinary using unsigned preset
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', 'voxali_uploads');
+            formData.append('folder', `voxali/staff/${tenantId}`);
 
-            // Upload to Supabase Storage bucket 'staff-photos'
-            const { error: uploadError } = await supabase.storage
-                .from('staff-photos')
-                .upload(filePath, file, { upsert: true, contentType: file.type });
+            const res = await fetch('https://api.cloudinary.com/v1_1/dntw71eel/image/upload', {
+                method: 'POST',
+                body: formData,
+            });
 
-            if (uploadError) throw uploadError;
+            if (!res.ok) throw new Error('Cloudinary upload failed');
+            const cloudData = await res.json();
+            const publicUrl = cloudData.secure_url;
 
-            // Get public URL
-            const { data: urlData } = supabase.storage
-                .from('staff-photos')
-                .getPublicUrl(filePath);
-
-            const publicUrl = urlData?.publicUrl + '?t=' + Date.now(); // cache bust
-
-            // Save to staff table
+            // Save URL to Supabase staff table
             const { error: updateError } = await supabase
                 .from('staff')
                 .update({ photo_url: publicUrl })
@@ -197,7 +206,7 @@ export const StaffBoard: React.FC = () => {
 
             if (updateError) throw updateError;
 
-            showToast(`Photo updated for ${staffMember.full_name}!`);
+            showToast(`Photo updated for ${staffMember.full_name}! ✅`);
             setPhotoUploadStaff(null);
             fetchStaff();
         } catch (err: any) {
@@ -205,6 +214,59 @@ export const StaffBoard: React.FC = () => {
         }
         setUploadingPhoto(false);
     };
+
+    // ─── Open Crop Modal ───
+    const openCropModal = (file: File, staffMember: StaffMember) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setCropSrc(e.target?.result as string);
+            setCropStaff(staffMember);
+            setCropZoom(1);
+            setCropOffset({ x: 0, y: 0 });
+            setShowCropModal(true);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    // ─── Crop Confirm: Draw on canvas → Blob → Upload ───
+    const handleCropConfirm = async () => {
+        if (!cropSrc || !cropStaff) return;
+        setShowCropModal(false);
+        setUploadingPhoto(true);
+        try {
+            const SIZE = 400;
+            const canvas = document.createElement('canvas');
+            canvas.width = SIZE; canvas.height = SIZE;
+            const ctx = canvas.getContext('2d')!;
+
+            // Draw circular clip
+            ctx.beginPath();
+            ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2);
+            ctx.clip();
+
+            // Draw image
+            const img = new window.Image();
+            img.src = cropSrc;
+            await new Promise(r => { img.onload = r; });
+
+            const scaledW = img.naturalWidth * cropZoom;
+            const scaledH = img.naturalHeight * cropZoom;
+            const drawX = (SIZE - scaledW) / 2 + cropOffset.x;
+            const drawY = (SIZE - scaledH) / 2 + cropOffset.y;
+            ctx.drawImage(img, drawX, drawY, scaledW, scaledH);
+
+            // Canvas to Blob
+            const blob: Blob = await new Promise(res => canvas.toBlob(b => res(b!), 'image/jpeg', 0.92));
+            const file = new File([blob], 'staff-photo.jpg', { type: 'image/jpeg' });
+            await handlePhotoUpload(file, cropStaff);
+        } catch (err: any) {
+            showToast(err.message || 'Crop failed', 'error');
+            setUploadingPhoto(false);
+        }
+        setCropSrc(null);
+        setCropStaff(null);
+    };
+
 
     const handleBlock = async (staffId: string, staffName: string) => {
         const { error } = await supabase.rpc('rpc_block_staff_today', { p_tenant_id: tenantId, p_staff_id: staffId });
@@ -1490,20 +1552,127 @@ export const StaffBoard: React.FC = () => {
                     </div>
                 </div>
             )}
-            {/* Hidden file input for photo upload */}
+            {/* Hidden file input for photo upload — now opens crop modal */}
             <input
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
                 style={{ display: 'none' }}
-                onChange={async (e) => {
+                onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file && photoUploadStaff) {
-                        await handlePhotoUpload(file, photoUploadStaff);
+                        openCropModal(file, photoUploadStaff);
                     }
                     e.target.value = '';
                 }}
             />
+
+            {/* ─── CROP / ZOOM MODAL ─── */}
+            {showCropModal && cropSrc && (
+                <div className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4">
+                    <div className="bg-[#1A1A1A] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+                            <h3 className="font-bold text-white text-lg">Adjust Photo</h3>
+                            <button onClick={() => { setShowCropModal(false); setCropSrc(null); }} className="text-white/40 hover:text-white transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Crop preview area */}
+                        <div className="p-6">
+                            <p className="text-xs text-white/40 text-center mb-4 uppercase tracking-wider">Drag to reposition · Scroll or slider to zoom</p>
+                            {/* Circle preview with drag */}
+                            <div
+                                className="relative mx-auto overflow-hidden cursor-grab active:cursor-grabbing select-none"
+                                style={{ width: 280, height: 280, borderRadius: '50%', border: '3px solid #D4AF37', boxShadow: '0 0 0 9999px rgba(0,0,0,0.7)' }}
+                                onMouseDown={(e) => {
+                                    setCropDragging(true);
+                                    setCropDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y });
+                                }}
+                                onMouseMove={(e) => {
+                                    if (!cropDragging) return;
+                                    setCropOffset({ x: e.clientX - cropDragStart.x, y: e.clientY - cropDragStart.y });
+                                }}
+                                onMouseUp={() => setCropDragging(false)}
+                                onMouseLeave={() => setCropDragging(false)}
+                                onTouchStart={(e) => {
+                                    setCropDragging(true);
+                                    const t = e.touches[0];
+                                    setCropDragStart({ x: t.clientX - cropOffset.x, y: t.clientY - cropOffset.y });
+                                }}
+                                onTouchMove={(e) => {
+                                    if (!cropDragging) return;
+                                    const t = e.touches[0];
+                                    setCropOffset({ x: t.clientX - cropDragStart.x, y: t.clientY - cropDragStart.y });
+                                }}
+                                onTouchEnd={() => setCropDragging(false)}
+                                onWheel={(e) => {
+                                    e.preventDefault();
+                                    setCropZoom(z => Math.min(3, Math.max(0.5, z - e.deltaY * 0.001)));
+                                }}
+                            >
+                                <img
+                                    src={cropSrc}
+                                    alt="crop preview"
+                                    draggable={false}
+                                    style={{
+                                        position: 'absolute',
+                                        left: '50%',
+                                        top: '50%',
+                                        transform: `translate(calc(-50% + ${cropOffset.x}px), calc(-50% + ${cropOffset.y}px)) scale(${cropZoom})`,
+                                        transformOrigin: 'center',
+                                        maxWidth: 'none',
+                                        transition: cropDragging ? 'none' : 'transform 0.1s',
+                                        pointerEvents: 'none',
+                                        width: 280,
+                                        height: 280,
+                                        objectFit: 'cover',
+                                    }}
+                                />
+                            </div>
+
+                            {/* Zoom slider */}
+                            <div className="mt-6 flex items-center gap-3">
+                                <span className="text-white/40 text-xs">−</span>
+                                <input
+                                    type="range"
+                                    min="0.5" max="3" step="0.01"
+                                    value={cropZoom}
+                                    onChange={e => setCropZoom(parseFloat(e.target.value))}
+                                    className="flex-1 h-2 accent-[#D4AF37] cursor-pointer"
+                                />
+                                <span className="text-white/40 text-xs">+</span>
+                            </div>
+                            <div className="flex gap-2 mt-4">
+                                <button
+                                    onClick={() => { setCropZoom(1); setCropOffset({ x: 0, y: 0 }); }}
+                                    className="flex-1 py-2 rounded-xl border border-white/10 text-white/50 hover:text-white text-sm font-medium transition-all"
+                                >
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex gap-3 px-6 pb-6">
+                            <button
+                                onClick={() => { setShowCropModal(false); setCropSrc(null); }}
+                                className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 hover:text-white font-bold transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCropConfirm}
+                                className="flex-1 py-3 rounded-xl bg-[#D4AF37] text-black font-bold hover:bg-[#c9a227] transition-all flex items-center justify-center gap-2"
+                            >
+                                <Upload className="w-4 h-4" />
+                                Use Photo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Photo uploading overlay */}
             {uploadingPhoto && (
@@ -1514,6 +1683,7 @@ export const StaffBoard: React.FC = () => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };

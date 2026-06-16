@@ -1,379 +1,693 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book an Appointment</title>
-    <meta name="description" content="Book your salon appointment online">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Inter',sans-serif; background:#f7f8fa; color:#1a1a2e; min-height:100vh; }
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
-        .header { background:#fff; border-bottom:1px solid #e8e8f0; padding:0 20px; display:flex; align-items:center; height:64px; gap:16px; position:sticky; top:0; z-index:100; box-shadow:0 1px 8px rgba(0,0,0,0.06); }
-        .header-logo { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; font-size:16px; }
-        .header h1 { font-size:17px; font-weight:700; color:#1a1a2e; }
-        .header p { font-size:13px; color:#9ca3af; }
+:root {
+    --primary: #101113;
+    --primary-light: #6366f1;
+    --bg: #ffffff;
+    --text: #101113;
+    --text-muted: #5e5e62;
+    --border: #e8e8e8;
+}
 
-        .breadcrumb { display:flex; align-items:center; gap:8px; padding:14px 20px; background:#fff; border-bottom:1px solid #f0f0f6; font-size:13px; }
-        .breadcrumb-step { color:#9ca3af; cursor:pointer; transition:color 0.2s; }
-        .breadcrumb-step.active { color:#6366f1; font-weight:600; }
-        .breadcrumb-step.done { color:#6366f1; cursor:pointer; }
-        .breadcrumb-step.done:hover { text-decoration:underline; }
-        .breadcrumb-sep { color:#d1d5db; font-size:11px; }
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
 
-        .layout { display:grid; grid-template-columns:1fr 340px; gap:0; max-width:1100px; margin:0 auto; min-height:calc(100vh - 120px); }
-        @media(max-width:768px) { .layout { grid-template-columns:1fr; } .sidebar-summary { display:none; } }
+html, body { 
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    font-family: 'Plus Jakarta Sans', sans-serif; 
+    background: var(--bg); 
+    color: var(--text); 
+    min-height: 100vh;
+}
 
-        .main-content { padding:32px 28px; border-right:1px solid #e8e8f0; background:#fff; }
-        .step { display:none; animation:fadeIn 0.3s ease; }
-        .step.active { display:block; }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        .step-title { font-size:22px; font-weight:700; color:#1a1a2e; margin-bottom:6px; }
-        .step-subtitle { font-size:14px; color:#6b7280; margin-bottom:24px; }
+/* ========== HEADER ========== */
+.header { 
+    background: #fff; 
+    border-bottom: 1px solid var(--border); 
+    padding: 0 20px; 
+    display: flex; 
+    align-items: center; 
+    height: 64px; 
+    position: sticky; 
+    top: 0; 
+    z-index: 100;
+}
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.header-logo { 
+    width: 32px; height: 32px; border-radius: 8px; 
+    background: var(--primary); display: flex; 
+    align-items: center; justify-content: center; font-size: 16px;
+}
+.header h1 { font-size: 16px; font-weight: 700; }
 
-        .category-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
-        .cat-tab { padding:8px 16px; border:1.5px solid #e5e7eb; border-radius:24px; font-size:13px; font-weight:500; color:#6b7280; cursor:pointer; transition:all 0.2s; background:#fff; white-space:nowrap; }
-        .cat-tab:hover { border-color:#6366f1; color:#6366f1; }
-        .cat-tab.active { background:#6366f1; border-color:#6366f1; color:#fff; }
+/* ========== BREADCRUMB ========== */
+.breadcrumb-wrapper {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+}
+.breadcrumb { 
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex; 
+    align-items: center; 
+    gap: 0; 
+    padding: 16px 0; 
+    font-size: 13px;
+    font-weight: 500;
+}
+.breadcrumb-step { 
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #c0c0c5;
+    cursor: default;
+    padding: 6px 0;
+    position: relative;
+}
+.breadcrumb-step .bc-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 2px solid #e0e0e5;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+    color: #c0c0c5;
+    flex-shrink: 0;
+}
+.breadcrumb-step .bc-label {
+    font-size: 13px;
+    font-weight: 500;
+}
+.breadcrumb-step.active { color: var(--text); cursor: pointer; }
+.breadcrumb-step.active .bc-num {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+.breadcrumb-step.active .bc-label { font-weight: 700; color: var(--text); }
+.breadcrumb-step.done .bc-num {
+    background: #22c55e;
+    border-color: #22c55e;
+    color: #fff;
+}
+.breadcrumb-step.done .bc-label { color: #22c55e; font-weight: 600; }
+.breadcrumb-sep { 
+    width: 32px; height: 1px; 
+    background: #e0e0e5; 
+    margin: 0 4px; 
+    flex-shrink: 0;
+}
 
-        .service-card { border:1.5px solid #e5e7eb; border-radius:14px; padding:16px 18px; margin-bottom:10px; cursor:pointer; transition:all 0.2s; display:flex; justify-content:space-between; align-items:center; background:#fff; }
-        .service-card:hover { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.08); }
-        .service-card.selected { border-color:#6366f1; background:#fafaff; box-shadow:0 0 0 3px rgba(99,102,241,0.12); }
-        .service-name { font-weight:600; font-size:15px; color:#1a1a2e; }
-        .service-meta { color:#9ca3af; font-size:12px; margin-top:3px; }
-        .service-price { font-size:16px; font-weight:700; color:#1a1a2e; text-align:right; }
-        .service-deposit { font-size:11px; color:#10b981; margin-top:2px; }
-        .check-circle { width:24px; height:24px; border-radius:50%; border:2px solid #d1d5db; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all 0.2s; margin-left:12px; }
-        .service-card.selected .check-circle { background:#6366f1; border-color:#6366f1; }
-        .service-card.selected .check-circle::after { content:'✓'; color:#fff; font-size:13px; font-weight:700; }
-        
-        .staff-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:14px; margin-bottom:24px; }
-        .staff-card { border:2px solid #e5e7eb; border-radius:16px; padding:16px 12px; cursor:pointer; transition:all 0.2s; text-align:center; background:#fff; position:relative; }
-        .staff-card:hover { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.08); transform:translateY(-2px); }
-        .staff-card.selected { border-color:#6366f1; background:#fafaff; box-shadow:0 0 0 4px rgba(99,102,241,0.15); }
-        .staff-card .selected-badge { position:absolute; top:8px; right:8px; width:20px; height:20px; background:#6366f1; border-radius:50%; display:none; align-items:center; justify-content:center; }
-        .staff-card.selected .selected-badge { display:flex; }
-        .staff-card .selected-badge::after { content:'✓'; color:#fff; font-size:11px; font-weight:700; }
-        .staff-photo { width:72px; height:72px; border-radius:50%; object-fit:cover; margin:0 auto 10px; display:block; border:3px solid #e5e7eb; }
-        .staff-card.selected .staff-photo { border-color:#6366f1; }
-        .staff-avatar-initials { width:72px; height:72px; border-radius:50%; margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:700; color:#6366f1; background:linear-gradient(135deg,#ede9fe,#ddd6fe); border:3px solid #e5e7eb; }
-        .staff-card.selected .staff-avatar-initials { border-color:#6366f1; }
-        .staff-name { font-weight:600; font-size:13px; color:#1a1a2e; }
-        .staff-role { font-size:11px; color:#9ca3af; margin-top:2px; }
+/* ========== LAYOUT ========== */
+.layout { 
+    display: grid; 
+    grid-template-columns: minmax(0, 1fr) 340px; 
+    max-width: 1200px; 
+    margin: 0 auto; 
+    padding: 0 20px;
+    width: 100%;
+}
 
-        .any-staff-card { border:2px solid #e5e7eb; border-radius:14px; padding:14px 18px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:14px; margin-bottom:20px; background:#fff; }
-        .any-staff-card:hover { border-color:#6366f1; }
-        .any-staff-card.selected { border-color:#6366f1; background:#fafaff; }
-        .any-staff-icon { width:48px; height:48px; border-radius:50%; background:#f3f4f6; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+@media(max-width:1100px) { 
+    .layout { grid-template-columns: 1fr; padding: 0 20px; } 
+    .sidebar-summary { display:none !important; } 
+}
 
-        .date-strip { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:20px; scrollbar-width:none; }
-        .date-strip::-webkit-scrollbar { display:none; }
-        .date-btn { min-width:60px; padding:10px 8px; border:1.5px solid #e5e7eb; border-radius:12px; cursor:pointer; text-align:center; background:#fff; transition:all 0.2s; flex-shrink:0; }
-        .date-btn:hover { border-color:#6366f1; }
-        .date-btn.selected { background:#6366f1; border-color:#6366f1; color:#fff; }
-        .date-btn .day-name { font-size:11px; font-weight:500; color:#9ca3af; }
-        .date-btn.selected .day-name { color:rgba(255,255,255,0.8); }
-        .date-btn .day-num { font-size:18px; font-weight:700; color:#1a1a2e; }
-        .date-btn.selected .day-num { color:#fff; }
-        .date-btn .month { font-size:10px; color:#9ca3af; margin-top:1px; }
-        .date-btn.selected .month { color:rgba(255,255,255,0.7); }
+.main-content { padding: 40px 0; padding-right: 40px; min-height: 80vh; overflow: hidden; }
+@media(max-width:1100px) { .main-content { padding: 28px 0; padding-right: 0; padding-bottom: 90px; } }
 
-        .slots-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(90px,1fr)); gap:8px; margin-top:12px; }
-        .slot-btn { padding:10px 8px; border:1.5px solid #e5e7eb; border-radius:10px; cursor:pointer; font-size:13px; font-weight:500; text-align:center; color:#1a1a2e; background:#fff; transition:all 0.2s; }
-        .slot-btn:hover { border-color:#6366f1; color:#6366f1; }
-        .slot-btn.selected { background:#6366f1; border-color:#6366f1; color:#fff; }
-        .slots-loading { text-align:center; padding:24px; color:#9ca3af; }
-        .slots-empty { text-align:center; padding:24px; color:#ef4444; background:#fef2f2; border-radius:12px; border:1px solid #fecaca; }
-        .slots-closed { text-align:center; padding:24px; color:#f59e0b; background:#fffbeb; border-radius:12px; border:1px solid #fde68a; }
+/* ========== MOBILE STICKY BOTTOM CART BAR ========== */
+.mobile-cart-bar {
+    display: none;
+}
+@media(max-width:1100px) {
+    .mobile-cart-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border-top: 2px solid var(--border);
+        padding: 12px 20px;
+        z-index: 200;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.10);
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .mobile-cart-bar.visible {
+        transform: translateY(0);
+    }
+    .mobile-cart-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .mobile-cart-count {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .mobile-cart-total {
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--text);
+        line-height: 1.1;
+    }
+    .mobile-cart-btn {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: 14px;
+        padding: 14px 26px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        flex-shrink: 0;
+        transition: opacity 0.2s;
+    }
+    .mobile-cart-btn:active { opacity: 0.75; }
+}
 
-        .form-group { margin-bottom:16px; }
-        .form-label { font-size:12px; font-weight:600; color:#6b7280; text-transform:uppercase; margin-bottom:6px; display:block; }
-        .form-input { width:100%; background:#fff; border:1.5px solid #e5e7eb; border-radius:10px; padding:13px 16px; color:#1a1a2e; font-size:15px; outline:none; transition:border 0.2s; font-family:'Inter',sans-serif; }
-        .form-input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
-        .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.step { display: none; }
+.step.active { display: block; }
 
-        .btn { width:100%; padding:15px; border:none; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer; transition:all 0.2s; font-family:'Inter',sans-serif; }
-        .btn-primary { background:#6366f1; color:#fff; box-shadow:0 4px 14px rgba(99,102,241,0.35); }
-        .btn-primary:hover { background:#4f46e5; transform:translateY(-1px); }
-        .btn-primary:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
-        .btn-outline { background:#fff; border:1.5px solid #e5e7eb; color:#6b7280; }
-        .btn-outline:hover { border-color:#6366f1; color:#6366f1; }
-        .btn-row { display:flex; gap:12px; margin-top:24px; }
+.step-title { font-size: 30px; font-weight: 700; color: var(--text); margin-bottom: 24px; letter-spacing: -0.02em; }
 
-        .sidebar-summary { background:#fafaff; padding:28px 24px; border-left:1px solid #e8e8f0; position:sticky; top:64px; height:fit-content; }
-        .sidebar-salon { display:flex; align-items:center; gap:12px; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid #e8e8f0; }
-        .sidebar-salon-icon { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; font-size:20px; }
-        .sidebar-salon-name { font-size:15px; font-weight:700; color:#1a1a2e; }
-        .sidebar-salon-sub { font-size:12px; color:#9ca3af; }
-        .sidebar-item { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f0f0f6; font-size:13px; }
-        .sidebar-item-label { color:#6b7280; }
-        .sidebar-item-value { font-weight:600; color:#1a1a2e; }
-        .sidebar-total { display:flex; justify-content:space-between; padding:14px 0 0; font-size:16px; font-weight:700; color:#1a1a2e; }
-        .sidebar-total-price { color:#6366f1; font-size:20px; }
+/* ========== CATEGORY TABS with SCROLL ARROWS ========== */
+.category-tabs-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    position: relative;
+}
+.cat-scroll-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    color: var(--text);
+}
+.cat-scroll-btn:hover { background: #f5f5f5; border-color: #aaa; }
+.category-tabs { 
+    display: flex; 
+    gap: 8px; 
+    overflow-x: auto; 
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    flex: 1;
+}
+.category-tabs::-webkit-scrollbar { display: none; }
+.cat-tab { 
+    padding: 8px 16px; 
+    border: 1.5px solid var(--border); 
+    border-radius: 20px; 
+    font-size: 13px; 
+    font-weight: 600; 
+    color: var(--text); 
+    cursor: pointer; 
+    transition: all 0.2s; 
+    background: #fff; 
+    white-space: nowrap; 
+}
+.cat-tab:hover { border-color: #aaa; }
+.cat-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
-        .selection-bar { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e8e8f0; padding:14px 24px; display:none; justify-content:space-between; align-items:center; z-index:50; box-shadow:0 -4px 20px rgba(0,0,0,0.08); }
-        .selection-bar.visible { display:flex; }
+/* ========== SERVICE CARDS ========== */
+.service-card { 
+    background: #fff;
+    border: 1px solid var(--border); 
+    border-radius: 12px; 
+    padding: 20px 24px; 
+    margin-bottom: 10px; 
+    cursor: pointer; 
+    transition: all 0.2s; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+.service-card:hover { border-color: #a0a0a5; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.service-info { flex: 1; min-width: 0; }
+.service-name { font-weight: 700; font-size: 16px; color: var(--text); margin-bottom: 3px; }
+.service-meta { color: var(--text-muted); font-size: 13px; }
+.service-price-col { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.service-price { font-size: 17px; font-weight: 700; color: var(--text); }
+.add-btn { 
+    width: 32px; 
+    height: 32px; 
+    border-radius: 50%; 
+    border: 1.5px solid var(--border); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    flex-shrink: 0; 
+    transition: all 0.2s; 
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 32px;
+    color: var(--text);
+    padding: 0;
+    margin-left: 16px;
+    user-select: none;
+    text-align: center;
+}
+.service-card.selected { border-color: var(--primary-light); background: #f9f9ff; }
+.service-card.selected .add-btn { 
+    background: var(--primary-light); 
+    border-color: var(--primary-light); 
+    color: #fff; 
+    font-size: 16px;
+}
 
-        .confirm-card { background:#fff; border:1.5px solid #e5e7eb; border-radius:16px; padding:20px; margin:16px 0; }
-        .confirm-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f3f4f6; font-size:14px; }
-        .confirm-row:last-child { border-bottom:none; }
-        .confirm-label { color:#6b7280; }
-        .confirm-value { font-weight:600; color:#1a1a2e; }
-        .confirm-total { font-size:18px; font-weight:700; color:#6366f1; }
+/* ========== STAFF GRID ========== */
+.staff-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.staff-card { 
+    border: 1.5px solid var(--border); border-radius: 14px; 
+    padding: 18px 10px; cursor: pointer; transition: all 0.2s; text-align: center; 
+}
+.staff-card:hover { border-color: #aaa; }
+.staff-card.selected { border-color: var(--primary-light); background: #f9f9ff; }
+.staff-photo { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px; display: block; }
+.staff-avatar-initials { 
+    width: 64px; height: 64px; border-radius: 50%; background: #f0f0f4; 
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 700; margin: 0 auto 10px; color: var(--primary);
+}
+.staff-name { font-weight: 700; font-size: 13px; color: var(--text); }
+.staff-role { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 
-        .success-container { text-align:center; padding:40px 20px; }
-        .success-icon { font-size:64px; margin-bottom:16px; }
-        .success-title { font-size:24px; font-weight:700; color:#1a1a2e; margin-bottom:8px; }
-        .success-msg { color:#6b7280; font-size:14px; line-height:1.7; }
+/* ========== SIDEBAR ========== */
+.sidebar-summary { 
+    background: #fff; padding: 32px 0; 
+    position: sticky; top: 64px; height: calc(100vh - 64px); 
+    width: 340px; overflow-y: auto;
+}
+.sidebar-card {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+}
+.sidebar-img { width: 100%; height: 110px; border-radius: 10px; object-fit: cover; margin-bottom: 12px; }
+.sidebar-salon-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.sidebar-rating { display: flex; align-items: center; gap: 4px; margin-top: 3px; font-size: 12px; font-weight: 600; }
+.stars { color: #facc15; font-size: 13px; }
+.sidebar-item { 
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.sidebar-item:last-child { border-bottom: none; }
+.sidebar-item-label { color: var(--text); font-weight: 500; }
+.sidebar-item-value { color: var(--text); font-weight: 700; }
+.sidebar-total { 
+    margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--text); 
+    display: flex; justify-content: space-between; align-items: center;
+}
+.sidebar-total-label { font-size: 15px; font-weight: 700; }
+.sidebar-total-price { font-size: 20px; font-weight: 800; }
 
-        .loading-page, .error-page { display:flex; align-items:center; justify-content:center; height:60vh; flex-direction:column; gap:16px; text-align:center; }
-        .spinner { width:40px; height:40px; border:3px solid #e5e7eb; border-top-color:#6366f1; border-radius:50%; animation:spin 0.7s linear infinite; }
-        .loading-text, .error-page p { color:#9ca3af; font-size:14px; }
-        .error-page h2 { color:#ef4444; font-size:22px; margin-bottom:8px; }
-        
-        .footer { text-align:center; padding:24px; color:#9ca3af; font-size:12px; background:#fff; border-top:1px solid #e8e8f0; }
-        .footer a { color:#6366f1; text-decoration:none; }
+/* ========== FLOATING BAR ========== */
+.selection-bar { 
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
+    width: calc(100% - 40px); max-width: 520px; 
+    background: #101113; color: #fff; 
+    border-radius: 14px; padding: 14px 20px; 
+    display: none; justify-content: space-between; align-items: center; 
+    z-index: 1000; box-shadow: 0 12px 36px rgba(0,0,0,0.25);
+}
+.selection-bar.visible { display: flex; }
+#sel-count-bar { font-size: 14px; font-weight: 600; }
 
-        @media(max-width:500px) { .form-row { grid-template-columns:1fr; } .main-content { padding:20px 16px; } .staff-grid { grid-template-columns:repeat(3,1fr); gap:10px; } }
+/* ========== FORMS ========== */
+.form-group { margin-bottom: 20px; }
+.form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.form-input { 
+    width: 100%; padding: 12px 16px; 
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 15px; font-family: inherit; color: var(--text);
+    transition: border-color 0.2s; outline: none;
+}
+.form-input:focus { border-color: var(--primary-light); }
+
+/* ========== DATE STRIP ========== */
+.date-strip { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 28px; scrollbar-width: none; padding-bottom: 4px; }
+.date-strip::-webkit-scrollbar { display: none; }
+.date-btn { 
+    padding: 10px 16px; border: 1.5px solid var(--border); border-radius: 10px; 
+    cursor: pointer; text-align: center; min-width: 64px; transition: all 0.2s;
+    background: #fff; flex-shrink: 0;
+}
+.date-btn.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
+.day-name { font-size: 11px; font-weight: 600; opacity: 0.7; text-transform: uppercase; }
+.day-num { font-size: 18px; font-weight: 800; line-height: 1.1; }
+.month { font-size: 11px; font-weight: 600; opacity: 0.7; }
+
+/* ========== SLOTS ========== */
+.slots-section-title { font-size: 14px; font-weight: 700; color: var(--text-muted); margin: 20px 0 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+.slots-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.slot-btn { 
+    padding: 10px 16px; border: 1.5px solid var(--border); border-radius: 8px;
+    cursor: pointer; font-size: 14px; font-weight: 600; background: #fff;
+    transition: all 0.2s; color: var(--text);
+}
+.slot-btn:hover { border-color: var(--primary); }
+.slot-btn.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+/* ========== CONFIRM CARD ========== */
+.confirm-card { 
+    border: 1px solid var(--border); border-radius: 14px; 
+    padding: 24px; margin-bottom: 24px;
+}
+.confirm-row { 
+    display: flex; justify-content: space-between; padding: 10px 0; 
+    border-bottom: 1px solid var(--border); font-size: 14px; 
+}
+.confirm-row:last-child { border-bottom: none; }
+.confirm-label { color: var(--text-muted); font-weight: 500; }
+.confirm-value { font-weight: 700; text-align: right; }
+
+/* ========== SUCCESS ========== */
+.success-container { text-align: center; padding: 60px 20px; }
+.success-icon { font-size: 56px; margin-bottom: 16px; color: #22c55e; }
+.success-title { font-size: 28px; font-weight: 800; margin-bottom: 12px; }
+
+/* ========== BUTTONS ========== */
+.btn { padding: 13px 24px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { opacity: 0.88; }
+.btn-outline { background: #fff; border: 1.5px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: #aaa; }
+
+/* ========== LOADING ========== */
+.loading-page { display: flex; align-items: center; justify-content: center; min-height: 60vh; }
+.spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-page { text-align: center; padding: 80px 20px; }
+
+/* ===== STAFF PHOTO STYLES ===== */
+.staff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+.staff-photo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-light);
+    display: block;
+    margin: 0 auto;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.25);
+}
+.staff-avatar-initials {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 28px;
+    color: #fff;
+    margin: 0 auto;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.2);
+}
+.staff-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 12px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fff;
+    text-align: center;
+    position: relative;
+}
+.staff-card:hover {
+    border-color: var(--primary-light);
+    background: #f5f5ff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99,102,241,0.12);
+}
+.staff-card.selected {
+    border-color: var(--primary-light);
+    background: #f0f0ff;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+.staff-card.selected::after {
+    content: '✓';
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 22px;
+    height: 22px;
+    background: var(--primary-light);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 22px;
+}
+.staff-name { font-weight: 700; font-size: 14px; color: #1a1a2e; line-height: 1.2; }
+.staff-role { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
     </style>
     <style>
-        /* ===== BELLA AI CHAT BUBBLE ===== */
-        #bella-bubble {
-            position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-            display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
-        }
-        #bella-btn {
-            width: 60px; height: 60px; border-radius: 50%;
-            background: linear-gradient(135deg, #D4AF37, #B8860B);
-            border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 8px 32px rgba(212,175,55,0.45); transition: transform 0.2s; position: relative;
-            font-size: 26px;
-        }
+        #bella-bubble { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+        #bella-btn { width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(99,102,241,0.45); transition: transform 0.2s; position: relative; font-size: 26px; }
         #bella-btn:hover { transform: scale(1.1); }
-        #bella-pulse {
-            position: absolute; top: -3px; right: -3px; width: 14px; height: 14px;
-            background: #22C55E; border-radius: 50%; border: 2px solid #0a0a0a;
-            animation: bPulse 2s infinite;
-        }
+        #bella-pulse { position: absolute; top: -3px; right: -3px; width: 14px; height: 14px; background: #22C55E; border-radius: 50%; border: 2px solid #fff; animation: bPulse 2s infinite; }
         @keyframes bPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.5} }
-        #bella-tip {
-            background: #1E1E1E; border: 1px solid #D4AF37; color: #D4AF37;
-            font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px;
-            white-space: nowrap; font-family: 'Inter', sans-serif;
-        }
-        #bella-panel {
-            position: fixed; bottom: 100px; right: 24px; width: 350px; height: 480px;
-            max-height: 78vh; background: #141417;
-            border: 1px solid rgba(212,175,55,0.25); border-radius: 20px;
-            display: none; flex-direction: column; overflow: hidden; z-index: 9998;
-            box-shadow: 0 24px 80px rgba(0,0,0,0.7);
-        }
-        #bella-panel.open { display: flex; animation: bPanelIn 0.25s cubic-bezier(0.34,1.56,0.64,1); }
-        @keyframes bPanelIn { from{opacity:0;transform:scale(0.9) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
-        #b-head {
-            background: linear-gradient(135deg,rgba(212,175,55,0.12),rgba(212,175,55,0.03));
-            border-bottom: 1px solid rgba(212,175,55,0.15);
-            padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
-        }
-        #b-head .info { display:flex; align-items:center; gap:10px; }
-        #b-head .av {
-            width:36px;height:36px;border-radius:50%;background:rgba(212,175,55,0.2);
-            border:1px solid rgba(212,175,55,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;
-        }
-        #b-head h4 { font-size:14px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;font-family:'Inter',sans-serif; }
-        #b-head h4 .online { width:7px;height:7px;background:#22C55E;border-radius:50%;animation:bPulse 2s infinite; }
-        #b-head p { font-size:11px;color:rgba(255,255,255,0.4);font-family:'Inter',sans-serif; }
-        #b-close { background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;font-size:20px;padding:4px 8px;border-radius:8px;transition:all 0.2s; }
-        #b-close:hover { background:rgba(255,255,255,0.08);color:#fff; }
-        #b-msgs {
-            flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;
-        }
-        #b-msgs::-webkit-scrollbar{width:3px} #b-msgs::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.2);border-radius:2px}
-        .bm { max-width:85%;display:flex;gap:8px; }
-        .bm.u { margin-left:auto; flex-direction:row-reverse; }
-        .bb { padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;font-family:'Inter',sans-serif;white-space:pre-wrap; }
-        .bm.b .bb { background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.2);border-bottom-left-radius:3px;color:rgba(255,255,255,0.9); }
-        .bm.u .bb { background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.1);border-bottom-right-radius:3px;color:#fff; }
-        .bt span { width:7px;height:7px;background:rgba(212,175,55,0.6);border-radius:50%;animation:bDot 1.2s infinite;display:inline-block;margin:0 2px; }
-        .bt span:nth-child(2){animation-delay:.2s} .bt span:nth-child(3){animation-delay:.4s}
-        @keyframes bDot{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-6px);opacity:1}}
-        #b-inp-row { padding:10px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:8px;background:rgba(255,255,255,0.02); }
-        #b-inp {
-            flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
-            border-radius:12px;padding:10px 13px;color:#fff;font-size:13px;font-family:'Inter',sans-serif;
-            outline:none;resize:none;height:42px;transition:border 0.2s;
-        }
-        #b-inp:focus { border-color:rgba(212,175,55,0.5); }
-        #b-inp::placeholder { color:rgba(255,255,255,0.25); }
-        #b-send {
-            width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#D4AF37,#B8860B);
-            border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform 0.15s;
-            font-size:18px;flex-shrink:0;
-        }
-        #b-send:hover{transform:scale(1.06)} #b-send:disabled{opacity:0.4;cursor:not-allowed;transform:none}
-        @media(max-width:420px){#bella-panel{width:calc(100vw - 16px);right:8px;bottom:90px}#bella-bubble{right:16px;bottom:16px}}
+        #bella-tip { background: #fff; border: 1px solid #e5e7eb; color: #6366f1; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; white-space: nowrap; font-family: 'Inter', sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        #bella-panel { position: fixed; bottom: 100px; right: 24px; width: 350px; height: 480px; background: #fff; border-radius: 20px; box-shadow: 0 12px 48px rgba(0,0,0,0.15); display: none; flex-direction: column; overflow: hidden; z-index: 10000; border: 1px solid #e8e8f0; animation: slideIn 0.3s ease; }
+        @keyframes slideIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     </style>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Voxali",
-      "operatingSystem": "Web Application",
-      "applicationCategory": "BusinessApplication",
-      "offers": {
-        "@type": "Offer",
-        "price": "49.00",
-        "priceCurrency": "USD"
-      }
-    }
-    </script>
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "Voxali Inc.",
-      "url": "https://voxali.net",
-      "logo": "https://voxali.net/logo.png"
-    }
-    </script>
 </head>
 
 <body>
     <div class="header">
-        <h1 id="salon-name">Loading...</h1>
-        <p id="salon-tagline"></p>
+        <div class="header-container">
+            <div class="header-logo">✂️</div>
+            <div><h1 id="salon-name">Loading...</h1></div>
+        </div>
+    </div>
+    
+    <!-- STYLED BREADCRUMB -->
+    <div class="breadcrumb-wrapper" id="breadcrumb" style="display:none">
+        <div class="breadcrumb">
+            <div class="breadcrumb-step active" id="bc-0" onclick="goStep(0)">
+                <div class="bc-num">1</div>
+                <div class="bc-label">Services</div>
+            </div>
+            <div class="breadcrumb-sep"></div>
+            <div class="breadcrumb-step" id="bc-1">
+                <div class="bc-num">2</div>
+                <div class="bc-label">Professional</div>
+            </div>
+            <div class="breadcrumb-sep"></div>
+            <div class="breadcrumb-step" id="bc-2">
+                <div class="bc-num">3</div>
+                <div class="bc-label">Time</div>
+            </div>
+            <div class="breadcrumb-sep"></div>
+            <div class="breadcrumb-step" id="bc-3">
+                <div class="bc-num">4</div>
+                <div class="bc-label">Confirm</div>
+            </div>
+        </div>
     </div>
 
-    <!-- Loading State -->
     <div class="loading-page" id="loading-state">
         <div class="spinner"></div>
-        <div class="loading-text">Loading booking page...</div>
     </div>
 
-    <!-- Error State -->
     <div class="error-page" id="error-state" style="display:none">
-        <h2>❌ Salon Not Found</h2>
-        <p>This booking link is invalid or the salon doesn't exist.</p>
+        <h2>Salon Not Found</h2>
+        <p style="margin-top:8px;color:var(--text-muted)">The link is invalid or this salon has moved.</p>
     </div>
 
-    <!-- Main Booking Flow -->
-    <div class="container" id="booking-flow" style="display:none">
-        <div class="step-indicator">
-            <div class="step-dot active" id="dot-0"></div>
-            <div class="step-dot" id="dot-1"></div>
-            <div class="step-dot" id="dot-2"></div>
-            <div class="step-dot" id="dot-3"></div>
-        </div>
+    <div id="booking-flow" style="display:none">
+        <div class="layout">
+            <div class="main-content">
 
-        <!-- Step 1: Select Service(s) -->
-        <div class="step active" id="step-0">
-            <div class="step-title">Choose Services</div>
-            <div style="color:#888;font-size:13px;margin-bottom:12px">Select one or more services for your appointment
-            </div>
-            <div id="services-list"></div>
-            <div id="services-selection-bar"
-                style="display:none;margin-top:16px;padding:16px;background:#1E1E1E;border-radius:12px;border:1px solid #D4AF37">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                    <div>
-                        <div style="font-size:14px;color:#D4AF37;font-weight:600" id="sel-count">0 selected</div>
-                        <div style="font-size:12px;color:#888" id="sel-info"></div>
+                <!-- STEP 0: SERVICES -->
+                <div class="step active" id="step-0">
+                    <div class="step-title">Select services</div>
+                    <!-- Category tabs with scroll arrows -->
+                    <div class="category-tabs-wrapper">
+                        <button class="cat-scroll-btn" id="cat-prev" onclick="scrollCats(-1)">‹</button>
+                        <div class="category-tabs" id="cat-tabs"></div>
+                        <button class="cat-scroll-btn" id="cat-next" onclick="scrollCats(1)">›</button>
                     </div>
-                    <button class="btn btn-gold" onclick="goStep(1)" style="padding:10px 28px;font-size:14px">Continue
-                        →</button>
+                    <div id="services-list"></div>
+                </div>
+
+                <!-- STEP 1: STAFF -->
+                <div class="step" id="step-1">
+                    <div class="step-title">Select professional</div>
+                    <div id="any-staff-card" onclick="selectStaff('')" style="display:flex;align-items:center;gap:14px;padding:18px;border:1.5px solid var(--border);border-radius:14px;margin-bottom:20px;cursor:pointer;transition:all 0.2s">
+                        <div style="width:48px;height:48px;border-radius:50%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:22px">✨</div>
+                        <div>
+                            <div style="font-weight:700;font-size:15px">No preference</div>
+                            <div style="font-size:13px;color:var(--text-muted);margin-top:2px">First available professional</div>
+                        </div>
+                        <div id="any-check" style="margin-left:auto;font-size:18px;color:var(--primary-light);display:none;font-weight:700">✓</div>
+                    </div>
+                    <div class="staff-grid" id="staff-grid"></div>
+                    <div style="display:flex;gap:12px;margin-top:8px">
+                        <button class="btn btn-outline" onclick="goStep(0)" style="flex:1">← Back</button>
+                        <button class="btn btn-primary" onclick="goStep(2)" style="flex:1">Continue →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 2: TIME -->
+                <div class="step" id="step-2">
+                    <div class="step-title">Select time</div>
+                    <div class="date-strip" id="date-strip"></div>
+                    <input type="hidden" id="booking-date" value="">
+                    <div id="slots-container"></div>
+                    <input type="hidden" id="booking-time" value="">
+                    <div style="display:flex;gap:12px;margin-top:24px">
+                        <button class="btn btn-outline" onclick="goStep(1)" style="flex:1">← Back</button>
+                        <button class="btn btn-primary" onclick="goStep(3)" style="flex:1">Continue →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 3: DETAILS -->
+                <div class="step" id="step-3">
+                    <div class="step-title">Your details</div>
+                    <div class="form-group">
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" id="client-name" class="form-input" placeholder="Enter your full name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email Address *</label>
+                        <input type="email" id="client-email" class="form-input" placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Phone Number</label>
+                        <input type="tel" id="client-phone" class="form-input" placeholder="+1 234 567 8900">
+                    </div>
+                    <div style="display:flex;gap:12px">
+                        <button class="btn btn-outline" onclick="goStep(2)" style="flex:1">← Back</button>
+                        <button class="btn btn-primary" onclick="goStep(4)" style="flex:1">Review Booking →</button>
+                    </div>
+                </div>
+
+                <!-- STEP 4: CONFIRM -->
+                <div class="step" id="step-4">
+                    <div class="step-title">Confirm booking</div>
+                    <div class="confirm-card" id="booking-summary"></div>
+                    <div style="display:flex;gap:12px">
+                        <button class="btn btn-outline" onclick="goStep(3)" style="flex:1">← Back</button>
+                        <button class="btn btn-primary" id="confirm-btn" onclick="submitBooking()" style="flex:1">Confirm Booking ✓</button>
+                    </div>
+                </div>
+
+                <!-- STEP 5: SUCCESS -->
+                <div class="step" id="step-5">
+                    <div class="success-container">
+                        <div class="success-icon">✓</div>
+                        <div class="success-title">Booking confirmed!</div>
+                        <div id="success-msg" style="color:var(--text-muted);font-size:15px;margin-top:8px"></div>
+                        <div id="pay-btn-wrapper" style="margin-top:28px"></div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Step 2: Select Staff + Date/Time -->
-        <div class="step" id="step-1">
-            <div class="step-title">Choose Staff & Time</div>
-            <div class="form-group">
-                <label class="form-label">PREFERRED STYLIST</label>
-                <div id="staff-list"></div>
-            </div>
-            <div class="form-group" style="margin-top:20px">
-                <label class="form-label">SELECT DATE</label>
-                <input type="date" id="booking-date" class="form-input" onchange="fetchSlots()">
-            </div>
-            <div class="form-group" style="margin-top:16px">
-                <label class="form-label">AVAILABLE TIME SLOTS</label>
-                <div id="slots-container">
-                    <div class="slots-loading">Select a date to see available slots</div>
+            <!-- SIDEBAR -->
+            <div class="sidebar-summary">
+                <div class="sidebar-card">
+                    <img src="https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=1000&auto=format&fit=crop" class="sidebar-img" id="sidebar-salon-img" alt="Salon">
+                    <div class="sidebar-salon-name" id="sb-salon-name">Loading...</div>
+                    <div class="sidebar-rating">
+                        <span class="stars">★★★★★</span>
+                        <span style="color:var(--text-muted)">4.9 · 124 reviews</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:4px" id="sb-salon-sub">Premium Salon</div>
+                    
+                    <div id="sb-items" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                        <div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px 0">No services selected</div>
+                    </div>
+                    
+                    <div id="sb-footer" style="display:none">
+                        <div class="sidebar-total">
+                            <span class="sidebar-total-label">Total</span>
+                            <span class="sidebar-total-price" id="sb-total-price">$0.00</span>
+                        </div>
+                        <button class="btn btn-primary" style="width:100%;margin-top:16px;border-radius:10px" id="sb-continue-btn" onclick="goStep(1)">Continue →</button>
+                    </div>
                 </div>
-                <input type="hidden" id="booking-time" value="">
-            </div>
-            <div class="btn-row">
-                <button class="btn btn-outline" onclick="goStep(0)">← Back</button>
-                <button class="btn btn-gold" onclick="goStep(2)">Continue →</button>
-            </div>
-        </div>
-
-        <!-- Step 3: Client Details -->
-        <div class="step" id="step-2">
-            <div class="step-title">Your Details</div>
-            <div class="form-group">
-                <label class="form-label">FULL NAME *</label>
-                <input type="text" id="client-name" class="form-input" placeholder="e.g. Sarah Johnson" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">EMAIL *</label>
-                <input type="email" id="client-email" class="form-input" placeholder="e.g. sarah@email.com" required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">PHONE (Optional)</label>
-                <input type="tel" id="client-phone" class="form-input" placeholder="e.g. +1 555-123-4567">
-            </div>
-            <div class="btn-row">
-                <button class="btn btn-outline" onclick="goStep(1)">← Back</button>
-                <button class="btn btn-gold" onclick="goStep(3)">Review Booking →</button>
-            </div>
-        </div>
-
-        <!-- Step 4: Review & Confirm -->
-        <div class="step" id="step-3">
-            <div class="step-title">Review & Confirm</div>
-            <div class="summary-card" id="booking-summary"></div>
-            <div class="btn-row">
-                <button class="btn btn-outline" onclick="goStep(2)">← Back</button>
-                <button class="btn btn-gold" id="confirm-btn" onclick="submitBooking()">✓ Confirm Booking</button>
-            </div>
-        </div>
-
-        <!-- Success -->
-        <div class="step" id="step-4">
-            <div class="success-container">
-                <div class="success-icon">✅</div>
-                <div class="success-title">Booking Confirmed!</div>
-                <div class="success-msg" id="success-msg">Your appointment has been booked.</div>
-                <div id="pay-btn-wrapper" style="margin-top:24px"></div>
             </div>
         </div>
     </div>
 
-    <div class="footer">
-        © 2026 <span id="footer-salon"></span> · Powered by <a href="#">Voxali</a>
+    <!-- MOBILE STICKY BOTTOM CART BAR (shown on mobile when services selected) -->
+    <div class="mobile-cart-bar" id="mobile-cart-bar">
+        <div class="mobile-cart-info">
+            <div class="mobile-cart-count" id="mobile-cart-count">Select services to continue</div>
+            <div class="mobile-cart-total" id="mobile-cart-total">$0.00</div>
+        </div>
+        <button class="mobile-cart-btn" onclick="goStep(1)">Continue →</button>
     </div>
+
+
+    <div style="text-align:center;padding:32px 20px;color:var(--text-muted);font-size:13px;max-width:1200px;margin:0 auto">
+        © 2026 <span id="footer-salon" style="font-weight:700"></span> · Powered by <a href="https://voxali.net" style="color:var(--primary);text-decoration:none;font-weight:700">Voxali</a>
+    </div>
+</body>
+
 
     <script>
         // ===== CONFIG =====
         const SUPABASE_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
         const API_URL = SUPABASE_URL + '/functions/v1/online-booking';
 
-        // Get tenant_id OR slug from URL
-        // Supports:  /book/my-salon-slug   OR   ?tenant_id=uuid
         const params = new URLSearchParams(window.location.search);
         const TENANT_ID = params.get('tenant_id');
-        // Extract slug from path, e.g. /book/pakistan-salon-hq4b → pakistan-salon-hq4b
         const pathParts = window.location.pathname.split('/').filter(Boolean);
         const SLUG = pathParts[pathParts.length - 1] || params.get('slug') || '';
 
-        // Build the correct API query string
         function tenantQuery() {
             if (TENANT_ID) return '?tenant_id=' + TENANT_ID;
             if (SLUG) return '?slug=' + SLUG;
@@ -386,65 +700,48 @@
         let selectedStaffId = '';
         let selectedSlot = null;
 
-        // ===== INIT =====
         async function init() {
-            if (!TENANT_ID && !SLUG) {
-                showError();
-                return;
-            }
-
+            if (!TENANT_ID && !SLUG) { showError(); return; }
             try {
-                // Fetch all data from Edge Function (uses service role key, bypasses RLS)
                 var res = await fetch(API_URL + tenantQuery() + '&format=json');
-                if (!res.ok) {
-                    showError();
-                    return;
-                }
-
+                if (!res.ok) { showError(); return; }
                 var data = await res.json();
-                if (!data.tenant) {
-                    showError();
-                    return;
-                }
-
+                if (!data.tenant) { showError(); return; }
                 SERVICES = data.services || [];
                 STAFF = data.staff || [];
-
                 document.getElementById('salon-name').textContent = data.tenant.salon_name || 'Salon';
-                var sbName=document.getElementById('sb-salon-name'); if(sbName)sbName.textContent = data.tenant.salon_name || 'Salon'; var sbSub=document.getElementById('sb-salon-sub'); if(sbSub)sbSub.textContent = data.tenant.salon_tagline || 'Premium Salon'; document.getElementById('salon-tagline').textContent = data.tenant.salon_tagline || 'Premium Salon & Spa';
+                document.getElementById('sb-salon-name').textContent = data.tenant.salon_name || 'Salon';
+                document.getElementById('sb-salon-sub').textContent = data.tenant.salon_tagline || 'Premium Salon';
                 document.getElementById('footer-salon').textContent = data.tenant.salon_name || 'Salon';
                 document.title = 'Book an Appointment — ' + (data.tenant.salon_name || 'Salon');
 
+                // Use Cloudinary salon cover photo if uploaded
+                if (data.tenant.salon_image_url) {
+                    var salonImg = document.getElementById('sidebar-salon-img');
+                    if (salonImg) salonImg.src = data.tenant.salon_image_url;
+                }
+
+
                 renderServices();
                 renderStaff();
-
-                // Set default date to tomorrow
-                var tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
+                
                 var today = new Date();
-    var dateStrip = document.getElementById('date-strip');
-    var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var stripHtml = ''; var defaultDate = '';
-    for(var di=1; di<=14; di++) {
-        var d = new Date(today); d.setDate(today.getDate()+di); var ds = d.toISOString().split('T')[0];
-        if(di===1) defaultDate = ds;
-        stripHtml += '<div class="date-btn'+(di===1?' selected':'')+'" data-date="'+ds+'" onclick="selectDate(\''+ds+'\')"><div class="day-name">'+days[d.getDay()]+'</div><div class="day-num">'+d.getDate()+'</div><div class="month">'+months[d.getMonth()]+'</div></div>';
-    }
-    dateStrip.innerHTML = stripHtml;
-    document.getElementById('booking-date').value = defaultDate;
-                document.getElementById('booking-date').min = new Date().toISOString().split('T')[0];
+                var dateStrip = document.getElementById('date-strip');
+                var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                var stripHtml = ''; var defaultDate = '';
+                for(var di=1; di<=14; di++) {
+                    var d = new Date(today); d.setDate(today.getDate()+di); var ds = d.toISOString().split('T')[0];
+                    if(di===1) defaultDate = ds;
+                    stripHtml += '<div class="date-btn'+(di===1?' selected':'')+'" data-date="'+ds+'" onclick="selectDate(\''+ds+'\')"><div class="day-name">'+days[d.getDay()]+'</div><div class="day-num">'+d.getDate()+'</div><div class="month">'+months[d.getMonth()]+'</div></div>';
+                }
+                dateStrip.innerHTML = stripHtml;
+                document.getElementById('booking-date').value = defaultDate;
 
-                // Auto-fetch slots for default date after services are loaded
-                setTimeout(function () { fetchSlots(); }, 300);
-
-                // Show booking flow
                 document.getElementById('loading-state').style.display = 'none';
-                document.getElementById('booking-flow').style.display = 'block'; var bc=document.getElementById('breadcrumb'); if(bc)bc.style.display = 'flex';
-            } catch (e) {
-                console.error('Init error:', e);
-                showError();
-            }
+                document.getElementById('booking-flow').style.display = 'block';
+                document.getElementById('breadcrumb').style.display = 'flex';
+            } catch (e) { console.error(e); showError(); }
         }
 
         function showError() {
@@ -452,776 +749,343 @@
             document.getElementById('error-state').style.display = 'block';
         }
 
-        // ===== RENDER SERVICES =====
-        
-
-        // ===== RENDER STAFF =====
-        
-
-        // ===== TOGGLE SERVICE (multi-select) =====
         function toggleService(id) {
             var idx = selectedServiceIds.indexOf(id);
-            if (idx > -1) {
-                selectedServiceIds.splice(idx, 1);
-            } else {
-                selectedServiceIds.push(id);
-            }
-            // Update visual selection
-            document.querySelectorAll('.service-card').forEach(function (c) {
-                c.classList.toggle('selected', selectedServiceIds.indexOf(c.dataset.id) > -1);
-            });
-            // Reset slots
-            selectedSlot = null;
-            document.getElementById('booking-time').value = '';
-            // Update selection bar
-            updateSelectionBar(); updateSidebar();
+            if (idx > -1) selectedServiceIds.splice(idx, 1);
+            else selectedServiceIds.push(id);
+            renderServiceCards();
+            updateSelectionBar();
+            updateSidebar();
         }
 
         function updateSelectionBar() {
-            var bar = document.getElementById('services-selection-bar');
-            if (selectedServiceIds.length === 0) {
-                bar.style.display='none'; var selBar=document.getElementById('selection-bar'); if(selBar) selBar.classList.remove('visible');
-                return;
-            }
-            bar.style.display='block'; var selBar=document.getElementById('selection-bar'); if(selBar) selBar.classList.add('visible');
-            var totalDur = 0, totalPrice = 0, totalDeposit = 0;
-            var names = [];
-            selectedServiceIds.forEach(function (id) {
-                var svc = SERVICES.find(function (s) { return s.id === id; });
-                if (svc) {
-                    totalDur += (svc.duration || 30);
-                    totalPrice += (svc.price || 0);
-                    totalDeposit += (svc.deposit_amount || 0);
-                    names.push(svc.name);
-                }
-            });
-            document.getElementById('sel-count-bar').textContent = selectedServiceIds.length + ' service' + (selectedServiceIds.length > 1 ? 's' : '') + ' selected';
-            document.getElementById('sel-info-bar').textContent = totalDur + ' min · $' + totalPrice.toFixed(2) + (totalDeposit > 0 ? ' · $' + totalDeposit.toFixed(2) + ' deposit' : '');
+            // Floating bar removed — sidebar cart Continue button is the only CTA on step 0
         }
 
-        // ===== SELECT STAFF =====
-        
-
-        // ===== FETCH AVAILABLE SLOTS =====
         async function fetchSlots() {
             var dateVal = document.getElementById('booking-date').value;
-            if (!dateVal || selectedServiceIds.length === 0) {
-                document.getElementById('slots-container').innerHTML = '<div class="slots-loading">Select a service and date first</div>';
-                return;
-            }
-
-            document.getElementById('slots-container').innerHTML = '<div class="slots-loading"><div class="mini-spinner"></div>Loading available slots...</div>';
-
+            if (!dateVal || selectedServiceIds.length === 0) return;
+            document.getElementById('slots-container').innerHTML = '<div class="slots-loading">Loading available slots...</div>';
             try {
                 var slotsUrl = API_URL + tenantQuery() + '&format=slots&date=' + dateVal + '&service_id=' + selectedServiceIds[0];
-                // Send all service IDs for combined duration slot calculation
                 selectedServiceIds.forEach(function (sid, i) { if (i > 0) slotsUrl += '&service_id=' + sid; });
                 if (selectedStaffId) slotsUrl += '&staff_id=' + selectedStaffId;
-
                 var res = await fetch(slotsUrl);
                 var data = await res.json();
-
                 if (data.is_closed) {
-                    document.getElementById('slots-container').innerHTML = '<div class="slots-closed">🚫 ' + (data.message || 'Salon is closed on this day') + '<br><small>Please select another date</small></div>';
+                    document.getElementById('slots-container').innerHTML = '<div class="slots-closed">Closed on this day</div>';
                     return;
                 }
-
                 var slots = data.slots || [];
-                if (!slots.length || slots.length === 0) {
-                    document.getElementById('slots-container').innerHTML = '<div class="slots-empty">😔 No available time slots for this date<br><small>Try a different date or stylist</small></div>';
+                if (!slots.length) {
+                    document.getElementById('slots-container').innerHTML = '<div class="slots-empty">No slots available</div>';
                     return;
                 }
-
-                // Deduplicate by time (show unique times, pick first staff)
-                var seen = {};
-                var uniqueSlots = [];
-                slots.forEach(function (s) {
-                    var key = s.time || s.display_start;
-                    if (!seen[key]) {
-                        seen[key] = true;
-                        uniqueSlots.push(s);
-                    }
-                });
-
                 var html = '<div class="slots-grid">';
-                uniqueSlots.forEach(function (s, i) {
-                    html += '<div class="slot-btn" data-idx="' + i + '" onclick="selectSlot(' + i + ')">' +
-                        '<div>' + (s.time || s.display_start) + '</div>' +
-                        '<div class="slot-staff">' + (s.staff_name || '') + '</div>' +
-                        '</div>';
+                slots.forEach(function (s, i) {
+                    var stime = s.time || s.display_start;
+                    var safeTime = stime.replace(/'/g, "\\'");
+                    html += '<div class="slot-btn" onclick="selectSlot(' + i + ', \'' + safeTime + '\')">' + stime + '</div>';
                 });
                 html += '</div>';
                 document.getElementById('slots-container').innerHTML = html;
-
-                // Store slots data for selection
-                window._availableSlots = uniqueSlots;
-
-            } catch (e) {
-                document.getElementById('slots-container').innerHTML = '<div class="slots-empty">⚠️ Failed to load slots. Please try again.</div>';
-                console.error('Slots error:', e);
-            }
+            } catch (e) { document.getElementById('slots-container').innerHTML = '<div class="slots-empty">Error loading slots</div>'; }
         }
 
-        // ===== SELECT TIME SLOT =====
-        function selectSlot(idx) {
-            var slot = window._availableSlots[idx];
-            if (!slot) return;
-            selectedSlot = slot;
-
-            // Extract HH:mm from the display time (e.g., "10:00 AM" → "10:00")
-            var timeStr = slot.time || slot.display_start || '';
-            var match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-            if (match) {
-                var h = parseInt(match[1]);
-                var m = match[2];
-                var ampm = match[3].toUpperCase();
-                if (ampm === 'PM' && h !== 12) h += 12;
-                if (ampm === 'AM' && h === 12) h = 0;
-                document.getElementById('booking-time').value = String(h).padStart(2, '0') + ':' + m;
-            }
-
-            // Also update staff selection if slot has a specific staff
-            if (slot.staff_id && !selectedStaffId) {
-                selectedStaffId = slot.staff_id;
-            }
-
-            // Visual feedback
-            document.querySelectorAll('.slot-btn').forEach(function (b) { b.classList.remove('selected'); });
-            var el = document.querySelector('.slot-btn[data-idx="' + idx + '"]');
-            if (el) el.classList.add('selected');
+        function selectSlot(idx, time) {
+            document.getElementById('booking-time').value = time;
+            document.querySelectorAll('.slot-btn').forEach(function(b, i){ b.classList.toggle('selected', i === idx); });
         }
 
-        // ===== NAVIGATION =====
-        
-
-        // ===== BUILD SUMMARY =====
         function buildSummary() {
-            var selectedSvcs = SERVICES.filter(function (s) { return selectedServiceIds.indexOf(s.id) > -1; });
-            var stf = STAFF.find(function (s) { return s.id === selectedStaffId; });
+            var selectedSvcs = SERVICES.filter(function(s){return selectedServiceIds.indexOf(s.id)>-1;});
+            var stf = STAFF.find(function(s){return s.id===selectedStaffId;});
             var date = document.getElementById('booking-date').value;
             var time = document.getElementById('booking-time').value;
-            var name = document.getElementById('client-name').value;
+            var totalPrice = 0; selectedSvcs.forEach(function(s){totalPrice += (s.price||0);});
 
-            var dateObj = new Date(date + 'T' + time);
-            var formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            var formattedTime = dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            var displayDate = date;
+            var displayTime = time;
+            try {
+                var dateObj = new Date(date + ' ' + time);
+                if (isNaN(dateObj.getTime())) {
+                    var match = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+                    if (match) {
+                        var h = parseInt(match[1]), m = parseInt(match[2]), ampm = match[3].toUpperCase();
+                        if (ampm === 'PM' && h < 12) h += 12;
+                        if (ampm === 'AM' && h === 12) h = 0;
+                        dateObj = new Date(date);
+                        dateObj.setHours(h, m, 0);
+                    }
+                }
+                if (!isNaN(dateObj.getTime())) {
+                    displayDate = dateObj.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+                    displayTime = dateObj.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+                }
+            } catch(e) {}
 
-            var totalDur = 0, totalPrice = 0, totalDeposit = 0;
-            var svcNames = [];
-            var svcListHtml = '';
-            selectedSvcs.forEach(function (svc) {
-                totalDur += (svc.duration || 30);
-                totalPrice += (svc.price || 0);
-                totalDeposit += (svc.deposit_amount || 0);
-                svcNames.push(svc.name);
-                svcListHtml += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a2a;font-size:13px">' +
-                    '<span style="color:#ccc">✦ ' + svc.name + ' <span style="color:#666">(' + (svc.duration || 30) + 'min)</span></span>' +
-                    '<span style="color:#D4AF37">$' + (svc.price || 0).toFixed(2) + '</span></div>';
-            });
+            var rows = '';
+            selectedSvcs.forEach(function(svc){ rows += '<div class="confirm-row"><span class="confirm-label">' + svc.name + ' (' + (svc.duration||30) + ' min)</span><span class="confirm-value">$' + (svc.price||0).toFixed(2) + '</span></div>'; });
+            rows += '<div class="confirm-row"><span class="confirm-label">Professional</span><span class="confirm-value">' + (stf?stf.name:'Any available') + '</span></div>';
+            rows += '<div class="confirm-row"><span class="confirm-label">Date</span><span class="confirm-value">' + displayDate + '</span></div>';
+            rows += '<div class="confirm-row"><span class="confirm-label">Time</span><span class="confirm-value">' + displayTime + '</span></div>';
+            rows += '<div class="confirm-row" style="border-bottom:none"><span class="confirm-label" style="font-weight:700">Total</span><span class="confirm-total">$' + totalPrice.toFixed(2) + '</span></div>';
+            document.getElementById('booking-summary').innerHTML = rows;
+        }
 
-            var dateObj2 = new Date(date + 'T' + time);
-var fmtDate = dateObj2.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-var fmtTime = dateObj2.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
-var rows = '';
-selectedSvcs.forEach(function(svc){ rows += '<div class="confirm-row"><span class="confirm-label">' + svc.name + ' (' + (svc.duration||30) + ' min)</span><span class="confirm-value">
-
-        // ===== SUBMIT BOOKING =====
         async function submitBooking() {
             var btn = document.getElementById('confirm-btn');
+            if (selectedServiceIds.length === 0) { alert('No services selected'); return; }
             btn.disabled = true;
-            btn.innerHTML = '<span class="loading-btn"></span> Booking...';
-
+            btn.innerHTML = 'Booking...';
             try {
+                var rawTime = document.getElementById('booking-time').value;
+                var finalTime = rawTime;
+                
+                // Convert "10:00 AM" to "10:00" if necessary for backend
+                var tMatch = rawTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+                if (tMatch) {
+                    var h = parseInt(tMatch[1]), m = parseInt(tMatch[2]), ampm = tMatch[3].toUpperCase();
+                    if (ampm === 'PM' && h < 12) h += 12;
+                    if (ampm === 'AM' && h === 12) h = 0;
+                    finalTime = (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
+                }
+
+                var payload = {
+                    service_ids: selectedServiceIds,
+                    service_id: selectedServiceIds[0],
+                    staff_id: selectedStaffId || undefined,
+                    date: document.getElementById('booking-date').value,
+                    time: finalTime,
+                    client_name: document.getElementById('client-name').value.trim(),
+                    client_email: document.getElementById('client-email').value.trim(),
+                    client_phone: document.getElementById('client-phone').value.trim()
+                };
+                console.log('Submitting booking with fixed time:', payload);
                 var res = await fetch(API_URL + tenantQuery(), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        service_ids: selectedServiceIds,
-                        service_id: selectedServiceIds[0],
-                        staff_id: selectedStaffId || undefined,
-                        date: document.getElementById('booking-date').value,
-                        time: document.getElementById('booking-time').value,
-                        client_name: document.getElementById('client-name').value.trim(),
-                        client_email: document.getElementById('client-email').value.trim(),
-                        client_phone: document.getElementById('client-phone').value.trim() || undefined,
-                    }),
+                    body: JSON.stringify(payload)
                 });
-
                 var data = await res.json();
-
                 if (data.success) {
-                    var msg = 'Your appointment for <strong>' + (data.details ? data.details.service : '') + '</strong> on <strong>' + (data.details ? data.details.date : '') + '</strong> at <strong>' + (data.details ? data.details.time : '') + '</strong> has been confirmed.';
-                    msg += '<br><br>A confirmation email has been sent to <strong>' + document.getElementById('client-email').value + '</strong>.';
-
-                    document.getElementById('success-msg').innerHTML = msg;
-
+                    document.getElementById('step-4').classList.remove('active');
+                    document.getElementById('step-5').classList.add('active');
+                    var msg = 'Your appointment for ' + (data.details.service || 'the selected services') + ' on ' + data.details.date + ' at ' + data.details.time + ' has been confirmed.';
+                    document.getElementById('success-msg').textContent = msg;
                     if (data.payment_url) {
-                        document.getElementById('pay-btn-wrapper').innerHTML = '<a href="' + data.payment_url + '" class="btn btn-gold" style="display:inline-block;text-decoration:none;padding:16px 40px;max-width:300px;">💳 Pay $' + (data.details ? data.details.deposit : 0) + ' Deposit</a><div style="color:#666;font-size:12px;margin-top:8px">Secure payment via Stripe</div>';
+                        document.getElementById('pay-btn-wrapper').innerHTML = '<a href="' + data.payment_url + '" class="btn btn-primary" style="margin-top:20px;text-decoration:none;display:inline-block">Pay Deposit Online</a>';
                     }
-
-                    goStep(4);
                 } else {
-                    alert(data.error || 'Failed to create booking. Please try again.');
+                    alert(data.error || 'Booking failed. Please try again.');
                     btn.disabled = false;
-                    btn.innerHTML = '✓ Confirm Booking';
-                    // If time conflict, go back to time selection
-                    if (data.conflict) goStep(1);
+                    btn.innerHTML = 'Confirm Booking';
                 }
-            } catch (e) {
-                alert('Network error. Please try again.');
-                btn.disabled = false;
-                btn.innerHTML = '✓ Confirm Booking';
-            }
+            } catch (e) { console.error(e); alert('Network error. Please check your connection.'); btn.disabled = false; btn.innerHTML = 'Confirm Booking'; }
         }
 
-        // ===== START =====
-        init();
-    </script>
-
-    <!-- ===== BELLA AI FLOATING CHAT BUBBLE ===== -->
-    <div id="bella-bubble">
-        <div id="bella-tip">💬 Ask Bella AI</div>
-        <button id="bella-btn" onclick="toggleBella()" title="Chat with Bella AI">
-            <div id="bella-pulse"></div>
-            🤖
-        </button>
-    </div>
-
-    <div id="bella-panel">
-        <div id="b-head">
-            <div class="info">
-                <div class="av">🤖</div>
-                <div>
-                    <h4>Bella AI <span class="online"></span></h4>
-                    <p>Your salon assistant</p>
-                </div>
-            </div>
-            <button id="b-close" onclick="toggleBella()">✕</button>
-        </div>
-        <div id="b-msgs"></div>
-        <div id="b-inp-row">
-            <textarea id="b-inp" placeholder="Ask about services, prices, availability..." rows="1"
-                onkeydown="bKey(event)"></textarea>
-            <button id="b-send" onclick="bSend()" title="Send">➤</button>
-        </div>
-    </div>
-
-    <script>
-        var B_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
-        var B_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqenhnbmltYmNvcXN5bHJnbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NzI2MDksImV4cCI6MjA1NzA0ODYwOX0.ILJCKCUb-INblkzjfQp0YMPXaOFPEhmoVU6f-UnFnb0';
-        var bAsstId = null, bMsgs = [], bBusy = false, bIsOpen = false;
-
-        async function initBella() {
-            try {
-                var p = new URLSearchParams(window.location.search);
-                var tid = p.get('tenant_id');
-                var parts = window.location.pathname.split('/').filter(Boolean);
-                var slg = parts[parts.length-1] || p.get('slug') || '';
-                var q = B_URL + '/rest/v1/tenants?select=vapi_assistant_id,ai_agent_config(first_message)';
-                if (tid) q += '&id=eq.' + tid;
-                else if (slg && slg !== 'book') q += '&slug=eq.' + slg;
-                else { bAddMsg('b', 'Hi! 👋 I am Bella. Ask me about services, prices, or anything about this salon!'); return; }
-                var res = await fetch(q, { headers: { 'apikey': B_KEY, 'Authorization': 'Bearer ' + B_KEY } });
-                var d = await res.json();
-                if (d && d[0]) {
-                    bAsstId = d[0].vapi_assistant_id || null;
-                    var fm = (d[0].ai_agent_config && d[0].ai_agent_config[0] && d[0].ai_agent_config[0].first_message)
-                        || 'Hi! 👋 I am Bella, your AI salon assistant. Ask me about services, prices, availability, or anything about this salon!';
-                    bAddMsg('b', fm);
-                } else {
-                    bAddMsg('b', 'Hi! 👋 I am Bella. Ask me about services, prices, or anything about this salon!');
-                }
-            } catch(e) { bAddMsg('b', 'Hi! 👋 I am Bella, here to help you book your appointment!'); }
-        }
-
-        function toggleBella() {
-            bIsOpen = !bIsOpen;
-            document.getElementById('bella-panel').classList.toggle('open', bIsOpen);
-            document.getElementById('bella-tip').style.display = 'none';
-            if (bIsOpen) setTimeout(function(){ document.getElementById('b-inp').focus(); }, 100);
-        }
-
-        function bAddMsg(role, text) {
-            bMsgs.push({ role: role === 'u' ? 'user' : 'assistant', content: text });
-            bRender();
-        }
-
-        function bRender() {
-            var c = document.getElementById('b-msgs');
-            c.innerHTML = bMsgs.map(function(m) {
-                var cls = m.role === 'user' ? 'u' : 'b';
-                return '<div class="bm ' + cls + '"><div class="bb">' + bEsc(m.content) + '</div></div>';
-            }).join('');
-            c.scrollTop = c.scrollHeight;
-        }
-
-        function bEsc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-        function bShowTyping() {
-            var c = document.getElementById('b-msgs');
-            var d = document.createElement('div');
-            d.id = 'b-typ'; d.className = 'bm b';
-            d.innerHTML = '<div class="bb bt"><span></span><span></span><span></span></div>';
-            c.appendChild(d); c.scrollTop = c.scrollHeight;
-        }
-
-        function bHideTyping() { var e = document.getElementById('b-typ'); if (e) e.remove(); }
-
-        async function bSend() {
-            var inp = document.getElementById('b-inp');
-            var txt = inp.value.trim();
-            if (!txt || bBusy) return;
-            inp.value = ''; bBusy = true;
-            document.getElementById('b-send').disabled = true;
-            bAddMsg('u', txt);
-
-            if (!bAsstId) {
-                bAddMsg('b', 'The AI assistant is not fully set up yet. Please call the salon directly.');
-                bBusy = false; document.getElementById('b-send').disabled = false; return;
-            }
-
-            bShowTyping();
-            try {
-                var r = await fetch(B_URL + '/functions/v1/vapi-text-chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type':'application/json','Authorization':'Bearer '+B_KEY,'apikey':B_KEY },
-                    body: JSON.stringify({ assistantId: bAsstId, messages: bMsgs })
-                });
-                var data = await r.json();
-                var reply = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content)
-                    || (data && data.message) || 'Sorry, I could not process that. Please try again.';
-                bHideTyping(); bAddMsg('b', reply);
-            } catch(e) { bHideTyping(); bAddMsg('b', '🚨 Connection error. Please try again.'); }
-
-            bBusy = false; document.getElementById('b-send').disabled = false;
-            document.getElementById('b-inp').focus();
-        }
-
-        function bKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); bSend(); } }
-
-        initBella();
-    </script>
-</body>
-
-</html> + (svc.price||0).toFixed(2) + '</span></div>'; });
-rows += '<div class="confirm-row"><span class="confirm-label">Professional</span><span class="confirm-value">' + (stf?stf.name:'Any available') + '</span></div>';
-rows += '<div class="confirm-row"><span class="confirm-label">Date</span><span class="confirm-value">' + fmtDate + '</span></div>';
-rows += '<div class="confirm-row"><span class="confirm-label">Time</span><span class="confirm-value">' + fmtTime + '</span></div>';
-rows += '<div class="confirm-row" style="border-bottom:none"><span class="confirm-label" style="font-weight:700">Total</span><span class="confirm-total">
-
-        // ===== SUBMIT BOOKING =====
-        async function submitBooking() {
-            var btn = document.getElementById('confirm-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading-btn"></span> Booking...';
-
-            try {
-                var res = await fetch(API_URL + tenantQuery(), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        service_ids: selectedServiceIds,
-                        service_id: selectedServiceIds[0],
-                        staff_id: selectedStaffId || undefined,
-                        date: document.getElementById('booking-date').value,
-                        time: document.getElementById('booking-time').value,
-                        client_name: document.getElementById('client-name').value.trim(),
-                        client_email: document.getElementById('client-email').value.trim(),
-                        client_phone: document.getElementById('client-phone').value.trim() || undefined,
-                    }),
-                });
-
-                var data = await res.json();
-
-                if (data.success) {
-                    var msg = 'Your appointment for <strong>' + (data.details ? data.details.service : '') + '</strong> on <strong>' + (data.details ? data.details.date : '') + '</strong> at <strong>' + (data.details ? data.details.time : '') + '</strong> has been confirmed.';
-                    msg += '<br><br>A confirmation email has been sent to <strong>' + document.getElementById('client-email').value + '</strong>.';
-
-                    document.getElementById('success-msg').innerHTML = msg;
-
-                    if (data.payment_url) {
-                        document.getElementById('pay-btn-wrapper').innerHTML = '<a href="' + data.payment_url + '" class="btn btn-gold" style="display:inline-block;text-decoration:none;padding:16px 40px;max-width:300px;">💳 Pay $' + (data.details ? data.details.deposit : 0) + ' Deposit</a><div style="color:#666;font-size:12px;margin-top:8px">Secure payment via Stripe</div>';
-                    }
-
-                    goStep(4);
-                } else {
-                    alert(data.error || 'Failed to create booking. Please try again.');
-                    btn.disabled = false;
-                    btn.innerHTML = '✓ Confirm Booking';
-                    // If time conflict, go back to time selection
-                    if (data.conflict) goStep(1);
-                }
-            } catch (e) {
-                alert('Network error. Please try again.');
-                btn.disabled = false;
-                btn.innerHTML = '✓ Confirm Booking';
-            }
-        }
-
-        // ===== START =====
-        init();
-    </script>
-
-    <!-- ===== BELLA AI FLOATING CHAT BUBBLE ===== -->
-    <div id="bella-bubble">
-        <div id="bella-tip">💬 Ask Bella AI</div>
-        <button id="bella-btn" onclick="toggleBella()" title="Chat with Bella AI">
-            <div id="bella-pulse"></div>
-            🤖
-        </button>
-    </div>
-
-    <div id="bella-panel">
-        <div id="b-head">
-            <div class="info">
-                <div class="av">🤖</div>
-                <div>
-                    <h4>Bella AI <span class="online"></span></h4>
-                    <p>Your salon assistant</p>
-                </div>
-            </div>
-            <button id="b-close" onclick="toggleBella()">✕</button>
-        </div>
-        <div id="b-msgs"></div>
-        <div id="b-inp-row">
-            <textarea id="b-inp" placeholder="Ask about services, prices, availability..." rows="1"
-                onkeydown="bKey(event)"></textarea>
-            <button id="b-send" onclick="bSend()" title="Send">➤</button>
-        </div>
-    </div>
-
-    <script>
-        var B_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
-        var B_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqenhnbmltYmNvcXN5bHJnbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NzI2MDksImV4cCI6MjA1NzA0ODYwOX0.ILJCKCUb-INblkzjfQp0YMPXaOFPEhmoVU6f-UnFnb0';
-        var bAsstId = null, bMsgs = [], bBusy = false, bIsOpen = false;
-
-        async function initBella() {
-            try {
-                var p = new URLSearchParams(window.location.search);
-                var tid = p.get('tenant_id');
-                var parts = window.location.pathname.split('/').filter(Boolean);
-                var slg = parts[parts.length-1] || p.get('slug') || '';
-                var q = B_URL + '/rest/v1/tenants?select=vapi_assistant_id,ai_agent_config(first_message)';
-                if (tid) q += '&id=eq.' + tid;
-                else if (slg && slg !== 'book') q += '&slug=eq.' + slg;
-                else { bAddMsg('b', 'Hi! 👋 I am Bella. Ask me about services, prices, or anything about this salon!'); return; }
-                var res = await fetch(q, { headers: { 'apikey': B_KEY, 'Authorization': 'Bearer ' + B_KEY } });
-                var d = await res.json();
-                if (d && d[0]) {
-                    bAsstId = d[0].vapi_assistant_id || null;
-                    var fm = (d[0].ai_agent_config && d[0].ai_agent_config[0] && d[0].ai_agent_config[0].first_message)
-                        || 'Hi! 👋 I am Bella, your AI salon assistant. Ask me about services, prices, availability, or anything about this salon!';
-                    bAddMsg('b', fm);
-                } else {
-                    bAddMsg('b', 'Hi! 👋 I am Bella. Ask me about services, prices, or anything about this salon!');
-                }
-            } catch(e) { bAddMsg('b', 'Hi! 👋 I am Bella, here to help you book your appointment!'); }
-        }
-
-        function toggleBella() {
-            bIsOpen = !bIsOpen;
-            document.getElementById('bella-panel').classList.toggle('open', bIsOpen);
-            document.getElementById('bella-tip').style.display = 'none';
-            if (bIsOpen) setTimeout(function(){ document.getElementById('b-inp').focus(); }, 100);
-        }
-
-        function bAddMsg(role, text) {
-            bMsgs.push({ role: role === 'u' ? 'user' : 'assistant', content: text });
-            bRender();
-        }
-
-        function bRender() {
-            var c = document.getElementById('b-msgs');
-            c.innerHTML = bMsgs.map(function(m) {
-                var cls = m.role === 'user' ? 'u' : 'b';
-                return '<div class="bm ' + cls + '"><div class="bb">' + bEsc(m.content) + '</div></div>';
-            }).join('');
-            c.scrollTop = c.scrollHeight;
-        }
-
-        function bEsc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-        function bShowTyping() {
-            var c = document.getElementById('b-msgs');
-            var d = document.createElement('div');
-            d.id = 'b-typ'; d.className = 'bm b';
-            d.innerHTML = '<div class="bb bt"><span></span><span></span><span></span></div>';
-            c.appendChild(d); c.scrollTop = c.scrollHeight;
-        }
-
-        function bHideTyping() { var e = document.getElementById('b-typ'); if (e) e.remove(); }
-
-        async function bSend() {
-            var inp = document.getElementById('b-inp');
-            var txt = inp.value.trim();
-            if (!txt || bBusy) return;
-            inp.value = ''; bBusy = true;
-            document.getElementById('b-send').disabled = true;
-            bAddMsg('u', txt);
-
-            if (!bAsstId) {
-                bAddMsg('b', 'The AI assistant is not fully set up yet. Please call the salon directly.');
-                bBusy = false; document.getElementById('b-send').disabled = false; return;
-            }
-
-            bShowTyping();
-            try {
-                var r = await fetch(B_URL + '/functions/v1/vapi-text-chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type':'application/json','Authorization':'Bearer '+B_KEY,'apikey':B_KEY },
-                    body: JSON.stringify({ assistantId: bAsstId, messages: bMsgs })
-                });
-                var data = await r.json();
-                var reply = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content)
-                    || (data && data.message) || 'Sorry, I could not process that. Please try again.';
-                bHideTyping(); bAddMsg('b', reply);
-            } catch(e) { bHideTyping(); bAddMsg('b', '🚨 Connection error. Please try again.'); }
-
-            bBusy = false; document.getElementById('b-send').disabled = false;
-            document.getElementById('b-inp').focus();
-        }
-
-        function bKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); bSend(); } }
-
-        initBella();
-    </script>
-</body>
-
-</html> + totalPrice.toFixed(2) + '</span></div>';
-document.getElementById('booking-summary').innerHTML = rows; }
-
-        // ===== SUBMIT BOOKING =====
-        async function submitBooking() {
-            var btn = document.getElementById('confirm-btn');
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading-btn"></span> Booking...';
-
-            try {
-                var res = await fetch(API_URL + tenantQuery(), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        service_ids: selectedServiceIds,
-                        service_id: selectedServiceIds[0],
-                        staff_id: selectedStaffId || undefined,
-                        date: document.getElementById('booking-date').value,
-                        time: document.getElementById('booking-time').value,
-                        client_name: document.getElementById('client-name').value.trim(),
-                        client_email: document.getElementById('client-email').value.trim(),
-                        client_phone: document.getElementById('client-phone').value.trim() || undefined,
-                    }),
-                });
-
-                var data = await res.json();
-
-                if (data.success) {
-                    var msg = 'Your appointment for <strong>' + (data.details ? data.details.service : '') + '</strong> on <strong>' + (data.details ? data.details.date : '') + '</strong> at <strong>' + (data.details ? data.details.time : '') + '</strong> has been confirmed.';
-                    msg += '<br><br>A confirmation email has been sent to <strong>' + document.getElementById('client-email').value + '</strong>.';
-
-                    document.getElementById('success-msg').innerHTML = msg;
-
-                    if (data.payment_url) {
-                        document.getElementById('pay-btn-wrapper').innerHTML = '<a href="' + data.payment_url + '" class="btn btn-gold" style="display:inline-block;text-decoration:none;padding:16px 40px;max-width:300px;">💳 Pay $' + (data.details ? data.details.deposit : 0) + ' Deposit</a><div style="color:#666;font-size:12px;margin-top:8px">Secure payment via Stripe</div>';
-                    }
-
-                    goStep(4);
-                } else {
-                    alert(data.error || 'Failed to create booking. Please try again.');
-                    btn.disabled = false;
-                    btn.innerHTML = '✓ Confirm Booking';
-                    // If time conflict, go back to time selection
-                    if (data.conflict) goStep(1);
-                }
-            } catch (e) {
-                alert('Network error. Please try again.');
-                btn.disabled = false;
-                btn.innerHTML = '✓ Confirm Booking';
-            }
-        }
-
-        // ===== START =====
-        init();
-    </script>
-
-    <!-- ===== BELLA AI FLOATING CHAT BUBBLE ===== -->
-    <div id="bella-bubble">
-        <div id="bella-tip">💬 Ask Bella AI</div>
-        <button id="bella-btn" onclick="toggleBella()" title="Chat with Bella AI">
-            <div id="bella-pulse"></div>
-            🤖
-        </button>
-    </div>
-
-    <div id="bella-panel">
-        <div id="b-head">
-            <div class="info">
-                <div class="av">🤖</div>
-                <div>
-                    <h4>Bella AI <span class="online"></span></h4>
-                    <p>Your salon assistant</p>
-                </div>
-            </div>
-            <button id="b-close" onclick="toggleBella()">✕</button>
-        </div>
-        <div id="b-msgs"></div>
-        <div id="b-inp-row">
-            <textarea id="b-inp" placeholder="Ask about services, prices, availability..." rows="1"
-                onkeydown="bKey(event)"></textarea>
-            <button id="b-send" onclick="bSend()" title="Send">➤</button>
-        </div>
-    </div>
-
-    <script>
-        var B_URL = 'https://sjzxgjimbcoqsylrglkm.supabase.co';
-        var B_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqenhnbmltYmNvcXN5bHJnbGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NzI2MDksImV4cCI6MjA1NzA0ODYwOX0.ILJCKCUb-INblkzjfQp0YMPXaOFPEhmoVU6f-UnFnb0';
-        var bAsstId = null, bMsgs = [], bBusy = false, bIsOpen = false;
-
-        async function initBella() {
-            try {
-                var p = new URLSearchParams(window.location.search);
-                var tid = p.get('tenant_id');
-                var parts = window.location.pathname.split('/').filter(Boolean);
-                var slg = parts[parts.length-1] || p.get('slug') || '';
-                var q = B_URL + '/rest/v1/tenants?select=vapi_assistant_id,ai_agent_config(first_message)';
-                if (tid) q += '&id=eq.' + tid;
-                else if (slg && slg !== 'book') q += '&slug=eq.' + slg;
-                else { bAddMsg('b', 'Hi! 👋 I am Bella. Ask me about services, prices, or anything about this salon!'); return; }
-                var res = await fetch(q, { headers: { 'apikey': B_KEY, 'Authorization': 'Bearer ' + B_KEY } });
-                var d = await res.json();
-                if (d && d[0]) {
-                    bAsstId = d[0].vapi_assistant_id || null;
-                    var fm = (d[0].ai_agent_config && d[0].ai_agent_config[0] && d[0].ai_agent_config[0].first_message)
-                        || 'Hi! 👋 I am Bella, your AI salon assistant. Ask me about services, prices, availability, or anything about this salon!';
-                    bAddMsg('b', fm);
-                } else {
-                    bAddMsg('b', 'Hi! 👋 I am Bella. Ask me about services, prices, or anything about this salon!');
-                }
-            } catch(e) { bAddMsg('b', 'Hi! 👋 I am Bella, here to help you book your appointment!'); }
-        }
-
-        function toggleBella() {
-            bIsOpen = !bIsOpen;
-            document.getElementById('bella-panel').classList.toggle('open', bIsOpen);
-            document.getElementById('bella-tip').style.display = 'none';
-            if (bIsOpen) setTimeout(function(){ document.getElementById('b-inp').focus(); }, 100);
-        }
-
-        function bAddMsg(role, text) {
-            bMsgs.push({ role: role === 'u' ? 'user' : 'assistant', content: text });
-            bRender();
-        }
-
-        function bRender() {
-            var c = document.getElementById('b-msgs');
-            c.innerHTML = bMsgs.map(function(m) {
-                var cls = m.role === 'user' ? 'u' : 'b';
-                return '<div class="bm ' + cls + '"><div class="bb">' + bEsc(m.content) + '</div></div>';
-            }).join('');
-            c.scrollTop = c.scrollHeight;
-        }
-
-        function bEsc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-        function bShowTyping() {
-            var c = document.getElementById('b-msgs');
-            var d = document.createElement('div');
-            d.id = 'b-typ'; d.className = 'bm b';
-            d.innerHTML = '<div class="bb bt"><span></span><span></span><span></span></div>';
-            c.appendChild(d); c.scrollTop = c.scrollHeight;
-        }
-
-        function bHideTyping() { var e = document.getElementById('b-typ'); if (e) e.remove(); }
-
-        async function bSend() {
-            var inp = document.getElementById('b-inp');
-            var txt = inp.value.trim();
-            if (!txt || bBusy) return;
-            inp.value = ''; bBusy = true;
-            document.getElementById('b-send').disabled = true;
-            bAddMsg('u', txt);
-
-            if (!bAsstId) {
-                bAddMsg('b', 'The AI assistant is not fully set up yet. Please call the salon directly.');
-                bBusy = false; document.getElementById('b-send').disabled = false; return;
-            }
-
-            bShowTyping();
-            try {
-                var r = await fetch(B_URL + '/functions/v1/vapi-text-chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type':'application/json','Authorization':'Bearer '+B_KEY,'apikey':B_KEY },
-                    body: JSON.stringify({ assistantId: bAsstId, messages: bMsgs })
-                });
-                var data = await r.json();
-                var reply = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content)
-                    || (data && data.message) || 'Sorry, I could not process that. Please try again.';
-                bHideTyping(); bAddMsg('b', reply);
-            } catch(e) { bHideTyping(); bAddMsg('b', '🚨 Connection error. Please try again.'); }
-
-            bBusy = false; document.getElementById('b-send').disabled = false;
-            document.getElementById('b-inp').focus();
-        }
-
-        function bKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); bSend(); } }
-
-        initBella();
-    
-// --- FRESH STYLE PATCHES ---
+// ===== CURRENT STEP TRACKER =====
+window._currentStep = 0;
+
+// ===== CATEGORY TAB SCROLL =====
+function scrollCats(dir) {
+    var tabs = document.getElementById('cat-tabs');
+    if(tabs) tabs.scrollBy({ left: dir * 200, behavior: 'smooth' });
+}
+
+// ===== RENDER SERVICES =====
 function renderServices() {
     var grouped = {};
-    SERVICES.forEach(function(s){ var cat=s.category||'General'; if(!grouped[cat])grouped[cat]=[]; grouped[cat].push(s); });
-    var cats = Object.keys(grouped); var activeCat = window._activeCat || cats[0] || 'All'; window._activeCat = activeCat; window._grouped = grouped;
-    document.getElementById('cat-tabs').innerHTML = cats.map(function(c){ return '<button class="cat-tab'+(c===activeCat?' active':'')+'" onclick="filterCat(\\''+c+'\\')">'+c+'</button>'; }).join('');
+    SERVICES.forEach(function(s){ 
+        var cat = s.category || 'General'; 
+        if(!grouped[cat]) grouped[cat] = []; 
+        grouped[cat].push(s); 
+    });
+    var cats = Object.keys(grouped); 
+    window._activeCat = window._activeCat || cats[0] || ''; 
+    window._grouped = grouped;
+    
+    var tabsHtml = cats.map(function(c){ 
+        var safeC = c.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        return '<button class="cat-tab' + (c === window._activeCat ? ' active' : '') + '" onclick="filterCat(\'' + safeC + '\')">' + c + '</button>'; 
+    }).join('');
+    document.getElementById('cat-tabs').innerHTML = tabsHtml;
     renderServiceCards();
 }
-function filterCat(cat) { window._activeCat = cat; document.querySelectorAll('.cat-tab').forEach(function(t){ t.classList.toggle('active',t.textContent===cat); }); renderServiceCards(); }
-function renderServiceCards() {
-    var cat = window._activeCat; var svcs = window._grouped[cat] || []; var html = '';
-    svcs.forEach(function(s){
-        var sel = selectedServiceIds.indexOf(s.id)>-1;
-        html += '<div class="service-card'+(sel?' selected':'')+'" data-id="'+s.id+'" onclick="toggleService(\\''+s.id+'\\')">'+
-            '<div style="flex:1"><div class="service-name">'+s.name+'</div><div class="service-meta">'+(s.duration||30)+' min'+(s.description?' · '+s.description:'')+'</div></div>'+
-            '<div style="text-align:right;margin-left:12px"><div class="service-price">$'+(s.price||0).toFixed(2)+'</div>'+(s.deposit_amount?'<div class="service-deposit">$'+s.deposit_amount+' deposit</div>':'')+'</div>'+
-            '<div class="check-circle"></div></div>';
-    });
-    document.getElementById('services-list').innerHTML = html || '<p style="color:#9ca3af;padding:20px 0">No services in this category</p>';
+
+function filterCat(cat) { 
+    window._activeCat = cat; 
+    document.querySelectorAll('.cat-tab').forEach(function(t){ 
+        t.classList.toggle('active', t.textContent === cat); 
+    }); 
+    renderServiceCards(); 
 }
+
+function renderServiceCards() {
+    var cat = window._activeCat; 
+    var svcs = window._grouped[cat] || []; 
+    var html = '';
+    svcs.forEach(function(s){
+        var sel = selectedServiceIds.indexOf(s.id) > -1;
+        var safeId = s.id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        var icon = sel ? '<span style="display:flex;align-items:center;justify-content:center;line-height:1">✓</span>' : '<span style="display:flex;align-items:center;justify-content:center;line-height:1">+</span>';
+
+        html += '<div class="service-card' + (sel ? ' selected' : '') + '" data-id="' + s.id + '" onclick="toggleService(\'' + safeId + '\')">' +
+            '<div class="service-info">' +
+            '<div class="service-name">' + s.name + '</div>' +
+            '<div class="service-meta">' + (s.duration || 30) + ' min' + (s.description ? ' · ' + s.description : '') + '</div>' +
+            '</div>' +
+            '<div class="service-price-col">' +
+            '<div class="service-price">$' + (s.price || 0).toFixed(2) + '</div>' +
+            '<div class="add-btn">' + icon + '</div>' +
+            '</div>' +
+            '</div>';
+    });
+    document.getElementById('services-list').innerHTML = html || '<p style="color:#9ca3af;padding:20px 0;font-size:14px">No services in this category.</p>';
+}
+
+// ===== RENDER STAFF =====
 function renderStaff() {
     var html = '';
     STAFF.forEach(function(s){
-        var photoHtml = s.photo_url ? '<img class="staff-photo" src="'+s.photo_url+'" alt="'+(s.name||'')+'">' : '<div class="staff-avatar-initials">'+(s.name||'S')[0]+'</div>';
-        html += '<div class="staff-card" data-id="'+s.id+'" onclick="selectStaff(\\''+s.id+'\\')"><div class="selected-badge"></div>'+photoHtml+'<div class="staff-name">'+(s.name||'Staff')+'</div><div class="staff-role">'+(s.specialty||s.role||'Stylist')+'</div></div>';
+        var photoHtml = s.photo_url 
+            ? '<img class="staff-photo" src="' + s.photo_url + '" alt="' + (s.name || '') + '">'
+            : '<div class="staff-avatar-initials">' + (s.name || 'S')[0].toUpperCase() + '</div>';
+        var safeId = s.id.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        html += '<div class="staff-card" data-id="' + s.id + '" onclick="selectStaff(\'' + safeId + '\')">' +
+            photoHtml +
+            '<div class="staff-name">' + (s.name || 'Staff') + '</div>' +
+            '<div class="staff-role">' + (s.specialty || s.role || 'Stylist') + '</div>' +
+            '</div>';
     });
     document.getElementById('staff-grid').innerHTML = html;
 }
+
+// ===== SELECT STAFF =====
 function selectStaff(id) {
     selectedStaffId = id;
-    var anyCard = document.getElementById('any-staff-card'), anyCheck = document.getElementById('any-check');
-    if(id===''){ anyCard.classList.add('selected'); anyCheck.style.display='flex'; } else { anyCard.classList.remove('selected'); anyCheck.style.display='none'; }
-    document.querySelectorAll('.staff-card').forEach(function(c){ c.classList.toggle('selected',c.dataset.id===id); });
-    selectedSlot=null; document.getElementById('booking-time').value=''; updateSidebar();
+    var anyCard = document.getElementById('any-staff-card');
+    var anyCheck = document.getElementById('any-check');
+    if(id === '') { 
+        anyCard.style.borderColor = 'var(--primary-light)'; 
+        anyCard.style.background = '#f9f9ff'; 
+        anyCheck.style.display = 'block'; 
+    } else { 
+        anyCard.style.borderColor = 'var(--border)'; 
+        anyCard.style.background = '#fff'; 
+        anyCheck.style.display = 'none'; 
+    }
+    document.querySelectorAll('.staff-card').forEach(function(c){ 
+        c.classList.toggle('selected', c.dataset.id === id); 
+    });
+    selectedSlot = null; 
+    document.getElementById('booking-time').value = ''; 
+    updateSidebar();
 }
+
+// ===== STEP NAVIGATION =====
 function goStep(n) {
-    if(n===1 && selectedServiceIds.length===0){ alert('Please select at least one service'); return; }
-    if(n===2){ var stf=STAFF.find(function(s){return s.id===selectedStaffId;}); document.getElementById('time-staff-label').textContent=stf?'with '+stf.name:'Choose an available time slot'; }
-    if(n===3){ if(!document.getElementById('booking-date').value){alert('Please select a date');return;} if(!document.getElementById('booking-time').value){alert('Please select a time slot');return;} }
-    if(n===4){ if(!document.getElementById('client-name').value.trim()){alert('Please enter your name');return;} if(!document.getElementById('client-email').value.trim()){alert('Please enter your email');return;} buildSummary(); }
-    document.querySelectorAll('.step').forEach(function(s){s.classList.remove('active');}); document.getElementById('step-'+n).classList.add('active');
-    ['bc-0','bc-1','bc-2','bc-3'].forEach(function(id,i){ var el=document.getElementById(id); if(!el)return; el.className='breadcrumb-step'; if(i<n)el.className+=' done'; else if(i===n)el.className+=' active'; });
-    window.scrollTo({top:0,behavior:'smooth'}); if(n===2) setTimeout(fetchSlots,100);
+    if(n === 1 && selectedServiceIds.length === 0){ alert('Please select at least one service.'); return; }
+    if(n === 3){ 
+        if(!document.getElementById('booking-date').value || !document.getElementById('booking-time').value){ 
+            alert('Please select a date and time slot.'); return; 
+        } 
+    }
+    if(n === 4){ 
+        if(!document.getElementById('client-name').value.trim() || !document.getElementById('client-email').value.trim()){ 
+            alert('Please fill in your name and email.'); return; 
+        } 
+        buildSummary(); 
+    }
+    
+    window._currentStep = n;
+    document.querySelectorAll('.step').forEach(function(s){ s.classList.remove('active'); }); 
+    document.getElementById('step-' + n).classList.add('active');
+    
+    // Update breadcrumb
+    for(var i = 0; i < 4; i++) {
+        var el = document.getElementById('bc-' + i); 
+        if(!el) continue; 
+        el.className = 'breadcrumb-step';
+        if(i < n) el.className += ' done';
+        else if(i === n) el.className += ' active';
+    }
+    
+    // Sidebar Continue: show only on step 0, hide on all other steps
+    var sbContinueBtn = document.getElementById('sb-continue-btn');
+    if(n === 0) {
+        updateSidebar(); // refresh sidebar + mobile bar when coming back
+    } else {
+        if(sbContinueBtn) sbContinueBtn.style.display = 'none';
+        // Hide mobile bottom bar on all steps except step 0
+        var mobileBar = document.getElementById('mobile-cart-bar');
+        if(mobileBar) mobileBar.classList.remove('visible');
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+    if(n === 2) setTimeout(fetchSlots, 100);
 }
-function selectDate(dateStr) { document.getElementById('booking-date').value=dateStr; document.querySelectorAll('.date-btn').forEach(function(b){b.classList.toggle('selected',b.dataset.date===dateStr);}); selectedSlot=null; document.getElementById('booking-time').value=''; fetchSlots(); }
+
+// ===== DATE SELECTION =====
+function selectDate(dateStr) { 
+    document.getElementById('booking-date').value = dateStr; 
+    document.querySelectorAll('.date-btn').forEach(function(b){ b.classList.toggle('selected', b.dataset.date === dateStr); }); 
+    selectedSlot = null; 
+    document.getElementById('booking-time').value = ''; 
+    fetchSlots(); 
+}
+
+// ===== SIDEBAR UPDATE =====
 function updateSidebar() {
-    var selectedSvcs = SERVICES.filter(function(s){return selectedServiceIds.indexOf(s.id)>-1;});
-    var stf = STAFF.find(function(s){return s.id===selectedStaffId;}); var total=0, dur=0, html='';
-    selectedSvcs.forEach(function(svc){ total+=(svc.price||0); dur+=(svc.duration||30); html+='<div class="sidebar-item"><span class="sidebar-item-label">'+svc.name+'</span><span class="sidebar-item-value">$'+(svc.price||0).toFixed(2)+'</span></div>'; });
-    if(stf) html+='<div class="sidebar-item"><span class="sidebar-item-label">Professional</span><span class="sidebar-item-value">'+stf.name+'</span></div>';
-    if(dur) html+='<div class="sidebar-item"><span class="sidebar-item-label">Duration</span><span class="sidebar-item-value">'+dur+' min</span></div>';
-    if(total) html+='<div class="sidebar-total"><span>Total</span><span class="sidebar-total-price">$'+total.toFixed(2)+'</span></div>';
-    document.getElementById('sb-items').innerHTML = html||'<div style="color:#9ca3af;font-size:13px;text-align:center;padding:16px 0">Select services to see summary</div>';
+    var selectedSvcs = SERVICES.filter(function(s){ return selectedServiceIds.indexOf(s.id) > -1; });
+    var total = 0, html = '';
+    
+    selectedSvcs.forEach(function(svc){ 
+        total += (svc.price || 0); 
+        html += '<div class="sidebar-item">' +
+            '<span class="sidebar-item-label">' + svc.name + '</span>' +
+            '<span class="sidebar-item-value">$' + (svc.price || 0).toFixed(2) + '</span>' +
+            '</div>'; 
+    });
+    
+    var sbItems = document.getElementById('sb-items');
+    var sbFooter = document.getElementById('sb-footer');
+    var sbTotalPrice = document.getElementById('sb-total-price');
+    var sbContinueBtn = document.getElementById('sb-continue-btn');
+    var onStep0 = (window._currentStep === 0);
+    
+    if(selectedSvcs.length > 0) {
+        sbItems.innerHTML = html;
+        sbFooter.style.display = 'block';
+        sbTotalPrice.textContent = '$' + total.toFixed(2);
+        // Continue button: only visible on step 0
+        if(sbContinueBtn) {
+            sbContinueBtn.style.display = onStep0 ? 'block' : 'none';
+        }
+    } else {
+        sbItems.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:16px 0">No services selected</div>';
+        sbFooter.style.display = 'none';
+    }
+
+    // ── Mobile bottom cart bar ──
+    var mobileBar = document.getElementById('mobile-cart-bar');
+    var mobileCount = document.getElementById('mobile-cart-count');
+    var mobileTotal = document.getElementById('mobile-cart-total');
+    if(mobileBar && mobileCount && mobileTotal) {
+        if(selectedSvcs.length > 0 && onStep0) {
+            var itemNames = selectedSvcs.map(function(s){ return s.name; }).join(', ');
+            mobileCount.textContent = selectedSvcs.length + ' service' + (selectedSvcs.length > 1 ? 's' : '') + ': ' + itemNames;
+            mobileTotal.textContent = '$' + total.toFixed(2);
+            mobileBar.classList.add('visible');
+        } else {
+            mobileBar.classList.remove('visible');
+        }
+    }
 }
 
-</script>
-</body>
 
+
+        init();
+    </script>
+</body>
 </html>

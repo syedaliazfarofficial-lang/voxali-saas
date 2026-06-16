@@ -35,16 +35,16 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     };
 
     const features = [
-        { icon: <PhoneCall size={18} />, title: 'AI Voice Receptionist', desc: 'Never miss a call' },
-        { icon: <Calendar size={18} />, title: 'Smart Booking', desc: 'Zero conflicts' },
-        { icon: <BarChart2 size={18} />, title: 'Real-time Analytics', desc: 'Revenue at a glance' },
-        { icon: <Users size={18} />, title: 'CRM & Clients', desc: 'Build loyalty' },
+        { icon: <PhoneCall size={16} />, title: 'AI Voice Receptionist', desc: 'Never miss a call' },
+        { icon: <Calendar size={16} />, title: 'Smart Booking', desc: 'Zero conflicts' },
+        { icon: <BarChart2 size={16} />, title: 'Real-time Analytics', desc: 'Revenue at a glance' },
+        { icon: <Users size={16} />, title: 'CRM & Clients', desc: 'Build loyalty' },
     ];
 
     if (checkingSession) {
         return (
             <div style={{ minHeight: '100vh', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Loader2 size={24} color="#8B5CF6" style={{ animation: 'spin 1s linear infinite' }} />
+                <Loader2 size={24} color="#09090b" style={{ animation: 'spin 1s linear infinite' }} />
                 <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
         );
@@ -62,33 +62,62 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                 
                 .login-wrapper {
                     min-height: 100vh;
-                    background: #f8fafc; /* Light gray background to make card pop */
+                    background: #f8fafc;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-                    padding: 24px;
+                    padding: 16px; 
+                    overflow-y: auto;
                 }
 
                 .login-container {
                     display: flex;
                     width: 100%;
-                    max-width: 940px;
+                    max-width: 900px; 
                     background: #ffffff;
                     border-radius: 20px;
                     box-shadow: 0 25px 50px -12px rgba(0,0,0,0.08);
                     overflow: hidden;
-                    animation: fadeUp 0.6s ease-out;
+                    animation: fadeUp 0.5s ease-out;
+                    margin: auto; 
                 }
 
                 /* --- Left Side --- */
                 .left-panel {
                     flex: 1;
-                    background: #1e1b4b; /* Deep dark purple */
-                    padding: 48px;
+                    background: linear-gradient(180deg, #111827 0%, #0f172a 100%); /* Softer dark slate */
+                    padding: 32px; 
                     color: #ffffff;
                     display: flex;
                     flex-direction: column;
+                    justify-content: center; 
+                    position: relative;
+                    overflow: hidden;
+                }
+
+                .animated-grid {
+                    position: absolute;
+                    top: 0; left: 0; right: 0; bottom: 0;
+                    width: 100%; height: 100%;
+                    background-size: 40px 40px;
+                    background-image: 
+                        linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
+                    mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, transparent 60%);
+                    -webkit-mask-image: linear-gradient(to top, rgba(0,0,0,1) 0%, transparent 60%);
+                    animation: panGrid 15s linear infinite;
+                    z-index: 0;
+                }
+
+                @keyframes panGrid {
+                    0% { background-position: 0px 0px; }
+                    100% { background-position: 40px 40px; }
+                }
+
+                .left-panel > * {
+                    position: relative;
+                    z-index: 1;
                 }
 
                 .status-badge {
@@ -98,9 +127,9 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                     background: rgba(255,255,255,0.1);
                     border: 1px solid rgba(255,255,255,0.15);
                     border-radius: 20px;
-                    padding: 6px 14px;
+                    padding: 4px 12px;
                     align-self: flex-start;
-                    margin-bottom: 40px;
+                    margin-bottom: 20px; 
                 }
 
                 .status-dot {
@@ -114,57 +143,57 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                     display: flex;
                     align-items: center;
                     gap: 12px;
-                    margin-bottom: 32px;
+                    margin-bottom: 20px; 
                 }
 
                 .logo-icon {
-                    width: 44px;
-                    height: 44px;
-                    background: #8B5CF6;
-                    border-radius: 12px;
+                    width: 36px;
+                    height: 36px;
+                    background: #ffffff;
+                    border-radius: 10px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 20px;
-                    font-weight: 700;
-                    color: white;
+                    font-size: 16px;
+                    font-weight: 800;
+                    color: #111827;
                 }
 
                 .main-heading {
-                    font-size: 32px;
+                    font-size: 26px; 
                     font-weight: 800;
                     line-height: 1.2;
-                    margin: 0 0 12px 0;
-                    letter-spacing: -0.03em;
+                    margin: 0 0 8px 0;
+                    letter-spacing: -0.02em;
                 }
 
                 .feature-list {
                     display: flex;
                     flex-direction: column;
-                    gap: 12px;
-                    margin-top: 32px;
+                    gap: 8px; 
+                    margin-top: 16px; 
                 }
 
                 .feature-card {
                     display: flex;
                     align-items: center;
-                    gap: 16px;
-                    background: rgba(255, 255, 255, 0.03);
+                    gap: 12px;
+                    background: rgba(255, 255, 255, 0.04);
                     border: 1px solid rgba(255, 255, 255, 0.08);
-                    padding: 14px 16px;
+                    padding: 10px 14px; 
                     border-radius: 12px;
+                    backdrop-filter: blur(4px);
                 }
 
                 .feature-icon-wrapper {
-                    color: #a78bfa; /* Lighter purple for icon */
+                    color: #94a3b8; /* Light slate */
                 }
-
 
                 /* --- Right Side --- */
                 .right-panel {
                     flex: 1;
                     background: #ffffff;
-                    padding: 56px 48px;
+                    padding: 32px 40px; 
                     position: relative;
                     display: flex;
                     flex-direction: column;
@@ -172,50 +201,50 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                 }
 
                 .input-group {
-                    margin-bottom: 20px;
+                    margin-bottom: 16px; 
                 }
 
                 .input-label {
                     display: block;
-                    font-size: 14px;
+                    font-size: 13px; 
                     font-weight: 600;
-                    color: #0f172a;
-                    margin-bottom: 8px;
+                    color: #09090b;
+                    margin-bottom: 6px;
                 }
 
                 .v-input {
                     width: 100%;
-                    padding: 14px 16px;
+                    padding: 10px 14px; 
                     background: #ffffff;
                     border: 1px solid #e2e8f0;
                     border-radius: 10px;
-                    font-size: 15px;
-                    color: #0f172a;
+                    font-size: 14px; 
+                    color: #09090b;
                     outline: none;
                     transition: border-color 0.2s, box-shadow 0.2s;
                 }
 
                 .v-input:focus {
-                    border-color: #8B5CF6;
-                    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+                    border-color: #09090b;
+                    box-shadow: 0 0 0 3px rgba(9, 9, 11, 0.1);
                 }
 
                 .v-btn-primary {
                     width: 100%;
-                    padding: 14px;
-                    background: #8B5CF6;
+                    padding: 12px; 
+                    background: #09090b; /* Black button */
                     color: #fff;
                     border: none;
                     border-radius: 10px;
-                    font-size: 16px;
+                    font-size: 15px; 
                     font-weight: 600;
                     cursor: pointer;
-                    margin-top: 8px;
+                    margin-top: 4px; 
                     transition: background 0.2s, transform 0.1s;
                 }
 
                 .v-btn-primary:hover:not(:disabled) {
-                    background: #7c3aed;
+                    background: #27272a;
                 }
                 
                 .v-btn-primary:disabled {
@@ -223,12 +252,24 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                     cursor: not-allowed;
                 }
 
+                .v-link {
+                    color: #09090b;
+                    font-weight: 600;
+                    text-decoration: none;
+                }
+
+                .v-link:hover {
+                    text-decoration: underline;
+                }
+
                 @media (max-width: 768px) {
                     .login-container {
                         flex-direction: column;
+                        margin-top: 16px;
+                        margin-bottom: 16px;
                     }
                     .left-panel, .right-panel {
-                        padding: 32px 24px;
+                        padding: 24px;
                     }
                 }
             `}</style>
@@ -236,24 +277,26 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
             <div className="login-container">
                 {/* --- LEFT PANEL --- */}
                 <div className="left-panel">
+                    <div className="animated-grid"></div>
+
                     <div className="status-badge">
                         <div className="status-dot"></div>
-                        <span style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>All systems operational</span>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>All systems operational</span>
                     </div>
 
                     <div className="logo-section">
                         <div className="logo-icon">V</div>
                         <div>
-                            <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>Voxali</div>
-                            <div style={{ fontSize: 12, color: '#a78bfa', fontWeight: 500, marginTop: 4 }}>Salon Management</div>
+                            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1 }}>Voxali</div>
+                            <div style={{ fontSize: 11, color: '#a1a1aa', fontWeight: 500, marginTop: 4 }}>Salon Management</div>
                         </div>
                     </div>
 
                     <h1 className="main-heading">
                         Run your salon<br />
-                        <span style={{ color: '#a78bfa' }}>on autopilot.</span>
+                        <span style={{ color: '#ffffff' }}>on autopilot.</span>
                     </h1>
-                    <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', margin: 0 }}>
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0 }}>
                         Bookings, calls, and clients handled automatically.
                     </p>
 
@@ -262,8 +305,8 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                             <div key={i} className="feature-card">
                                 <div className="feature-icon-wrapper">{f.icon}</div>
                                 <div>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#ffffff' }}>{f.title}</div>
-                                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{f.desc}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#ffffff' }}>{f.title}</div>
+                                    <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>{f.desc}</div>
                                 </div>
                             </div>
                         ))}
@@ -272,11 +315,11 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 
                 {/* --- RIGHT PANEL --- */}
                 <div className="right-panel">
-                    <div style={{ marginBottom: 40 }}>
-                        <h2 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', margin: '0 0 8px', letterSpacing: '-0.03em' }}>
+                    <div style={{ marginBottom: 24 }}>
+                        <h2 style={{ fontSize: 24, fontWeight: 800, color: '#09090b', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
                             Welcome back
                         </h2>
-                        <p style={{ color: '#64748b', fontSize: 15, margin: 0 }}>
+                        <p style={{ color: '#71717a', fontSize: 13, margin: 0 }}>
                             Sign in to your salon dashboard
                         </p>
                     </div>
@@ -296,10 +339,10 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                         </div>
 
                         {/* Password */}
-                        <div className="input-group" style={{ marginBottom: 32 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                        <div className="input-group" style={{ marginBottom: 28 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                                 <label className="input-label" style={{ margin: 0 }}>Password</label>
-                                <a href="mailto:support@voxali.net" style={{ fontSize: 13, color: '#8B5CF6', textDecoration: 'none', fontWeight: 600 }}>
+                                <a href="mailto:support@voxali.net" className="v-link" style={{ fontSize: 12.5 }}>
                                     Forgot password?
                                 </a>
                             </div>
@@ -311,20 +354,20 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                                     onChange={e => setPassword(e.target.value)}
                                     placeholder="••••••••"
                                     autoComplete="current-password"
-                                    style={{ paddingRight: 48 }}
+                                    style={{ paddingRight: 40 }}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPw(!showPw)}
                                     style={{
-                                        position: 'absolute', right: 16, top: '50%',
+                                        position: 'absolute', right: 14, top: '50%',
                                         transform: 'translateY(-50%)',
                                         background: 'none', border: 'none',
-                                        color: '#94a3b8', cursor: 'pointer',
+                                        color: '#a1a1aa', cursor: 'pointer',
                                         display: 'flex', alignItems: 'center', padding: 0,
                                     }}
                                 >
-                                    {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
                         </div>
@@ -333,7 +376,7 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                         {error && (
                             <div style={{
                                 background: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444',
-                                padding: '12px 16px', borderRadius: 10, fontSize: 14, fontWeight: 500,
+                                padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 500,
                                 display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20,
                             }}>
                                 <span>⚠️</span> {error}
@@ -344,17 +387,17 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
                         <button className="v-btn-primary" type="submit" disabled={loading || !email || !password}>
                             {loading
                                 ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                    <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Signing in...
+                                    <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Signing in...
                                   </div>
                                 : 'Sign in'
                             }
                         </button>
                     </form>
 
-                    <div style={{ marginTop: 24, textAlign: 'center' }}>
-                        <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
+                    <div style={{ marginTop: 20, textAlign: 'center' }}>
+                        <p style={{ color: '#71717a', fontSize: 13, margin: 0 }}>
                             Don't have an account?{' '}
-                            <a href="#" style={{ color: '#8B5CF6', fontWeight: 600, textDecoration: 'none' }}>
+                            <a href="#" className="v-link">
                                 Sign up free
                             </a>
                         </p>
@@ -364,4 +407,5 @@ export const LoginPage: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
         </div>
     );
 };
+
 

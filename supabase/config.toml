@@ -67,3 +67,52 @@ verify_jwt = false
 
 [functions.stripe-connect-onboard]
 verify_jwt = false
+
+[functions.provision-vapi-agent]
+verify_jwt = false
+
+[functions.vapi-tools-gateway]
+verify_jwt = false
+
+[functions.vapi-call-webhook]
+verify_jwt = false
+
+# ── Vapi internal tool functions (called by vapi-tools-gateway) ──────────────
+[functions.get-salon-info]
+verify_jwt = false
+
+[functions.list-services]
+verify_jwt = false
+
+[functions.list-staff]
+verify_jwt = false
+
+[functions.check-availability]
+verify_jwt = false
+
+[functions.create-booking]
+verify_jwt = false
+
+[functions.cancel-booking]
+verify_jwt = false
+
+[functions.reschedule-booking]
+verify_jwt = false
+
+[functions.create-payment-link]
+verify_jwt = false
+
+[functions.escalate-to-human]
+verify_jwt = false
+
+[functions.get-vapi-logs]
+verify_jwt = false
+
+[functions.online-booking]
+verify_jwt = false
+
+[functions.get-booking-public]
+verify_jwt = false
+
+[functions.stripe-payment-webhook]
+verify_jwt = false

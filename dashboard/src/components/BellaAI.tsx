@@ -706,8 +706,9 @@ export const BellaAI: React.FC = () => {
                 )}
                 <button
                     onClick={handleSave}
-                    disabled={saving || !hasChanges}
+                    disabled={saving}
                     className="flex items-center gap-2 bg-gold-gradient text-luxe-obsidian px-8 py-3 rounded-xl font-bold shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Save changes and push live to Bella AI instantly"
                 >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                     {saving ? 'SYNCING...' : 'SAVE & SYNC AI ⚡'}

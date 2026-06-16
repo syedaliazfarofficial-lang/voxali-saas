@@ -1,0 +1,39 @@
+{
+    "git.ignoreLimitWarning": true,
+    "sqltools.connections": [
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": true
+                }
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "aws-1-ap-southeast-2.pooler.supabase.com",
+            "port": 6543,
+            "askForPassword": true,
+            "sshOptions": {
+                "port": 22
+            },
+            "driver": "PostgreSQL",
+            "name": "Voxali Supabase",
+            "database": "postgres",
+            "username": "postgres.sjzxgjimbcoqsylrglkm"
+        },
+        {
+            "pgOptions": {
+                "ssl": {
+                    "rejectUnauthorized": false
+                }
+            },
+            "ssh": "Disabled",
+            "previewLimit": 50,
+            "server": "aws-1-ap-southeast-2.pooler.supabase.com",
+            "port": 6543,
+            "driver": "PostgreSQL",
+            "name": "Voxali Supabase ",
+            "database": "postgres",
+            "username": "postgres.sjzxgjimbcoqsylrglkm"
+        }
+    ]
+}

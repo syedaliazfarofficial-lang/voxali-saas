@@ -1,0 +1,322 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #fff;
+  color: #101113;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── EXACT Fresha hero gradient ── */
+.hero-bg {
+  background: radial-gradient(ellipse 120% 90% at 50% -30%,
+    rgba(155, 120, 255, 0.55) 0%,
+    rgba(200, 140, 255, 0.35) 25%,
+    rgba(255, 160, 220, 0.25) 45%,
+    rgba(255, 220, 240, 0.10) 65%,
+    rgba(255,255,255,0) 80%
+  ), #fff;
+  min-height: 480px;
+}
+
+/* ── Horizontal scroll carousel ── */
+.carousel-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 8px;
+  cursor: grab;
+}
+.carousel-track:active { cursor: grabbing; }
+.carousel-track::-webkit-scrollbar { display: none; }
+.carousel-track > * { scroll-snap-align: start; flex-shrink: 0; }
+
+/* ── Salon card ── */
+.salon-card {
+  width: 240px;
+  cursor: pointer;
+  transition: transform 0.18s ease;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.salon-card:hover { transform: translateY(-2px); }
+.salon-card:hover .card-img { transform: scale(1.04); }
+
+.card-img-wrap {
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  background: #f0f0f0;
+  position: relative;
+}
+.card-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+  display: block;
+}
+.card-badge {
+  position: absolute;
+  top: 10px; left: 10px;
+  background: #fff;
+  color: #101113;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+.card-heart {
+  position: absolute;
+  top: 10px; right: 10px;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(4px);
+  border-radius: 50%;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.15s;
+}
+.card-heart:hover { transform: scale(1.1); }
+.star { color: #f59e0b; }
+
+/* ── Fresha exact search bar ── */
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.12);
+  border-radius: 99px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  max-width: 860px;
+  width: 100%;
+}
+.search-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  min-width: 0;
+}
+.search-field + .search-field {
+  border-left: 1.5px solid rgba(0,0,0,0.1);
+}
+.search-field input {
+  border: none; outline: none; background: transparent;
+  font-size: 15px; color: #101113; width: 100%;
+  font-family: inherit;
+}
+.search-field input::placeholder { color: #888; }
+.search-btn {
+  background: #101113;
+  color: #fff;
+  border: none;
+  padding: 12px 28px;
+  margin: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: 99px;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+.search-btn:hover { background: #333; }
+
+/* ── Navbar ── */
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.nav-inner {
+  max-width: 1280px; margin: 0 auto;
+  padding: 0 40px;
+  height: 64px;
+  display: flex; align-items: center; gap: 8px;
+}
+.nav-logo {
+  font-size: 21px; font-weight: 800; color: #101113;
+  text-decoration: none; letter-spacing: -0.5px;
+  margin-right: auto;
+}
+.nav-link {
+  font-size: 14px; font-weight: 500; color: #333;
+  text-decoration: none; padding: 8px 14px; border-radius: 10px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.nav-link:hover { background: #f5f5f5; color: #101113; }
+.nav-btn {
+  font-size: 14px; font-weight: 600;
+  padding: 9px 18px; border-radius: 12px;
+  text-decoration: none; transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-outline {
+  border: 1.5px solid #ddd; color: #101113; background: #fff;
+}
+.btn-outline:hover { border-color: #999; }
+
+/* ── Sections ── */
+.section { padding: 48px 0; }
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding: 0 40px;
+}
+.section-title {
+  font-size: 22px; font-weight: 700; color: #101113;
+}
+.see-all {
+  font-size: 14px; font-weight: 600; color: #101113;
+  text-decoration: none;
+  display: flex; align-items: center; gap: 4px;
+  padding: 8px 16px; border: 1.5px solid #e0e0e0;
+  border-radius: 999px; transition: all 0.15s;
+}
+.see-all:hover { border-color: #999; }
+.carousel-wrap { padding: 0 40px; }
+
+/* ── Empty cards ── */
+.empty-card {
+  width: 240px; flex-shrink: 0;
+  border-radius: 16px;
+  border: 2px dashed #e0e0e0;
+  aspect-ratio: 4/3;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: #ccc; font-size: 13px; gap: 8px;
+  background: #fafafa;
+}
+
+/* ── Reviews ── */
+.review-card {
+  background: #fff;
+  border: 1.5px solid #ebebeb;
+  border-radius: 18px;
+  padding: 28px;
+  width: 310px;
+  flex-shrink: 0;
+  transition: box-shadow 0.2s;
+}
+.review-card:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+/* ── City tab ── */
+.city-tab {
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 14px; font-weight: 500;
+  cursor: pointer; border: 1.5px solid transparent;
+  background: #f5f5f5; color: #444;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.city-tab:hover { background: #ebebeb; }
+.city-tab.active {
+  background: #101113; color: #fff; border-color: #101113;
+}
+
+/* ── Carousel arrow button ── */
+.carousel-arrow {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid #e0e0e0;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  transition: all 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.carousel-arrow:hover {
+  border-color: #999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+
+/* ── Footer ── */
+.footer {
+  background: #fff;
+  border-top: 1px solid #ebebeb;
+  padding: 56px 0 32px;
+}
+.footer-inner {
+  max-width: 1280px; margin: 0 auto; padding: 0 40px;
+}
+
+/* ── Stats big number ── */
+.stat-big {
+  font-size: clamp(48px, 8vw, 80px);
+  font-weight: 800; color: #e040a0;
+  line-height: 1;
+}
+
+/* ── For business dashboard mockup ── */
+.dashboard-mockup {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+
+/* ── Appointment counter ── */
+.appt-counter {
+  font-size: 16px;
+  color: #333;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.appt-counter strong { font-weight: 700; }
+
+/* ── Get app pill ── */
+.get-app-btn {
+  display: inline-flex;
+  align-items: center; gap: 8px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 999px;
+  padding: 12px 24px;
+  font-size: 14px; font-weight: 600;
+  color: #101113; text-decoration: none;
+  background: #fff;
+  transition: all 0.15s;
+}
+.get-app-btn:hover { border-color: #999; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+/* ── Footer link hover ── */
+.footer-link { transition: color 0.15s; }
+.footer-link:hover { color: #101113 !important; }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .section-header, .carousel-wrap { padding: 0 16px; }
+  .nav-inner { padding: 0 16px; gap: 4px; }
+  .footer-inner { padding: 0 20px; }
+  .salon-card { width: 200px; }
+  .empty-card { width: 200px; }
+  .review-card { width: 270px; }
+  .hero-bg { padding: 52px 16px 60px !important; }
+  .search-bar { border-radius: 16px; flex-direction: column; }
+  .search-field + .search-field { border-left: none; border-top: 1.5px solid rgba(0,0,0,0.1); }
+  .search-btn { margin: 8px; padding: 14px 24px; border-radius: 12px; }
+  .nav-logo { font-size: 18px; }
+}
+@media (max-width: 600px) {
+  .section-title { font-size: 18px; }
+  .stat-big { font-size: 40px; }
+}

@@ -18,6 +18,7 @@ interface TenantBranding {
     planTier: 'basic' | 'pro' | 'elite' | string;
     slug: string | null;
     aiStatus: 'active' | 'paused';
+    taxRate: number; // e.g. 0.08 = 8%
 }
 
 interface TenantContextType extends TenantBranding {
@@ -39,6 +40,7 @@ const defaults: TenantBranding = {
     planTier: 'basic',
     slug: null,
     aiStatus: 'active',
+    taxRate: 0.08,
 };
 
 const TenantContext = createContext<TenantContextType>({
@@ -111,7 +113,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
             const { data, error } = await supabaseAdmin
                 .from('tenants')
-                .select('slug, salon_name, salon_tagline, logo_url, owner_name, name, timezone, plan_tier, ai_minutes_included, ai_minutes_used, ai_minutes_topup_balance')
+                .select('slug, salon_name, salon_tagline, logo_url, owner_name, name, timezone, plan_tier, ai_minutes_included, ai_minutes_used, ai_minutes_topup_balance, tax_rate')
                 .eq('id', tenantId)
                 .single();
 
@@ -128,6 +130,7 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     planTier: data.plan_tier || defaults.planTier,
                     slug: data.slug || null,
                     aiStatus: isPaused ? 'paused' : 'active',
+                    taxRate: data.tax_rate != null ? data.tax_rate : defaults.taxRate,
                 });
             }
         } catch (err) {

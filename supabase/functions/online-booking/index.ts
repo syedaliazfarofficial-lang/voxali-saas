@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     if (slug) {
         const result = await supabase
             .from('tenants')
-            .select('id, salon_name, salon_tagline, salon_email, salon_phone_owner, timezone, logo_url')
+            .select('id, salon_name, salon_tagline, salon_email, salon_phone_owner, timezone, logo_url, salon_image_url')
             .eq('slug', slug)
             .single();
         tenantRow = result.data;
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     } else {
         const result = await supabase
             .from('tenants')
-            .select('id, salon_name, salon_tagline, salon_email, salon_phone_owner, timezone, logo_url')
+            .select('id, salon_name, salon_tagline, salon_email, salon_phone_owner, timezone, logo_url, salon_image_url')
             .eq('id', tenantId)
             .single();
         tenantRow = result.data;
@@ -66,12 +66,12 @@ Deno.serve(async (req) => {
     // Fetch staff
     const { data: rawStaff } = await supabase
         .from('staff')
-        .select('id, full_name, role, color, is_active, can_take_bookings')
+        .select('id, full_name, role, color, is_active, can_take_bookings, photo_url')
         .eq('tenant_id', tenantId)
         .eq('is_active', true);
     // Filter can_take_bookings in JS (column may be null = treat as true)
     const staff = (rawStaff || []).filter((s: any) => s.can_take_bookings !== false)
-        .map((s: any) => ({ ...s, name: s.full_name, specialty: s.role || 'Stylist' }));
+        .map((s: any) => ({ ...s, name: s.full_name, specialty: s.role || 'Stylist', photo_url: s.photo_url || null }));
 
     // Handle POST (booking submission)
     if (req.method === 'POST') {
@@ -307,13 +307,14 @@ Deno.serve(async (req) => {
                 salon_name: tenant.salon_name,
                 salon_tagline: tenant.salon_tagline,
                 timezone: tenant.timezone,
+                salon_image_url: tenant.salon_image_url || null,
             },
             services: (services || []).map((s: any) => ({
                 id: s.id, name: s.name, price: s.price, duration: s.duration,
                 category: s.category, deposit_amount: s.deposit_amount, description: s.description,
             })),
             staff: (staff || []).map((s: any) => ({
-                id: s.id, name: s.name, specialty: s.specialty,
+                id: s.id, name: s.name, specialty: s.specialty, photo_url: s.photo_url || null,
             })),
         }), {
             headers: {

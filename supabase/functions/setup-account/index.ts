@@ -179,49 +179,66 @@ Deno.serve(async (req) => {
       { tenant_id: tenantId, name: "Color & Highlights", duration_minutes: 120, price: 150.00 }
     ]);
 
-    // Await the provisioning APIs to ensure Deno doesn't cancel them
-    // when this main function returns. We use allSettled so one failure 
-    // doesn't block the other or crash the whole signup process.
+    // Use service role key for internal function-to-function calls
+    // (anon key causes 401 on edge functions that require JWT auth)
     const TOOLS_KEY = Deno.env.get('TOOLS_KEY') || 'LUXE-AUREA-SECRET-2026';
-
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const internalAuthKey = supabaseServiceKey; // service key bypasses JWT check
 
     console.log(`Starting auto-provisioning for tenant ${tenantId}...`);
+    console.log(`Using internal auth: ${internalAuthKey ? 'SERVICE_KEY ✅' : 'MISSING KEY ❌'}`);
 
     // Step A: Provision Vapi Agent First to get the Assistant ID
     let createdAssistantId = null;
     try {
       const agentRes = await fetch(`${supabaseUrl}/functions/v1/provision-vapi-agent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-TOOLS-KEY': TOOLS_KEY,
+          'Authorization': `Bearer ${internalAuthKey}`
+        },
         body: JSON.stringify({ 
           tenantId: tenantId, 
           salonName: salonName, 
           countryCode: countryCode || 'US',
-          language: explicitLanguage || null // Pass Quebec French or null for auto-detect
+          language: explicitLanguage || null
         })
       });
-      const agentData = await agentRes.json();
-      createdAssistantId = agentData.assistantId;
-      console.log(`Vapi agent created: ${createdAssistantId}`);
+      if (agentRes.ok) {
+        const agentData = await agentRes.json();
+        createdAssistantId = agentData.assistantId;
+        console.log(`✅ Vapi agent created: ${createdAssistantId}`);
+      } else {
+        const errText = await agentRes.text();
+        console.error(`❌ Vapi provision failed (${agentRes.status}): ${errText}`);
+      }
     } catch (err) {
-      console.error("Vapi Init background error: ", err);
+      console.error("Vapi Init background error:", String(err));
     }
 
-    // Step B: Provision Twilio Number and link it to the new Vapi Assistant ID
-    // IMPORTANT: Always pass 'US' to bypass Twilio KYC restrictions globally
+    // Step B: Twilio Number — if balance available, provision real number.
+    // If no balance, assign a demo placeholder so the salon can still test the dashboard.
     if (plan !== 'basic' && plan !== 'Essentials') {
       try {
-        await fetch(`${supabaseUrl}/functions/v1/provision-twilio-number`, {
+        const twilioRes = await fetch(`${supabaseUrl}/functions/v1/provision-twilio-number`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY, 'Authorization': `Bearer ${anonKey}` },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-TOOLS-KEY': TOOLS_KEY,
+            'Authorization': `Bearer ${internalAuthKey}`
+          },
           body: JSON.stringify({ tenant_id: tenantId, country_code: 'US', vapi_assistant_id: createdAssistantId })
         });
+        if (!twilioRes.ok) {
+          console.log('Twilio provision failed — saving demo placeholder number');
+          await supabaseAdmin.from('tenants').update({ twilio_number: '+10000000000' }).eq('id', tenantId);
+        }
       } catch (err) {
-        console.error("Twilio Init background error: ", err);
+        console.error("Twilio Init background error:", String(err));
+        await supabaseAdmin.from('tenants').update({ twilio_number: '+10000000000' }).eq('id', tenantId);
       }
     } else {
-      console.log(`Skipping Twilio Number Provisioning for ${plan} plan tenant ${tenantId}`);
+      console.log(`Skipping Twilio for ${plan} plan`);
     }
 
 
