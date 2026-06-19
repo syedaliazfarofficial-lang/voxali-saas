@@ -949,139 +949,157 @@ export const StaffBoard: React.FC = () => {
 
             {/* Search and Filters Toolbar removed */}
 
-            {/* Staff Table */}
-            <div className="glass-panel border border-white/5 overflow-hidden transition-all duration-300">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-white/5 bg-white/[0.02]">
-                                <th className="text-left px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Stylist</th>
-                                <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Bookings</th>
-                                <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Revenue</th>
-                                {isOwnerPrivilege && (
-                                    <>
-                                        <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Salary</th>
-                                        <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Commission %</th>
-                                        <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Earned</th>
-                                    </>
-                                )}
-                                <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Status</th>
-                                <th className="text-center px-6 py-4 text-[10px] font-black text-white/30 uppercase tracking-[0.2em]">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(() => {
-                                const filteredActiveStaff = activeStaff;
+            {/* Staff Grid (Job Cards) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {(() => {
+                    const filteredActiveStaff = activeStaff;
 
-                                if (filteredActiveStaff.length === 0) {
-                                    return (
-                                        <tr>
-                                            <td colSpan={isOwnerPrivilege ? 8 : 5} className="py-16 text-center">
-                                                <div className="flex flex-col items-center justify-center gap-2 text-white/30">
-                                                    <div className="p-3 bg-white/5 rounded-2xl border border-white/5 mb-1">
-                                                        <Inbox className="w-6 h-6 text-white/20" />
-                                                    </div>
-                                                    <p className="text-sm font-bold text-white/50">No Stylists Found</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                }
+                    if (filteredActiveStaff.length === 0) {
+                        return (
+                            <div className="col-span-full py-16 text-center glass-panel border border-white/5">
+                                <div className="flex flex-col items-center justify-center gap-2 text-white/30">
+                                    <div className="p-3 bg-white/5 rounded-2xl border border-white/5 mb-1">
+                                        <Inbox className="w-6 h-6 text-white/20" />
+                                    </div>
+                                    <p className="text-sm font-bold text-white/50">No Stylists Found</p>
+                                </div>
+                            </div>
+                        );
+                    }
 
-                                return filteredActiveStaff.map((s) => {
-                                    const commission = s.revenue * (s.commission_rate / 100);
-                                    return (
-                                        <tr key={s.id} onClick={() => { if (isOwnerPrivilege) { openUnifiedProfile(s, 'financials'); } }} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors duration-300 cursor-pointer">
-                                            <td className="px-6 py-5">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="relative group cursor-pointer" onClick={(e) => { e.stopPropagation(); if (isOwnerPrivilege) { setPhotoUploadStaff(s); photoInputRef.current?.click(); } }}>
-                                                        {s.photo_url ? (
-                                                            <img
-                                                                src={s.photo_url}
-                                                                alt={s.full_name}
-                                                                className="w-11 h-11 rounded-2xl object-cover border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all duration-300 group-hover:scale-105 group-hover:border-white/20"
-                                                            />
-                                                        ) : (
-                                                            <div 
-                                                                className="w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-black border transition-all duration-300 group-hover:scale-105" 
-                                                                style={{ 
-                                                                    color: s.color, 
-                                                                    backgroundColor: `${s.color}12`,
-                                                                    borderColor: `${s.color}30`,
-                                                                    boxShadow: `0 0 15px ${s.color}10`
-                                                                }}
-                                                            >
-                                                                {s.full_name.charAt(0)}
-                                                            </div>
-                                                        )}
-                                                        {/* Circular status overlay dot */}
-                                                        <span 
-                                                            className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#0D0D0D] shadow-sm flex items-center justify-center ${s.is_blocked_today ? 'bg-rose-500' : 'bg-emerald-500'}`} 
-                                                            title={s.is_blocked_today ? 'Blocked Today' : 'Available/Active'}
-                                                        />
-                                                        {isOwnerPrivilege && (
-                                                            <div className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                                <Camera className="w-4 h-4 text-white" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-sm text-white/95">{s.full_name}</p>
-                                                        <p className="text-[10px] text-white/30 uppercase tracking-wider">{s.role.replace('_', ' ')}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-5 text-center font-bold text-sm text-white">{s.bookings_count}</td>
-                                            <td className="px-6 py-5 text-center font-bold text-sm text-emerald-400">${s.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                            {isOwnerPrivilege && (
-                                                <>
-                                                    <td className="px-6 py-5 text-center">
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); openUnifiedProfile(s, 'financials'); }} 
-                                                            className="font-semibold text-xs text-white/90 bg-white/[0.03] border border-white/10 hover:border-white/20 hover:bg-white/[0.06] hover:text-white px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-300"
-                                                            title="Edit Salary Settings"
-                                                        >
-                                                            ${s.base_salary.toLocaleString()}
-                                                        </button>
-                                                    </td>
-                                                    <td className="px-6 py-5 text-center">
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); openUnifiedProfile(s, 'financials'); }}
-                                                            className="font-semibold text-xs text-[#E5C158] bg-[#E5C158]/5 border border-[#E5C158]/10 hover:border-[#E5C158]/20 hover:bg-[#E5C158]/15 px-2.5 py-1 rounded-lg cursor-pointer transition-all duration-300"
-                                                            title="Edit Commission Settings"
-                                                        >
-                                                            {s.commission_rate}%
-                                                        </button>
-                                                    </td>
-                                                    <td className="px-6 py-5 text-center font-black text-sm text-[#E5C158]">${commission.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                                                </>
-                                            )}
-                                            <td className="px-6 py-5 text-center">
-                                                {s.is_blocked_today ? (
-                                                    <span className="text-[9px] font-black tracking-wider bg-rose-500/10 text-rose-400 px-3 py-1 rounded-full border border-rose-500/20 shadow-[0_0_10px_rgba(244,63,94,0.05)]">BLOCKED</span>
+                    return filteredActiveStaff.map((s) => {
+                        const commission = s.revenue * (s.commission_rate / 100);
+                        return (
+                            <div
+                                key={s.id}
+                                onClick={() => { if (isOwnerPrivilege) { openUnifiedProfile(s, 'financials'); } }}
+                                className="glass-panel p-6 border border-white/5 hover:border-white/20 hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] transition-all duration-300 rounded-3xl cursor-pointer relative overflow-hidden group flex flex-col justify-between"
+                                style={{
+                                    background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%)',
+                                }}
+                            >
+                                {/* Top colored glow accent element according to stylist's color */}
+                                <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: s.color }} />
+                                
+                                <div className="space-y-5">
+                                    {/* Header Section: Avatar + Name + Status */}
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex items-center gap-4">
+                                            {/* Photo container */}
+                                            <div className="relative flex-shrink-0 group/avatar cursor-pointer" onClick={(e) => { e.stopPropagation(); if (isOwnerPrivilege) { setPhotoUploadStaff(s); photoInputRef.current?.click(); } }}>
+                                                {s.photo_url ? (
+                                                    <img
+                                                        src={s.photo_url}
+                                                        alt={s.full_name}
+                                                        className="w-16 h-16 rounded-2xl object-cover border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all duration-300 group-hover/avatar:scale-105"
+                                                    />
                                                 ) : (
-                                                    <span className="text-[9px] font-black tracking-wider bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.05)]">ACTIVE</span>
+                                                    <div 
+                                                        className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black border transition-all duration-300 group-hover/avatar:scale-105" 
+                                                        style={{ 
+                                                            color: s.color, 
+                                                            backgroundColor: `${s.color}12`,
+                                                            borderColor: `${s.color}30`,
+                                                            boxShadow: `0 0 15px ${s.color}10`
+                                                        }}
+                                                    >
+                                                        {s.full_name.charAt(0)}
+                                                    </div>
                                                 )}
-                                            </td>
-                                            <td className="px-6 py-5 text-center min-w-[120px]">
-                                                <div className="flex items-center justify-center gap-2">
-                                                    <button onClick={(e) => { e.stopPropagation(); openUnifiedProfile(s, 'financials'); }} title="Manage Stylist"
-                                                        className="w-9 h-9 rounded-xl bg-sky-500/5 text-sky-400/70 border border-sky-500/10 hover:text-sky-400 hover:bg-sky-500/15 hover:border-sky-500/30 transition-all duration-300 flex items-center justify-center cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.1)]">
-                                                        <Pencil className="w-4 h-4" />
-                                                    </button>
-                                                    <button onClick={(e) => { e.stopPropagation(); setDeactivateTarget(s); }} title="Remove Staff"
-                                                        className="w-9 h-9 rounded-xl bg-rose-500/5 text-rose-400/70 border border-rose-500/10 hover:text-rose-400 hover:bg-rose-500/15 hover:border-rose-500/30 transition-all duration-300 flex items-center justify-center cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.1)]">
-                                                        <UserMinus className="w-4 h-4" />
-                                                    </button>
+                                                
+                                                {isOwnerPrivilege && (
+                                                    <div className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <Camera className="w-4 h-4 text-white" />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div>
+                                                <h4 className="font-bold text-base text-white/95 group-hover:text-luxe-gold transition-colors">{s.full_name}</h4>
+                                                <div className="flex items-center gap-1.5 mt-1">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-white/40">
+                                                        {s.role.replace('_', ' ')}
+                                                    </span>
+                                                    {s.is_blocked_today ? (
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" title="Blocked Today" />
+                                                    ) : (
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Active/Available" />
+                                                    )}
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                });
-                            })()}
-                        </tbody>
-                    </table>
-                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Status badge */}
+                                        <div>
+                                            {s.is_blocked_today ? (
+                                                <span className="text-[8px] font-black tracking-wider bg-rose-500/10 text-rose-400 px-2.5 py-0.5 rounded-full border border-rose-500/20">BLOCKED</span>
+                                            ) : (
+                                                <span className="text-[8px] font-black tracking-wider bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/20">ACTIVE</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Metrics Grid */}
+                                    <div className="grid grid-cols-2 gap-3 bg-white/[0.01] border border-white/5 p-3 rounded-2xl">
+                                        <div className="space-y-0.5">
+                                            <p className="text-[9px] font-black uppercase tracking-wider text-white/20">Bookings</p>
+                                            <p className="text-sm font-bold text-white">{s.bookings_count} slots</p>
+                                        </div>
+                                        <div className="space-y-0.5">
+                                            <p className="text-[9px] font-black uppercase tracking-wider text-white/20">Revenue</p>
+                                            <p className="text-sm font-bold text-emerald-400">${s.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Financials details section (Visible only to owners/managers) */}
+                                    {isOwnerPrivilege && (
+                                        <div className="space-y-2 border-t border-white/5 pt-3">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-white/40">Base Salary:</span>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); openUnifiedProfile(s, 'financials'); }} 
+                                                    className="font-bold text-white/90 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-0.5 rounded-full transition-all border border-white/5"
+                                                >
+                                                    ${s.base_salary.toLocaleString()}
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-white/40">Commission %:</span>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); openUnifiedProfile(s, 'financials'); }}
+                                                    className="font-bold text-[#E5C158] hover:text-white bg-[#E5C158]/5 hover:bg-[#E5C158]/10 px-2 py-0.5 rounded-full transition-all border border-[#E5C158]/10"
+                                                >
+                                                    {s.commission_rate}%
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs border-t border-dashed border-white/5 pt-2">
+                                                <span className="font-bold text-white/50">Commission Earned:</span>
+                                                <span className="font-black text-sm text-[#E5C158]">${commission.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Actions Section */}
+                                <div className="flex items-center gap-2 mt-5 border-t border-white/5 pt-4">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); openUnifiedProfile(s, 'financials'); }} 
+                                        className="flex-1 py-2 rounded-xl bg-sky-500/5 text-sky-400 border border-sky-500/10 hover:bg-sky-500/15 hover:border-sky-500/30 transition-all font-bold text-xs flex items-center justify-center gap-1.5"
+                                    >
+                                        <Pencil className="w-3.5 h-3.5" /> Manage Profile
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setDeactivateTarget(s); }} 
+                                        className="py-2 px-3 rounded-xl bg-rose-500/5 text-rose-400 border border-rose-500/10 hover:bg-rose-500/15 hover:border-rose-500/30 transition-all flex items-center justify-center"
+                                        title="Remove Staff"
+                                    >
+                                        <UserMinus className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    });
+                })()}
             </div>
 
             {/* Inactive Staff */}
