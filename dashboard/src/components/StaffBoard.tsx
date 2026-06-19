@@ -22,6 +22,7 @@ interface StaffMember {
     is_active: boolean; bookings_count: number; revenue: number;
     is_blocked_today: boolean; commission_rate: number; base_salary: number;
     email?: string; phone?: string; photo_url?: string;
+    tips?: number;
 }
 
 export const StaffBoard: React.FC = () => {
@@ -114,19 +115,42 @@ export const StaffBoard: React.FC = () => {
     const fetchStaff = useCallback(async () => {
         if (!tenantId) return;
         setLoading(true);
-        const { data, error } = await supabase.rpc('rpc_staff_board', { p_tenant_id: tenantId });
-        console.log('🔍 rpc_staff_board response:', { data, error, tenantId });
-        if (data && Array.isArray(data)) {
-            setStaff(data.map((s: any) => ({
-                ...s,
-                commission_rate: s.commission_rate ?? 15,
-                base_salary: s.base_salary ?? 0,
-            })));
-        } else if (error) {
-            console.error('❌ rpc_staff_board error:', error);
+        try {
+            const [staffRes, tipsRes] = await Promise.all([
+                supabase.rpc('rpc_staff_board', { p_tenant_id: tenantId }),
+                supabase
+                    .from('payments')
+                    .select('tip_amount, bookings!inner(stylist_id, tenant_id)')
+                    .eq('bookings.tenant_id', tenantId)
+            ]);
+
+            console.log('🔍 rpc_staff_board response:', staffRes);
+
+            const tipsMap: Record<string, number> = {};
+            if (tipsRes.data) {
+                tipsRes.data.forEach((p: any) => {
+                    const stylistId = p.bookings?.stylist_id;
+                    if (stylistId) {
+                        tipsMap[stylistId] = (tipsMap[stylistId] || 0) + (p.tip_amount || 0);
+                    }
+                });
+            }
+
+            if (staffRes.data && Array.isArray(staffRes.data)) {
+                setStaff(staffRes.data.map((s: any) => ({
+                    ...s,
+                    commission_rate: s.commission_rate ?? 15,
+                    base_salary: s.base_salary ?? 0,
+                    tips: tipsMap[s.id] || 0,
+                })));
+            } else if (staffRes.error) {
+                console.error('❌ rpc_staff_board error:', staffRes.error);
+            }
+        } catch (err) {
+            console.error('❌ Error fetching staff board data:', err);
         }
         setLoading(false);
-    }, []);
+    }, [tenantId]);
 
     useEffect(() => { fetchStaff(); }, [fetchStaff]);
 
@@ -919,14 +943,18 @@ export const StaffBoard: React.FC = () => {
                                     </div>
 
                                     {/* Metrics Grid */}
-                                    <div className="grid grid-cols-2 gap-3 bg-white/[0.01] border border-white/5 p-3 rounded-2xl">
-                                        <div className="space-y-0.5">
+                                    <div className="grid grid-cols-3 gap-2.5 bg-white/[0.01] border border-white/5 p-3 rounded-2xl">
+                                        <div className="space-y-0.5 text-center">
                                             <p className="text-[9px] font-black uppercase tracking-wider text-white/20">Bookings</p>
-                                            <p className="text-sm font-bold text-white">{s.bookings_count} slots</p>
+                                            <p className="text-xs font-bold text-white">{s.bookings_count} slots</p>
                                         </div>
-                                        <div className="space-y-0.5">
+                                        <div className="space-y-0.5 text-center border-x border-white/5">
                                             <p className="text-[9px] font-black uppercase tracking-wider text-white/20">Revenue</p>
-                                            <p className="text-sm font-bold text-emerald-400">${s.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                            <p className="text-xs font-bold text-emerald-400">${s.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                        </div>
+                                        <div className="space-y-0.5 text-center">
+                                            <p className="text-[9px] font-black uppercase tracking-wider text-white/20">Tips</p>
+                                            <p className="text-xs font-bold text-sky-400">${(s.tips || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                                         </div>
                                     </div>
 
@@ -951,9 +979,17 @@ export const StaffBoard: React.FC = () => {
                                                     {s.commission_rate}%
                                                 </button>
                                             </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-white/40">Commission Earned:</span>
+                                                <span className="font-semibold text-white">${commission.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-white/40">Tips (Collected):</span>
+                                                <span className="font-semibold text-sky-400">${(s.tips || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                            </div>
                                             <div className="flex items-center justify-between text-xs border-t border-dashed border-white/5 pt-2">
-                                                <span className="font-bold text-white/50">Commission Earned:</span>
-                                                <span className="font-black text-sm text-[#E5C158]">${commission.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                                <span className="font-bold text-white/50">Total Earnings:</span>
+                                                <span className="font-black text-sm text-[#E5C158]">${(s.base_salary + commission + (s.tips || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
                                             </div>
                                         </div>
                                     )}
