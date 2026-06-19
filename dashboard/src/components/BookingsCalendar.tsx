@@ -1152,7 +1152,7 @@ export const BookingsCalendar: React.FC = () => {
 
 
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
                 {/* Left Side: Icon + Title + Date Navigation inline */}
                 <div className="flex items-center gap-6 flex-wrap xl:flex-nowrap min-w-0">
                     <div className="flex items-center gap-2.5 flex-shrink-0">
@@ -1230,7 +1230,7 @@ export const BookingsCalendar: React.FC = () => {
                 </div>
                 
                 {/* Right Side: Search + Add Walk-in + Action Menu */}
-                <div className="flex items-center gap-2 flex-shrink-0 w-full lg:w-auto justify-end">
+                <div className="flex items-center gap-2 flex-shrink-0">
                     <div className="relative">
                         <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
                         <input

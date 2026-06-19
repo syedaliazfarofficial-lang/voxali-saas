@@ -199,7 +199,7 @@ export const CallLogs: React.FC = () => {
     return (
         <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 overflow-hidden">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
                 <div className="flex items-center gap-2.5 flex-shrink-0">
                     <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
                         <PhoneCall className="w-5 h-5 text-luxe-gold" />
@@ -209,8 +209,8 @@ export const CallLogs: React.FC = () => {
                         <p className="text-[9px] text-white/40 uppercase tracking-widest whitespace-nowrap">Live Voice + Chat Activity</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3.5 py-1.5">
                         <Filter className="w-3.5 h-3.5 text-white/30" />
                         <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                             className="bg-transparent text-xs outline-none text-white/60 w-28" />
@@ -224,14 +224,14 @@ export const CallLogs: React.FC = () => {
                         )}
                     </div>
                     <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
                         <input type="text" placeholder="Search logs..." value={search}
                             onChange={e => setSearch(e.target.value)}
-                            className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-luxe-gold/50 w-48" />
+                            className="bg-white/5 border border-white/10 rounded-full pl-9 pr-4 py-1.5 text-xs outline-none focus:border-white/20 w-44 transition-all text-white placeholder-white/30" />
                     </div>
                     <button onClick={() => syncFromVapi(true)} disabled={syncing}
-                        className="bg-gold-gradient text-luxe-obsidian px-5 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60">
-                        {syncing ? <><Loader2 className="w-4 h-4 animate-spin" /> Syncing...</> : <><RefreshCw className="w-4 h-4" /> Refresh</>}
+                        className="bg-gold-gradient text-luxe-obsidian px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 hover:bg-white/90 active:scale-[0.98] transition-all disabled:opacity-60 whitespace-nowrap">
+                        {syncing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Syncing...</> : <><RefreshCw className="w-3.5 h-3.5" /> Refresh</>}
                     </button>
                 </div>
             </div>

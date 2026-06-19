@@ -387,7 +387,7 @@ export const BellaAI: React.FC = () => {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
                 <div className="flex items-center gap-2.5 flex-shrink-0">
                     <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
                         <Bot className="w-5 h-5 text-luxe-gold" />
@@ -398,8 +398,8 @@ export const BellaAI: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${config.is_active
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full border ${config.is_active
                         ? 'bg-green-500/10 text-green-400 border-green-500/20'
                         : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
                         <div className={`w-2 h-2 rounded-full ${config.is_active ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
@@ -407,13 +407,13 @@ export const BellaAI: React.FC = () => {
                     </div>
                     <button
                         onClick={handleToggle}
-                        className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 text-xs font-bold ${config.is_active
+                        className={`px-3.5 py-1.5 rounded-full border transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap active:scale-[0.98] ${config.is_active
                             ? 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
                             : 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20'}`}
                         title={config.is_active ? `Stop ${displayName}` : `Start ${displayName}`}
                         aria-label={config.is_active ? `Stop ${displayName}` : `Start ${displayName}`}
                     >
-                        {config.is_active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                        {config.is_active ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                         {config.is_active ? 'STOP' : 'START'}
                     </button>
                 </div>

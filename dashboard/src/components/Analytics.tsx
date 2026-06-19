@@ -311,7 +311,7 @@ export const Analytics: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             {/* Header & Controls */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
                 <div className="flex items-center gap-2.5 flex-shrink-0">
                     <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
                         <BarChart3 className="w-5 h-5 text-luxe-gold" />
@@ -321,12 +321,12 @@ export const Analytics: React.FC = () => {
                         <p className="text-[9px] text-white/40 uppercase tracking-widest whitespace-nowrap">Financials & Performance</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-shrink-0">
                         <select
                             aria-label="Select time range"
                             value={days}
                             onChange={(e) => setDays(Number(e.target.value))}
-                            className="bg-white/5 border border-white/10 rounded-xl text-xs px-4 py-2.5 outline-none focus:border-luxe-gold/50 cursor-pointer text-white"
+                            className="bg-white/5 border border-white/10 rounded-full text-xs px-3.5 py-1.5 outline-none focus:border-white/20 cursor-pointer text-white transition-all"
                         >
                             <option value={7}>Last 7 Days</option>
                             <option value={14}>Last 14 Days</option>
@@ -336,7 +336,7 @@ export const Analytics: React.FC = () => {
                         
                         <button
                             onClick={exportCSV}
-                            className="flex items-center gap-2 bg-luxe-gold/10 text-luxe-gold px-4 py-2.5 rounded-xl font-bold border border-luxe-gold/20 hover:bg-luxe-gold/20 transition-all text-xs"
+                            className="flex items-center gap-1.5 bg-luxe-gold/10 text-luxe-gold px-3.5 py-1.5 rounded-full font-bold border border-luxe-gold/20 hover:bg-luxe-gold/20 active:scale-[0.98] transition-all text-xs"
                         >
                             <Download className="w-4 h-4" />
                             <span className="hidden sm:inline">EXPORT CSV</span>

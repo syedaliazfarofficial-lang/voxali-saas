@@ -137,7 +137,7 @@ export const Reviews: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
                 <div className="flex items-center gap-2.5 flex-shrink-0">
                     <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
                         <Star className="w-5 h-5 text-luxe-gold fill-luxe-gold" />

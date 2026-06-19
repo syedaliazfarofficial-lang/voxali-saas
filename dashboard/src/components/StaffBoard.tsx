@@ -797,7 +797,7 @@ export const StaffBoard: React.FC = () => {
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
                 <div className="flex items-center gap-2.5 flex-shrink-0">
                     <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
                         <Scissors className="w-5 h-5 text-luxe-gold" />
@@ -808,19 +808,19 @@ export const StaffBoard: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                         onClick={() => setShowInactive(!showInactive)}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${showInactive ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-white/40'}`}
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all ${showInactive ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-white/40'}`}
                     >
                         {showInactive ? 'Hide Inactive' : `Show Inactive (${inactiveStaff.length})`}
                     </button>
                     {isOwnerPrivilege && (
                         <button
                             onClick={handleAddStaffClick}
-                            className="bg-gold-gradient text-luxe-obsidian px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-luxe-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                            className="bg-gold-gradient text-luxe-obsidian px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 hover:bg-white/90 active:scale-[0.98] transition-all whitespace-nowrap"
                         >
-                            <Plus className="w-5 h-5" /> ADD STAFF
+                            <Plus className="w-3.5 h-3.5" /> ADD STAFF
                         </button>
                     )}
                 </div>
