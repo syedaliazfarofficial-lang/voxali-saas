@@ -387,14 +387,14 @@ export const BellaAI: React.FC = () => {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
-                        <Bot className="w-6 h-6 text-luxe-gold" />
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                    <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
+                        <Bot className="w-5 h-5 text-luxe-gold" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold">AI Receptionist</h3>
-                        <p className="text-xs text-white/40 uppercase tracking-widest">Configure {displayName} — Your AI Concierge</p>
+                        <h3 className="text-base font-bold whitespace-nowrap text-white">AI Receptionist</h3>
+                        <p className="text-[9px] text-white/40 uppercase tracking-widest whitespace-nowrap">Configure {displayName} — Your AI Concierge</p>
                     </div>
                 </div>
 

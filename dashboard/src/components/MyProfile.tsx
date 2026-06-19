@@ -115,13 +115,13 @@ export const MyProfile: React.FC = () => {
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl">
             {/* Profile Info Card */}
             <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-8">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-luxe-gold/10 rounded-2xl border border-luxe-gold/20">
-                        <User className="w-6 h-6 text-luxe-gold" />
+                <div className="flex items-center gap-2.5 mb-6">
+                    <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
+                        <User className="w-5 h-5 text-luxe-gold" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold">My Profile</h3>
-                        <p className="text-xs text-white/40 uppercase tracking-widest">Personal Information</p>
+                        <h3 className="text-base font-bold text-white">My Profile</h3>
+                        <p className="text-[9px] text-white/40 uppercase tracking-widest">Personal Information</p>
                     </div>
                 </div>
 
@@ -176,13 +176,13 @@ export const MyProfile: React.FC = () => {
 
             {/* Password Change Card */}
             <div className="bg-white/[0.02] border border-white/10 rounded-2xl p-8">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20">
-                        <Lock className="w-6 h-6 text-red-400" />
+                <div className="flex items-center gap-2.5 mb-6">
+                    <div className="p-2 bg-red-500/10 rounded-xl border border-red-500/20">
+                        <Lock className="w-5 h-5 text-red-400" />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold">Change Password</h3>
-                        <p className="text-xs text-white/40 uppercase tracking-widest">Security Settings</p>
+                        <h3 className="text-base font-bold text-white">Change Password</h3>
+                        <p className="text-[9px] text-white/40 uppercase tracking-widest">Security Settings</p>
                     </div>
                 </div>
 

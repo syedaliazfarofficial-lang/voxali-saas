@@ -21,6 +21,7 @@ interface CartItem {
   price: number
   quantity: number
   service_id?: string // For walk-in services
+  stylist_id?: string // Selected stylist ID
   stylist_name?: string // For linked bookings
   template_id?: string // For selling packages
   recipient_email?: string // For selling gift cards
@@ -58,7 +59,14 @@ interface BookingInfo {
   start_time: string
   raw_start_time: string
   status: string
+  stylist_id?: string
   stylist_name: string
+}
+
+interface StaffInfo {
+  id: string
+  full_name: string
+  role: string
 }
 
 export function POSSystem() {
@@ -66,13 +74,14 @@ export function POSSystem() {
   const { user, staffRecord } = useAuth()
   
   // Views
-  const [activeTab, setActiveTab] = useState<'walkin' | 'bookings' | 'retail' | 'packages' | 'giftcards'>('bookings')
+  const [activeTab, setActiveTab] = useState<'bookings' | 'retail' | 'packages' | 'giftcards'>('bookings')
   
   // Data State
   const [services, setServices] = useState<ServiceInfo[]>([])
   const [products, setProducts] = useState<ProductInfo[]>([])
   const [todayBookings, setTodayBookings] = useState<BookingInfo[]>([])
   const [packageTemplates, setPackageTemplates] = useState<PackageInfo[]>([])
+  const [staffList, setStaffList] = useState<StaffInfo[]>([])
   const [loading, setLoading] = useState(false)
   
   // Package Management (POS)
@@ -154,15 +163,16 @@ export function POSSystem() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      if (activeTab === 'walkin') {
-        const { data } = await supabase
-          .from('services')
-          .select('id, name, price, duration')
-          .eq('tenant_id', tenantId)
-          .eq('is_active', true)
-          .order('display_order')
-        if (data) setServices(data)
-      } else if (activeTab === 'retail') {
+      // Fetch active staff/stylists
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('id, full_name, role')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('full_name')
+      if (staffData) setStaffList(staffData)
+
+      if (activeTab === 'retail') {
         const { data } = await supabase
           .from('products')
           .select('id, name, price, sku, quantity')
@@ -197,7 +207,7 @@ export function POSSystem() {
         const { data } = await supabase
           .from('bookings')
           .select(`
-            id, status, total_price, deposit_amount, payment_status, start_time, client_id,
+            id, status, total_price, deposit_amount, deposit_paid_amount, payment_status, start_time, client_id, stylist_id,
             clients (name),
             booking_items (name_snapshot),
             staff (full_name)
@@ -215,10 +225,11 @@ export function POSSystem() {
             client_name: b.clients?.name || 'Walk-in',
             service_names: b.booking_items ? b.booking_items.map((i: any) => i.name_snapshot).join(', ') : 'Service',
             total_price: b.total_price || 0,
-            deposit_paid: b.payment_status === 'deposit_paid' ? b.deposit_amount : 0,
+            deposit_paid: b.deposit_paid_amount || (b.payment_status === 'deposit_paid' ? (b.deposit_amount || 0) : 0),
             start_time: new Date(b.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: timezone }),
             raw_start_time: b.start_time,
             status: b.status,
+            stylist_id: b.stylist_id,
             stylist_name: b.staff?.full_name || 'Unassigned'
           }))
           setTodayBookings(formatted)
@@ -247,6 +258,18 @@ export function POSSystem() {
   }
 
   // Cart Functions
+  const updateCartItemStylist = (index: number, stylistId: string) => {
+    const selectedStaff = staffList.find(s => s.id === stylistId)
+    setCart(prev => prev.map((item, idx) => {
+      if (idx !== index) return item
+      return {
+        ...item,
+        stylist_id: stylistId || undefined,
+        stylist_name: selectedStaff ? selectedStaff.full_name : undefined
+      }
+    }))
+  }
+
   const addToCart = (item: any, type: ItemType) => {
     if (type === 'package' && !linkedClientId) {
         showToast('You must select a client from Today\'s Bookings first to sell a package.', 'error');
@@ -261,6 +284,10 @@ export function POSSystem() {
           return prev.map(p => p.id === item.id ? { ...p, quantity: p.quantity + 1 } : p)
         }
       }
+
+      const cashierStaffId = staffList.find(s => s.id === staffRecord?.id)?.id
+      const selectedStaff = cashierStaffId ? staffList.find(s => s.id === cashierStaffId) : undefined
+
       return [...prev, {
         id: item.id || crypto.randomUUID(),
         type,
@@ -268,6 +295,8 @@ export function POSSystem() {
         price: item.price,
         quantity: 1,
         service_id: type === 'service' ? item.id : undefined,
+        stylist_id: type === 'service' ? (cashierStaffId || undefined) : undefined,
+        stylist_name: type === 'service' && selectedStaff ? selectedStaff.full_name : undefined,
         template_id: type === 'package' ? item.id : undefined,
         recipient_email: type === 'gift_card' ? item.recipient_email : undefined
       }]
@@ -297,7 +326,8 @@ export function POSSystem() {
       name: booking.service_names + ' (Appointment)',
       price: booking.total_price,
       quantity: 1,
-      stylist_name: booking.stylist_name
+      stylist_id: booking.stylist_id,
+      stylist_name: booking.stylist_name !== 'Unassigned' ? booking.stylist_name : undefined
     }])
     showToast(`Loaded ${booking.client_name}'s booking into POS`, 'info')
   }
@@ -376,13 +406,14 @@ export function POSSystem() {
 
       // 1. If it's a pure walk-in (no existing booking), create a dummy "completed" booking for analytics
       const primaryServiceId = cart.find(c => c.type === 'service' && c.service_id)?.service_id || '00000000-0000-0000-0000-000000000000';
+      const serviceCartItem = cart.find(c => c.type === 'service' && c.service_id);
       
       if (!bookingId) {
         const { data: bData, error: bErr } = await supabase
           .from('bookings')
           .insert({
             tenant_id: tenantId,
-            stylist_id: staffRecord?.id || null,
+            stylist_id: serviceCartItem?.stylist_id || staffRecord?.id || null,
             service_id: primaryServiceId,
             start_time: new Date().toISOString(),
             end_time: new Date(Date.now() + 30*60000).toISOString(),
@@ -419,7 +450,8 @@ export function POSSystem() {
             status: 'completed',
             payment_method: paymentMethod,
             payment_status: 'paid',
-            total_price: subtotal
+            total_price: subtotal,
+            ...(serviceCartItem?.stylist_id ? { stylist_id: serviceCartItem.stylist_id } : {})
           })
           .eq('id', bookingId)
 
@@ -515,7 +547,7 @@ export function POSSystem() {
       for (const item of retailItems) {
         // ✅ Fetch LIVE stock from DB — don't use stale React state
         const { data: freshProd } = await supabase
-          .from('products').select('quantity, name').eq('id', item.id).single();
+          .from('products').select('quantity, name, low_stock_threshold').eq('id', item.id).single();
         
         if (freshProd) {
           const oldStock = freshProd.quantity;
@@ -524,8 +556,8 @@ export function POSSystem() {
 
           console.log(`[Stock] ${freshProd.name}: ${oldStock} → ${newStock}`);
 
-          // ✅ threshold default 5 (until DB column migration is applied)
-          const threshold = 5;
+          // Use actual DB threshold (default 5 if column missing)
+          const threshold = freshProd.low_stock_threshold ?? 5;
 
           // ✅ LOW STOCK ALERT: crosses threshold going down (not yet zero)
           if (oldStock > threshold && newStock <= threshold && newStock > 0) {
@@ -772,12 +804,6 @@ export function POSSystem() {
               <CalendarCheck className="w-3.5 h-3.5" /> Bookings
             </button>
             <button 
-              onClick={() => { setActiveTab('walkin'); setSearchQuery(''); }}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'walkin' ? 'bg-white text-black shadow-md' : 'text-white/40 hover:text-white'}`}
-            >
-              <Scissors className="w-3.5 h-3.5" /> Services
-            </button>
-            <button 
               onClick={() => { setActiveTab('retail'); setSearchQuery(''); }}
               className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${activeTab === 'retail' ? 'bg-white text-black shadow-md' : 'text-white/40 hover:text-white'}`}
             >
@@ -790,7 +816,7 @@ export function POSSystem() {
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
             <input
               type="text"
-              placeholder={activeTab === 'giftcards' ? "Search not available..." : `Search ${activeTab === 'walkin' ? 'services' : activeTab}...`}
+              placeholder={activeTab === 'giftcards' ? "Search not available..." : `Search ${activeTab}...`}
               value={searchQuery}
               disabled={activeTab === 'giftcards'}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -873,11 +899,27 @@ export function POSSystem() {
                      <ShoppingBag className="w-3 h-3 text-white/40" />}
                     <h4 className="font-semibold text-white truncate text-[11px]">{item.name}</h4>
                   </div>
-                  {item.stylist_name && (
+                  {item.type === 'service' ? (
+                    <div className="mt-1 pl-4.5 flex items-center gap-1.5">
+                      <span className="text-[9px] text-white/40">Stylist:</span>
+                      <select
+                        value={item.stylist_id || ''}
+                        onChange={(e) => updateCartItemStylist(i, e.target.value)}
+                        className="bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-luxe-gold font-bold focus:outline-none focus:border-luxe-gold/50 cursor-pointer"
+                      >
+                        <option value="" className="bg-zinc-950 text-white/50">-- Select Stylist --</option>
+                        {staffList.map(s => (
+                          <option key={s.id} value={s.id} className="bg-zinc-950 text-white">
+                            {s.full_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : item.stylist_name ? (
                     <div className="text-[8px] text-luxe-gold/80 uppercase font-black tracking-wider mt-0.5 pl-4.5">
                       Stylist: {item.stylist_name}
                     </div>
-                  )}
+                  ) : null}
                   <p className="text-white/40 text-[9px] mt-0.5 pl-4.5">${item.price.toFixed(2)} each</p>
                 </div>
                 
@@ -1017,6 +1059,12 @@ export function POSSystem() {
             {/* Checkout Button */}
             <button
               onClick={() => {
+                const serviceItems = cart.filter(item => item.type === 'service')
+                const hasServiceWithoutStylist = serviceItems.some(item => !item.stylist_id)
+                if (hasServiceWithoutStylist) {
+                  showToast('Please select a stylist for all services before checking out.', 'error')
+                  return
+                }
                 setShowPaymentModal(true)
               }}
               className="w-full mt-3 py-2 rounded-full bg-gold-gradient text-luxe-obsidian font-black text-xs uppercase tracking-wider hover:opacity-90 active:scale-[0.98] transition-all shadow-lg shadow-luxe-gold/20"
@@ -1060,7 +1108,7 @@ export function POSSystem() {
                       >
                         {/* Time & Price Header Row */}
                         <div className="flex justify-between items-center gap-2 mb-2.5">
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${isLate ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-white/5 text-white/60 border border-white/10'}`}>
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isLate ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-white/5 text-white/60 border border-white/10'}`}>
                             {b.start_time} {isLate && ' • LATE'}
                           </span>
                           <span className="font-extrabold text-[11px] text-white bg-white/5 px-2 py-0.5 rounded-full border border-white/5 shrink-0">
@@ -1078,6 +1126,13 @@ export function POSSystem() {
                               Stylist: <span className="text-luxe-gold/80 font-bold">{b.stylist_name}</span>
                             </p>
                           )}
+                          {b.deposit_paid > 0 && (
+                            <div className="mt-1.5 flex">
+                              <span className="text-[7.5px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                                ✓ Paid Deposit: ${b.deposit_paid}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Services List Block (Simple, one-line truncated text to save vertical space) */}
@@ -1087,29 +1142,20 @@ export function POSSystem() {
 
                         {/* Bottom Actions Row */}
                         <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-white/5 mt-auto">
-                          {/* Deposit Status or empty spacer */}
-                          {b.deposit_paid > 0 ? (
-                            <span className="text-[8px] font-black text-emerald-400 uppercase tracking-wider shrink-0">
-                              ✓ Paid: ${b.deposit_paid}
-                            </span>
+                          {(isLate || b.status === 'confirmed' || b.status === 'pending') ? (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleMarkNoShow(e, b.id); }}
+                              className="px-2 py-1 rounded bg-red-500/15 hover:bg-red-500/30 text-red-400 text-[9px] font-bold transition-colors whitespace-nowrap cursor-pointer"
+                            >
+                              No-Show
+                            </button>
                           ) : (
                             <span />
                           )}
 
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {/* No Show Button */}
-                            {(isLate || b.status === 'confirmed' || b.status === 'pending') && (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleMarkNoShow(e, b.id); }}
-                                className="px-2 py-1 rounded bg-red-500/15 hover:bg-red-500/30 text-red-400 text-[9px] font-bold transition-colors whitespace-nowrap"
-                              >
-                                No-Show
-                              </button>
-                            )}
-                            <span className="text-luxe-gold text-[9px] font-black uppercase tracking-wider group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 whitespace-nowrap">
-                              Checkout →
-                            </span>
-                          </div>
+                          <span className="text-luxe-gold text-[9px] font-black uppercase tracking-wider group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 whitespace-nowrap">
+                            Checkout →
+                          </span>
                         </div>
                       </div>
                     )})
@@ -1117,38 +1163,7 @@ export function POSSystem() {
                 </div>
               )}
 
-              {activeTab === 'walkin' && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                  {filteredServices.map(s => {
-                    const isInCart = cart.some(item => item.type === 'service' && item.service_id === s.id);
-                    const cartItem = cart.find(item => item.type === 'service' && item.service_id === s.id);
-                    const qty = cartItem ? cartItem.quantity : 0;
-                    return (
-                      <div 
-                        key={s.id} 
-                        onClick={() => addToCart(s, 'service')} 
-                        className={`cursor-pointer group p-2.5 rounded-xl transition-all text-center flex flex-col h-full relative ${
-                          isInCart 
-                            ? 'border-luxe-gold bg-luxe-gold/5 box-glow' 
-                            : 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/[0.02]'
-                        }`}
-                      >
-                        {isInCart && (
-                          <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-luxe-gold text-luxe-obsidian flex items-center justify-center text-[9px] font-black shadow-lg animate-fade-in">
-                            {qty}
-                          </div>
-                        )}
-                        <div className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-1.5 group-hover:scale-105 transition-transform">
-                          <Scissors className="w-3.5 h-3.5 text-luxe-gold" />
-                        </div>
-                        <h4 className="font-semibold text-white text-xs mb-0.5 line-clamp-1 leading-tight">{s.name}</h4>
-                        <p className="text-white/40 text-[10px] mb-2">{s.duration} min</p>
-                        <div className="mt-auto font-bold text-luxe-gold text-xs">${s.price.toFixed(2)}</div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+
 
               {activeTab === 'retail' && (
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">

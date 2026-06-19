@@ -57,11 +57,23 @@ interface RecentBooking {
     stylist_name: string;
     status: string;
     created_at: string;
+    start_time: string;
 }
 
 interface DashboardHomeProps {
     setActiveTab?: (tab: string) => void;
 }
+
+const statusColors: Record<string, { indicator: string; border: string; bg: string; text: string }> = {
+    confirmed: { indicator: 'bg-luxe-gold', border: 'border-luxe-gold/20', bg: 'bg-luxe-gold/5', text: 'text-white' },
+    completed: { indicator: 'bg-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/5', text: 'text-emerald-400' },
+    pending: { indicator: 'bg-yellow-400', border: 'border-yellow-500/20', bg: 'bg-yellow-500/5', text: 'text-yellow-400' },
+    checked_in: { indicator: 'bg-blue-400', border: 'border-blue-500/20', bg: 'bg-blue-500/5', text: 'text-blue-400' },
+    in_progress: { indicator: 'bg-purple-400', border: 'border-purple-500/20', bg: 'bg-purple-500/5', text: 'text-purple-400' },
+    cancelled: { indicator: 'bg-red-400/40', border: 'border-red-500/10', bg: 'bg-red-500/5', text: 'text-red-400/60' },
+    no_show: { indicator: 'bg-red-400/50', border: 'border-red-500/10', bg: 'bg-red-500/5', text: 'text-red-400/60' },
+    pending_deposit: { indicator: 'bg-orange-400', border: 'border-orange-500/20', bg: 'bg-orange-500/5', text: 'text-orange-400' },
+};
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) => {
     const { tenantId, planTier, timezone } = useTenant();
@@ -140,13 +152,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                 .not('status', 'eq', 'cancelled');
 
             const dayMap: Record<string, number> = {};
+            const tz = timezone || 'America/New_York';
             for (let i = 0; i < 7; i++) {
                 const d = new Date();
                 d.setDate(d.getDate() - 6 + i);
-                dayMap[d.toLocaleDateString('en-US', { weekday: 'short' })] = 0;
+                dayMap[d.toLocaleDateString('en-US', { timeZone: tz, weekday: 'short' })] = 0;
             }
             (weekBookings || []).forEach((b: any) => {
-                const key = new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short' });
+                const key = new Date(b.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short' });
                 if (dayMap[key] !== undefined) dayMap[key] += Number(b.total_price) || 0;
             });
             setChartData(Object.entries(dayMap).map(([day, revenue]) => ({ day, revenue })));
@@ -167,6 +180,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                     stylist_name: b.staff?.full_name || 'Unassigned',
                     status: b.status,
                     created_at: b.created_at,
+                    start_time: b.start_time,
                 })));
             }
         } catch (err) {
@@ -179,6 +193,19 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
     useEffect(() => {
         fetchAll();
     }, [fetchAll]);
+
+    const handleBookingClick = (act: RecentBooking) => {
+        if (!setActiveTab) return;
+        setActiveTab('bookings');
+        setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('voxali:select-booking', {
+                detail: {
+                    id: act.id,
+                    start_time: act.start_time
+                }
+            }));
+        }, 100);
+    };
 
     const fmt = (n: number) => n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(0)}`;
 
@@ -232,12 +259,13 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
             {/* ── STAT CARDS ── */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
-                    { label: "Today's Bookings", value: String(stats?.bookings_today ?? 0), sub: '+12% from yesterday', icon: CalendarIcon, tab: 'bookings' },
-                    { label: "Today's Revenue",   value: fmt(stats?.revenue_today ?? 0),    sub: '+8% vs weekly avg',   icon: TrendingUp,  tab: 'analytics' },
-                    { label: 'New Clients',        value: String(stats?.new_clients ?? 0),   sub: '3 booked via AI',     icon: Users,       tab: 'clients' },
-                    { label: 'Calls Today',        value: String(stats?.calls_today ?? 0),   sub: '88% handled by Bella',icon: PhoneCall,   tab: 'calls' },
+                    { label: "Today's Bookings", value: String(stats?.bookings_today ?? 0), sub: '+12% from yesterday', icon: CalendarIcon, subIcon: TrendingUp, subIconColor: 'text-emerald-400', tab: 'bookings' },
+                    { label: "Today's Revenue",   value: fmt(stats?.revenue_today ?? 0),    sub: '+8% vs weekly avg',   icon: TrendingUp,  subIcon: TrendingUp, subIconColor: 'text-emerald-400', tab: 'analytics' },
+                    { label: 'New Clients',        value: String(stats?.new_clients ?? 0),   sub: '3 booked via AI',     icon: Users,       subIcon: Bot,        subIconColor: 'text-luxe-gold/70', tab: 'clients' },
+                    { label: 'Calls Today',        value: String(stats?.calls_today ?? 0),   sub: '88% handled by Bella',icon: PhoneCall,   subIcon: Bot,        subIconColor: 'text-luxe-gold/70', tab: 'calls' },
                 ].map((card, i) => {
                     const Icon = card.icon;
+                    const SubIcon = card.subIcon;
                     return (
                         <motion.button
                             key={card.label}
@@ -264,7 +292,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                             <p className="text-2xl font-bold text-on-surface tracking-tight leading-none mb-2">{card.value}</p>
                             {/* Trend */}
                             <p className="text-[10px] text-white/40 font-medium flex items-center gap-1">
-                                <TrendingUp className="w-2.5 h-2.5" />
+                                <SubIcon className={`w-2.5 h-2.5 ${card.subIconColor}`} />
                                 {card.sub}
                             </p>
                         </motion.button>
@@ -343,15 +371,25 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                                     itemStyle={{ color: '#ffffff', padding: 0 }}
                                     formatter={(value: number) => [`$${value.toFixed(0)}`, 'Revenue']}
                                 />
+                                <defs>
+                                    <linearGradient id="activeRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#ffffff" stopOpacity={0.9} />
+                                        <stop offset="100%" stopColor="#ffffff" stopOpacity={0.3} />
+                                    </linearGradient>
+                                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="rgba(255,255,255,0.3)" stopOpacity={1} />
+                                        <stop offset="100%" stopColor="rgba(255,255,255,0.05)" stopOpacity={0.5} />
+                                    </linearGradient>
+                                </defs>
                                 <Bar dataKey="revenue" radius={[5, 5, 0, 0]} minPointSize={3}>
                                     {chartData.map((entry, index) => (
                                         <Cell
                                             key={`cell-${index}`}
                                             fill={entry.revenue === maxRev && entry.revenue > 0
-                                                ? '#ffffff'
+                                                ? 'url(#activeRevenueGrad)'
                                                 : entry.revenue > 0
-                                                    ? 'rgba(255,255,255,0.25)'
-                                                    : 'rgba(255,255,255,0.06)'
+                                                    ? 'url(#revenueGrad)'
+                                                    : 'rgba(255,255,255,0.04)'
                                             }
                                             stroke="none"
                                         />
@@ -392,25 +430,30 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ setActiveTab }) =>
                             </div>
                         ) : (
                             activities.map((act, i) => {
-                                const d = act.created_at ? new Date(act.created_at) : new Date();
-                                const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                const isPending = act.status === 'pending';
-                                const isConfirmed = act.status === 'confirmed';
+                                const d = act.start_time ? new Date(act.start_time) : new Date();
+                                const time = d.toLocaleTimeString('en-US', {
+                                    timeZone: timezone || 'America/New_York',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                });
+                                const colors = statusColors[act.status] || { indicator: 'bg-outline-variant', border: 'border-transparent', bg: 'bg-transparent', text: 'text-on-surface' };
                                 return (
                                     <div
                                         key={i}
-                                        className={`group flex items-start gap-3 p-3 rounded-xl transition-colors cursor-pointer hover:bg-surface-container-high border ${isPending ? 'border-[#e53935]/20 bg-[#e53935]/5' : 'border-transparent'}`}
+                                        onClick={() => handleBookingClick(act)}
+                                        className={`group flex items-start gap-3 p-3 rounded-xl transition-all cursor-pointer hover:bg-surface-container-high border ${colors.border} ${colors.bg}`}
                                     >
-                                        <div className="min-w-[44px] text-right shrink-0 pt-0.5">
+                                        <div className="min-w-[48px] text-right shrink-0 pt-0.5">
                                             <p className="text-[10px] font-bold text-on-surface leading-tight">{time}</p>
                                         </div>
-                                        <div className={`w-0.5 self-stretch rounded-full shrink-0 ${isPending ? 'bg-[#e53935]' : isConfirmed ? 'bg-[#00b67a]' : 'bg-outline-variant'}`} />
+                                        <div className={`w-0.5 self-stretch rounded-full shrink-0 ${colors.indicator}`} />
                                         <div className="flex-1 min-w-0">
-                                            <p className={`text-[13px] font-bold truncate ${isPending ? 'text-[#e53935]' : 'text-on-surface'}`}>{act.service_name}</p>
-                                            <p className="text-[11px] text-white/40 truncate">{act.client_name} · {act.stylist_name}</p>
-                                            {isPending && (
-                                                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-[#e53935] mt-1">
-                                                    <ShieldAlert className="w-2.5 h-2.5" /> Unconfirmed
+                                            <p className="text-[13px] font-bold truncate text-on-surface group-hover:text-luxe-gold transition-colors">{act.service_name}</p>
+                                            <p className="text-[11px] text-white/40 truncate mt-0.5">{act.client_name} · {act.stylist_name}</p>
+                                            {act.status !== 'completed' && act.status !== 'confirmed' && (
+                                                <span className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider ${colors.text} mt-1`}>
+                                                    <ShieldAlert className="w-2.5 h-2.5" /> {act.status.replace('_', ' ')}
                                                 </span>
                                             )}
                                         </div>

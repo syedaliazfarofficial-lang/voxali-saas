@@ -24,15 +24,15 @@ type ViewMode = 'today' | 'weekly' | 'monthly';
 
 const timeSlots = Array.from({ length: 13 }, (_, i) => `${i + 8}:00`);
 
-const statusColors: Record<string, { bg: string; text: string; border: string }> = {
-    confirmed: { bg: 'bg-luxe-gold', text: 'text-luxe-obsidian', border: 'border-luxe-gold/50' },
-    completed: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
-    pending: { bg: 'bg-yellow-500/15', text: 'text-yellow-300', border: 'border-yellow-500/30' },
-    checked_in: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
-    in_progress: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
-    cancelled: { bg: 'bg-red-500/10', text: 'text-red-400/60', border: 'border-red-500/20' },
-    no_show: { bg: 'bg-red-500/10', text: 'text-red-300/60', border: 'border-red-500/20' },
-    pending_deposit: { bg: 'bg-orange-500/15', text: 'text-orange-300', border: 'border-orange-500/30' },
+const statusColors: Record<string, { bg: string; text: string; border: string; solidBg: string; borderLeft: string }> = {
+    confirmed: { bg: 'bg-[#D4AF37]/8 backdrop-blur-md', text: 'text-[#E5C158]', border: 'border-white/5', solidBg: 'bg-[#D4AF37]', borderLeft: 'border-l-[#D4AF37]' },
+    completed: { bg: 'bg-emerald-500/8 backdrop-blur-md', text: 'text-emerald-400', border: 'border-white/5', solidBg: 'bg-emerald-500', borderLeft: 'border-l-emerald-500' },
+    pending: { bg: 'bg-amber-500/8 backdrop-blur-md', text: 'text-amber-300', border: 'border-white/5', solidBg: 'bg-amber-500', borderLeft: 'border-l-amber-500' },
+    checked_in: { bg: 'bg-blue-500/8 backdrop-blur-md', text: 'text-blue-400', border: 'border-white/5', solidBg: 'bg-blue-500', borderLeft: 'border-l-blue-500' },
+    in_progress: { bg: 'bg-purple-500/8 backdrop-blur-md', text: 'text-purple-400', border: 'border-white/5', solidBg: 'bg-purple-500', borderLeft: 'border-l-purple-500' },
+    cancelled: { bg: 'bg-rose-500/4 backdrop-blur-md', text: 'text-rose-400/50', border: 'border-white/5', solidBg: 'bg-rose-500/40', borderLeft: 'border-l-rose-500/40' },
+    no_show: { bg: 'bg-rose-500/4 backdrop-blur-md', text: 'text-rose-300/50', border: 'border-white/5', solidBg: 'bg-rose-500/35', borderLeft: 'border-l-rose-500/30' },
+    pending_deposit: { bg: 'bg-orange-500/8 backdrop-blur-md', text: 'text-orange-300', border: 'border-white/5', solidBg: 'bg-orange-500', borderLeft: 'border-l-orange-500' },
 };
 
 // Helper: get date range based on view mode
@@ -124,6 +124,49 @@ export const BookingsCalendar: React.FC = () => {
     const [search, setSearch] = useState('');
     const [showActionsMenu, setShowActionsMenu] = useState(false);
     const actionsMenuRef = useRef<HTMLDivElement>(null);
+    const selectOnLoadRef = useRef<string | null>(null);
+
+    // Auto-select booking after loading bookings
+    useEffect(() => {
+        if (selectOnLoadRef.current && bookings.length > 0 && !loading) {
+            const target = bookings.find(b => b.id === selectOnLoadRef.current);
+            if (target) {
+                setSelectedBooking(target);
+            }
+            selectOnLoadRef.current = null;
+        }
+    }, [bookings, loading]);
+
+    // Listen to selection event from other pages
+    useEffect(() => {
+        const handleSelectBooking = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            const bookingDetail = customEvent.detail;
+            if (!bookingDetail || !bookingDetail.id || !bookingDetail.start_time) return;
+
+            const tz = timezone || 'America/Chicago';
+            const bookingDate = new Date(bookingDetail.start_time);
+            
+            // Get salon today's date (at midnight)
+            const todaySalon = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+            todaySalon.setHours(0,0,0,0);
+            
+            // Get booking date (at midnight)
+            const targetSalon = new Date(bookingDate.toLocaleString('en-US', { timeZone: tz }));
+            targetSalon.setHours(0,0,0,0);
+            
+            // Difference in days
+            const diffTime = targetSalon.getTime() - todaySalon.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            
+            setViewMode('today');
+            setDateOffset(diffDays);
+            selectOnLoadRef.current = bookingDetail.id;
+        };
+
+        window.addEventListener('voxali:select-booking', handleSelectBooking);
+        return () => window.removeEventListener('voxali:select-booking', handleSelectBooking);
+    }, [timezone]);
 
     // Close actions menu & time pickers on click outside
     useEffect(() => {
@@ -1058,6 +1101,30 @@ export const BookingsCalendar: React.FC = () => {
         (b.service_name || '').toLowerCase().includes(search.toLowerCase())
     );
 
+    // Calculate dynamic grid hour range based on today's bookings to ensure early/late bookings are visible
+    let startHour = 8;
+    let endHour = 20; // standard grid has 13 slots: 8:00 to 20:00 (ends at 21:00)
+
+    if (viewMode === 'today' && filteredBookings.length > 0) {
+        const hours = filteredBookings.map(b => b.start_hour);
+        const endHours = filteredBookings.map(b => b.start_hour + b.duration_hours);
+        
+        const minHour = Math.min(...hours);
+        const maxHour = Math.max(...endHours);
+        
+        if (minHour < 8) {
+            startHour = Math.max(0, Math.floor(minHour));
+        }
+        if (maxHour > 21) {
+            endHour = Math.min(24, Math.ceil(maxHour) - 1);
+        }
+    }
+
+    const dayTimeSlots = Array.from(
+        { length: endHour - startHour + 1 },
+        (_, i) => `${i + startHour}:00`
+    );
+
     const totalBookings = bookings.length;
     const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length;
     const pendingBookings = bookings.filter(b => b.status === 'pending' || b.status === 'pending_deposit').length;
@@ -1075,7 +1142,8 @@ export const BookingsCalendar: React.FC = () => {
     const displayStaff = isStaff && staffId
         ? staff.filter(s => s.id === staffId)
         : staff.slice(0, 5);
-    // Fix: use staff_id instead of stylist_id for filtering
+
+    const displayColumns = [...displayStaff];
 
     if (loading) return <CalendarSkeleton />;
 
@@ -1212,11 +1280,11 @@ export const BookingsCalendar: React.FC = () => {
             {viewMode === 'today' && (
                 <div className={`flex-1 glass-panel border border-white/5 flex flex-col overflow-hidden relative transition-opacity duration-200 ${isFetching ? 'opacity-65' : 'opacity-100'}`}>
                     {/* Staff Header */}
-                    <div className="grid border-b border-white/5 bg-white/5" style={{ gridTemplateColumns: `80px repeat(${displayStaff.length}, 1fr)` }}>
+                    <div className="grid border-b border-white/5 bg-white/5" style={{ gridTemplateColumns: `80px repeat(${displayColumns.length}, 1fr)` }}>
                         <div className="p-4 border-r border-white/5 flex items-center justify-center">
                             <Clock className="w-4 h-4 text-white/20" />
                         </div>
-                        {displayStaff.map(s => (
+                        {displayColumns.map(s => (
                             <div key={s.id} className="p-4 border-r border-white/5 flex flex-col items-center justify-center text-center gap-2">
                                 <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs font-bold overflow-hidden" style={{ color: s.color, borderColor: s.color || 'rgba(255,255,255,0.1)' }}>
                                     {s.photo_url ? (
@@ -1235,13 +1303,13 @@ export const BookingsCalendar: React.FC = () => {
 
                     {/* Scrollable Grid */}
                     <div ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
-                        <div className="relative" style={{ gridTemplateColumns: `80px repeat(${displayStaff.length}, 1fr)`, display: 'grid' }}>
+                        <div className="relative" style={{ gridTemplateColumns: `80px repeat(${displayColumns.length}, 1fr)`, display: 'grid' }}>
                             {/* Current Time Indicator Line */}
-                            {currentHour !== null && (
+                            {currentHour !== null && currentHour >= startHour && currentHour <= (endHour + 1) && (
                                 <div 
                                     className="absolute left-[80px] right-0 border-t-2 border-luxe-gold z-20 pointer-events-none flex items-center"
                                     style={{ 
-                                        top: `${(currentHour - 8) * 80}px`,
+                                        top: `${(currentHour - startHour) * 80}px`,
                                     }}
                                 >
                                     <div className="w-2.5 h-2.5 rounded-full bg-luxe-gold -ml-1 shadow-[0_0_10px_#D4AF37]" />
@@ -1249,7 +1317,7 @@ export const BookingsCalendar: React.FC = () => {
                             )}
 
                             <div className="flex flex-col">
-                                {timeSlots.map(time => {
+                                {dayTimeSlots.map(time => {
                                     const formatTime12h = (t: string) => {
                                         const [h] = t.split(':').map(Number);
                                         const ampm = h >= 12 ? 'PM' : 'AM';
@@ -1263,9 +1331,9 @@ export const BookingsCalendar: React.FC = () => {
                                     );
                                 })}
                             </div>
-                            {displayStaff.map(s => (
+                            {displayColumns.map(s => (
                                 <div key={s.id} className="relative border-r border-white/5 min-h-full">
-                                    {timeSlots.map(time => {
+                                    {dayTimeSlots.map(time => {
                                         const offShift = isSlotOffShift(s.id, time);
                                         return (
                                             <div 
@@ -1284,7 +1352,10 @@ export const BookingsCalendar: React.FC = () => {
                                             </div>
                                         );
                                     })}
-                                    {filteredBookings.filter(b => b.stylist_id === s.id).map(b => {
+                                    {filteredBookings.filter(b => s.id === 'unassigned' 
+                                        ? (!b.stylist_id || !staff.some(st => st.id === b.stylist_id))
+                                        : b.stylist_id === s.id
+                                    ).map(b => {
                                         const colors = statusColors[b.status] || statusColors.pending;
                                         const isCancelled = b.status === 'cancelled';
                                         const isConfirmed = b.status === 'confirmed';
@@ -1293,43 +1364,43 @@ export const BookingsCalendar: React.FC = () => {
                                             <div
                                                 key={b.id}
                                                 onClick={() => setSelectedBooking(b)}
-                                                className={`absolute left-1.5 right-1.5 rounded-xl border shadow-2xl transition-all duration-300 ease-out hover:scale-[1.02] cursor-pointer group z-10 ${colors.bg} ${colors.text} ${colors.border} ${isCancelled ? 'opacity-45 line-through' : ''} ${isConfirmed ? 'hover:shadow-[0_0_15px_rgba(212,175,55,0.35)]' : 'hover:shadow-lg'} ${isCompact ? 'p-2 flex flex-col justify-center' : 'p-3 flex flex-col'}`}
+                                                className={`absolute left-1.5 right-1.5 rounded-r-xl rounded-l-md border border-white/5 border-l-4 ${colors.borderLeft} shadow-lg transition-all duration-300 ease-out hover:scale-[1.015] hover:shadow-2xl cursor-pointer group z-10 ${colors.bg} ${colors.text} ${isCancelled ? 'opacity-40 line-through' : ''} ${isConfirmed ? 'hover:shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'hover:shadow-lg'} ${isCompact ? 'p-2 flex flex-col justify-center' : 'p-3 flex flex-col'}`}
                                                 style={{
-                                                    top: `${(b.start_hour - 8) * 80}px`,
+                                                    top: `${(b.start_hour - startHour) * 80}px`,
                                                     height: `${Math.max(b.duration_hours * 80, 42)}px`
                                                 }}
                                             >
                                                 {isCompact ? (
                                                     <div className="flex flex-col justify-between h-full min-w-0">
                                                         <div className="flex justify-between items-center min-w-0 gap-1">
-                                                            <p className="text-[10px] font-black uppercase tracking-tight truncate flex-1 min-w-0">
+                                                            <p className="text-[10px] font-bold uppercase tracking-wide text-white truncate flex-1 min-w-0">
                                                                 {b.client_name}
                                                             </p>
-                                                            <span className="text-[9px] font-bold opacity-75 truncate max-w-[45%] shrink-0">
+                                                            <span className="text-[9px] font-semibold opacity-75 truncate max-w-[45%] shrink-0">
                                                                 {b.service_name}
                                                             </span>
                                                         </div>
-                                                        <div className="flex justify-between items-center text-[8px] font-bold opacity-60 mt-0.5">
+                                                        <div className="flex justify-between items-center text-[8px] font-medium opacity-65 mt-0.5">
                                                             <span>
                                                                 {toSalonTimeStr(b.start_time, timezone || 'America/Chicago')}
                                                             </span>
-                                                            <span className="uppercase">{b.status.replace('_', ' ')}</span>
+                                                            <span className="text-[7px] font-extrabold uppercase px-1.5 py-0.5 bg-white/10 rounded tracking-wider">{b.status.replace('_', ' ')}</span>
                                                         </div>
                                                     </div>
                                                 ) : (
                                                     <>
                                                         <div className="flex justify-between items-start">
                                                             <div className="min-w-0">
-                                                                <p className="text-[11px] font-black uppercase tracking-tight truncate">{b.client_name}</p>
-                                                                <p className="text-[10px] font-bold mt-0.5 truncate opacity-70">{b.service_name}</p>
+                                                                <p className="text-[11px] font-bold uppercase tracking-wide text-white truncate">{b.client_name}</p>
+                                                                <p className="text-[10px] font-medium mt-0.5 truncate opacity-75">{b.service_name}</p>
                                                             </div>
-                                                            <Scissors className="w-3 h-3 opacity-40" />
+                                                            <Scissors className="w-3.5 h-3.5 opacity-30 group-hover:opacity-50 transition-opacity" />
                                                         </div>
                                                         <div className="mt-auto pt-1 flex items-center justify-between">
-                                                            <span className="text-[9px] font-bold opacity-50">
+                                                            <span className="text-[9px] font-medium opacity-65">
                                                                 {toSalonTimeStr(b.start_time, timezone || 'America/Chicago')}
                                                             </span>
-                                                            <span className="text-[8px] font-bold uppercase opacity-60">{b.status.replace('_', ' ')}</span>
+                                                            <span className="text-[7px] font-extrabold uppercase px-1.5 py-0.5 bg-white/10 rounded tracking-wider">{b.status.replace('_', ' ')}</span>
                                                         </div>
                                                     </>
                                                 )}
@@ -1345,7 +1416,7 @@ export const BookingsCalendar: React.FC = () => {
 
             {/* List View (Weekly / Monthly) */}
             {(viewMode === 'weekly' || viewMode === 'monthly') && (
-                <div className={`flex-1 glass-panel border border-white/5 overflow-y-auto custom-scrollbar p-6 space-y-6 transition-opacity duration-200 ${isFetching ? 'opacity-65' : 'opacity-100'}`}>
+                <div className={`flex-1 glass-panel border border-white/5 overflow-y-auto overflow-x-auto custom-scrollbar p-6 space-y-6 transition-opacity duration-200 ${isFetching ? 'opacity-65' : 'opacity-100'}`}>
                     {Object.keys(bookingsByDate).length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-48 text-white/30">
                             <CalendarIcon className="w-12 h-12 mb-3 opacity-30" />
@@ -1362,7 +1433,7 @@ export const BookingsCalendar: React.FC = () => {
                                     <div className="flex-1 h-px bg-white/5" />
                                 </div>
                                 {/* Booking Cards */}
-                                <div className="space-y-2">
+                                <div className="space-y-2 min-w-[650px] sm:min-w-0">
                                     {dayBookings.map(b => {
                                         const colors = statusColors[b.status] || statusColors.pending;
                                         const isCancelled = b.status === 'cancelled';
@@ -1377,38 +1448,37 @@ export const BookingsCalendar: React.FC = () => {
                                                         setSelectedBooking(b);
                                                     }
                                                 }}
-                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all hover:bg-white/5 cursor-pointer ${colors.border} bg-white/[0.02] ${isCancelled ? 'opacity-45 line-through' : ''}`}
+                                                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all hover:scale-[1.005] hover:bg-white/[0.04] hover:shadow-lg hover:border-white/10 cursor-pointer ${colors.border} bg-white/[0.02] ${isCancelled ? 'opacity-45 line-through' : ''}`}
                                             >
-                                                {/* Time */}
-                                                <div className="w-16 shrink-0 text-center">
+                                                {/* Time (Fixed Width) */}
+                                                <div className="w-16 sm:w-20 shrink-0 text-center">
                                                     <p className="text-xs font-black text-white/70 leading-tight whitespace-nowrap">{timeStr}</p>
                                                 </div>
-                                                {/* Status bar */}
-                                                <div className={`w-1 h-8 rounded-full shrink-0 ${colors.bg}`} />
-                                                {/* Client + Service */}
-                                                <div className="flex-1 min-w-0">
+                                                {/* Status bar (Fixed Width) */}
+                                                <div className={`w-1 h-8 rounded-full shrink-0 ${colors.solidBg || colors.bg}`} />
+                                                {/* Client + Service (Flex-1) */}
+                                                <div className="flex-1 min-w-0 pr-2">
                                                     <p className="text-sm font-bold truncate leading-tight">{b.client_name}</p>
-                                                    <p className="text-[10px] text-white/40 truncate leading-tight">{b.service_name}</p>
+                                                    <p className="text-[10px] text-white/40 truncate leading-tight mt-0.5">{b.service_name}</p>
                                                 </div>
-                                                {/* RIGHT SIDE — all on one line */}
-                                                <div className="flex items-center gap-2 shrink-0 ml-auto">
-                                                    {/* Stylist avatar + name */}
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div
-                                                            className="w-6 h-6 rounded-full bg-white/5 border overflow-hidden flex items-center justify-center text-[9px] font-bold shrink-0"
-                                                            style={{ borderColor: stylist?.color || 'rgba(255,255,255,0.1)', color: stylist?.color || '#999' }}
-                                                        >
-                                                            {stylist?.photo_url ? (
-                                                                <img src={stylist.photo_url} alt={stylist.full_name} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                stylist?.full_name?.trim().charAt(0) || '?'
-                                                            )}
-                                                        </div>
-                                                        <span className="text-[10px] text-white/50 font-medium hidden lg:block whitespace-nowrap">{stylist?.full_name?.trim().split(' ')[0] || '—'}</span>
+                                                {/* Stylist Details (Fixed Width) */}
+                                                <div className="w-24 sm:w-36 shrink-0 flex items-center gap-1.5">
+                                                    <div
+                                                        className="w-6 h-6 rounded-full bg-white/5 border overflow-hidden flex items-center justify-center text-[9px] font-bold shrink-0"
+                                                        style={{ borderColor: stylist?.color || 'rgba(255,255,255,0.1)', color: stylist?.color || '#999' }}
+                                                    >
+                                                        {stylist?.photo_url ? (
+                                                            <img src={stylist.photo_url} alt={stylist.full_name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            stylist?.full_name?.trim().charAt(0) || '?'
+                                                        )}
                                                     </div>
-                                                    {/* Price */}
-                                                    <span className="text-xs font-bold text-luxe-gold w-10 text-right shrink-0">${b.price}</span>
-                                                    {/* Status Badge */}
+                                                    <span className="text-[10px] text-white/50 font-medium hidden sm:block truncate">{stylist?.full_name?.trim().split(' ')[0] || '—'}</span>
+                                                </div>
+                                                {/* Price (Fixed Width) */}
+                                                <span className="text-xs font-black text-luxe-gold w-10 sm:w-12 text-right shrink-0">${b.price}</span>
+                                                {/* Status Badge (Fixed Width) */}
+                                                <div className="w-20 sm:w-28 shrink-0 flex justify-center">
                                                     <span
                                                         onClick={() => handleStatusCycle(b)}
                                                         title={
@@ -1416,11 +1486,13 @@ export const BookingsCalendar: React.FC = () => {
                                                                 : STATUS_FLOW[b.status] ? `Click → ${STATUS_FLOW[b.status].replace('_', ' ')}`
                                                                     : 'Final status'
                                                         }
-                                                        className={`text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap ${colors.bg} ${colors.text} ${b.status !== 'pending_deposit' && STATUS_FLOW[b.status] ? 'cursor-pointer hover:opacity-80 transition-opacity' : b.status === 'pending_deposit' ? 'cursor-not-allowed opacity-70' : ''}`}
+                                                        className={`text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 w-full text-center truncate ${colors.bg} ${colors.text} ${b.status !== 'pending_deposit' && STATUS_FLOW[b.status] ? 'cursor-pointer hover:opacity-85 transition-opacity' : b.status === 'pending_deposit' ? 'cursor-not-allowed opacity-70' : ''}`}
                                                     >
                                                         {b.status.replace(/_/g, ' ')}
                                                     </span>
-                                                    {/* Smart Payment Badge */}
+                                                </div>
+                                                {/* Smart Payment Badge (Fixed Width) */}
+                                                <div className="w-24 sm:w-32 shrink-0 flex items-center justify-end gap-1">
                                                     {(() => {
                                                         const isWalkin = b.client_name === 'Walk-in';
                                                         const hasDeposit = b.deposit_amount > 0;
@@ -1429,21 +1501,21 @@ export const BookingsCalendar: React.FC = () => {
 
                                                         if (isWalkin && !hasDeposit) {
                                                             return (
-                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-orange-500/15 text-orange-300 border border-orange-500/30">
+                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 w-full text-center truncate bg-orange-500/15 text-orange-300 border border-orange-500/30">
                                                                     Walk-in
                                                                 </span>
                                                             );
                                                         }
                                                         if (!hasDeposit) {
                                                             return (
-                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-luxe-gold/10 text-luxe-gold border border-luxe-gold/20">
+                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 w-full text-center truncate bg-luxe-gold/10 text-luxe-gold border border-luxe-gold/20">
                                                                     ${b.price}
                                                                 </span>
                                                             );
                                                         }
                                                         if (isCompleted) {
                                                             return (
-                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-green-500/15 text-green-300 border border-green-500/30">
+                                                                <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 w-full text-center truncate bg-green-500/15 text-green-300 border border-green-500/30">
                                                                     ✓ Paid
                                                                 </span>
                                                             );
@@ -1451,21 +1523,21 @@ export const BookingsCalendar: React.FC = () => {
                                                         if (depositPaid) {
                                                             const remaining = b.price - (b.deposit_paid_amount || 0);
                                                             return (
-                                                                <>
-                                                                    <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-green-500/15 text-green-300 border border-green-500/30">
-                                                                        ✓ ${b.deposit_paid_amount} Paid
+                                                                <div className="flex gap-1 w-full justify-end min-w-0">
+                                                                    <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-1 rounded-lg shrink-0 text-center truncate bg-green-500/15 text-green-300 border border-green-500/30 max-w-[50%]">
+                                                                        Paid
                                                                     </span>
                                                                     {remaining > 0 && (
-                                                                        <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">
+                                                                        <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-1 rounded-lg shrink-0 text-center truncate bg-yellow-500/15 text-yellow-300 border border-yellow-500/30 max-w-[50%]">
                                                                             ${remaining} Due
                                                                         </span>
                                                                     )}
-                                                                </>
+                                                                </div>
                                                             );
                                                         }
                                                         // Deposit required but not paid
                                                         return (
-                                                            <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 whitespace-nowrap bg-red-500/15 text-red-300 border border-red-500/30">
+                                                            <span className="text-[8px] font-bold uppercase tracking-wide px-2 py-1 rounded-lg shrink-0 w-full text-center truncate bg-red-500/15 text-red-300 border border-red-500/30">
                                                                 ⏳ ${b.deposit_amount} Due
                                                             </span>
                                                         );

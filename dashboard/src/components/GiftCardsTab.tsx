@@ -102,10 +102,15 @@ export const GiftCardsTab: React.FC = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-4">
-                <div>
-                    <h3 className="font-bold text-xl text-white flex items-center gap-2"><Gift className="w-5 h-5 text-purple-400" /> Gift Cards</h3>
-                    <p className="text-xs text-white/40 mt-1">Generate and track digital gift cards for your clients.</p>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                    <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
+                        <Gift className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-base font-bold whitespace-nowrap text-white">Gift Cards</h3>
+                        <p className="text-[9px] text-white/40 uppercase tracking-widest whitespace-nowrap">Generate and track digital gift cards for your clients</p>
+                    </div>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}

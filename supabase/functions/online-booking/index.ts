@@ -395,7 +395,7 @@ Deno.serve(async (req) => {
     }
 
     const servicesJSON = JSON.stringify(services || []);
-    const staffJSON = JSON.stringify((staff || []).map((s: any) => ({ id: s.id, name: s.name, specialty: s.specialty })));
+    const staffJSON = JSON.stringify((staff || []).map((s: any) => ({ id: s.id, name: s.name, specialty: s.specialty, photo_url: s.photo_url || null })));
 
     const html = `<!DOCTYPE html>
 <html lang="en">

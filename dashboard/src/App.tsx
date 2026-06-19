@@ -306,55 +306,7 @@ function AppContent() {
         />
 
         <main className="flex-1 overflow-y-auto custom-scrollbar relative">
-          <div className="px-6 py-5 max-w-7xl mx-auto">
-
-            {/* ── Original Header ── */}
-            <header className="flex justify-between items-center mb-5">
-              <div>
-                <h2 className="text-2xl font-bold gold-text">{tabTitles[activeTab] ?? activeTab}</h2>
-                <p className="text-white/40 text-xs mt-0.5">Welcome back to {salonName}</p>
-              </div>
-
-              <div className="flex items-center gap-3 h-full">
-                {/* + New Booking */}
-                {!isStaff && (
-                  <button
-                    onClick={() => safeSetActiveTab('bookings')}
-                    className="h-9 px-4 flex items-center gap-1.5 bg-yellow-500 text-black text-sm font-bold rounded-md hover:bg-yellow-400 transition-colors"
-                  >
-                    <span className="text-lg leading-none">+</span>
-                    New Booking
-                  </button>
-                )}
-
-                {/* Clock */}
-                <DigitalClock />
-
-                {/* Bella AI status pill */}
-                {(!isStaff && planTier !== 'basic' && planTier !== 'Essentials') && (
-                  <div className={`h-9 px-3 flex items-center gap-2 border rounded-md ${
-                    aiStatus === 'paused' ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'
-                  }`}>
-                    <div className={`w-2 h-2 rounded-full ${aiStatus === 'paused' ? 'bg-red-500' : 'bg-emerald-500 animate-pulse'}`} />
-                    <span className={`text-xs font-bold tracking-wide ${aiStatus === 'paused' ? 'text-red-400' : 'text-emerald-400'}`}>
-                      Bella AI: {aiStatus === 'paused' ? 'Paused' : 'Active'}
-                    </span>
-                  </div>
-                )}
-
-                {/* User avatar + name */}
-                <div className="h-9 pl-1 pr-3 flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-full hover:bg-zinc-700 cursor-pointer transition-colors">
-                  <div className="w-7 h-7 rounded-full bg-yellow-500 text-black flex items-center justify-center text-xs font-bold flex-shrink-0">
-                    {((isStaff ? (staffRecord?.full_name as string || 'S') : ownerName) || 'A').charAt(0).toUpperCase()}
-                  </div>
-                  <span className="text-xs font-medium text-white truncate max-w-[100px]">
-                    {isStaff
-                      ? (staffRecord?.full_name as string || 'Stylist').split(' ')[0]
-                      : ownerName.split(' ')[0] || 'Admin'}
-                  </span>
-                </div>
-              </div>
-            </header>
+          <div className="px-6 py-4 max-w-7xl mx-auto">
 
             {/* Dynamic Content Area */}
             <div className="space-y-6 flex-1 flex flex-col h-full">

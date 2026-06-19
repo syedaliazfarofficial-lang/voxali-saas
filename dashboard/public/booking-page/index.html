@@ -686,7 +686,8 @@ html, body {
         const params = new URLSearchParams(window.location.search);
         const TENANT_ID = params.get('tenant_id');
         const pathParts = window.location.pathname.split('/').filter(Boolean);
-        const SLUG = pathParts[pathParts.length - 1] || params.get('slug') || '';
+        const lastPart = pathParts[pathParts.length - 1] || '';
+        const SLUG = (lastPart && lastPart !== 'booking-page') ? lastPart : (params.get('slug') || '');
 
         function tenantQuery() {
             if (TENANT_ID) return '?tenant_id=' + TENANT_ID;
