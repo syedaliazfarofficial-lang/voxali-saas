@@ -9,7 +9,8 @@ import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { ConfirmModal } from './ui/ConfirmModal';
 import { ClientProfileModal } from './ClientProfileModal';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import autoTable from 'jspdf-autotable';
 import { Skeleton } from './ui/Skeleton';
 
