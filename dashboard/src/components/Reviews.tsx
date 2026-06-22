@@ -244,7 +244,7 @@ export const Reviews: React.FC = () => {
             </div>
 
             {/* Cohesive Controls Toolbar */}
-            <div className="glass-panel p-3 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 bg-white/[0.01] max-w-4xl mx-auto w-full">
+            <div className="glass-panel py-2 px-3 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 bg-white/[0.01]">
                 {/* Filter tabs */}
                 <div className="flex bg-black/45 p-1 rounded-xl border border-white/5 w-full md:w-auto overflow-x-auto custom-scrollbar">
                     <button 
@@ -297,12 +297,12 @@ export const Reviews: React.FC = () => {
             </div>
 
             {/* Full-width List of Review Items */}
-            <div className="space-y-3.5 max-w-4xl mx-auto w-full">
+            <div className="space-y-2">
                 {loading ? (
                     [1,2,3].map(i => (
-                        <div key={i} className="glass-panel p-5 flex gap-4 border border-white/5">
-                            <Skeleton variant="rect" width={36} height={36} className="rounded-xl flex-shrink-0" />
-                            <div className="flex-1 space-y-2">
+                        <div key={i} className="glass-panel py-2.5 px-4 flex gap-3 border border-white/5">
+                            <Skeleton variant="rect" width={32} height={32} className="rounded-xl flex-shrink-0" />
+                            <div className="flex-1 space-y-1.5">
                                 <Skeleton variant="text" width="20%" />
                                 <Skeleton variant="text" width="60%" />
                             </div>
@@ -318,7 +318,7 @@ export const Reviews: React.FC = () => {
                     processedReviews.map((r) => (
                         <div 
                             key={r.id} 
-                            className="glass-panel p-4.5 flex gap-4 border border-white/5 hover:border-luxe-gold/25 transition-all duration-300 group"
+                            className="glass-panel py-2.5 px-4 flex gap-3 border border-white/5 hover:border-luxe-gold/25 transition-all duration-300 group"
                         >
                             {/* Rating Circle Badge */}
                             <div className="flex-shrink-0">
@@ -334,7 +334,7 @@ export const Reviews: React.FC = () => {
                             {/* Review Content */}
                             <div className="flex-1 min-w-0">
                                 {/* Top Line: Client Info, Tags, Stars and Date */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2.5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-1.5">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <h4 className="font-bold text-white text-xs tracking-wide">{r.clientName}</h4>
                                         
@@ -365,7 +365,7 @@ export const Reviews: React.FC = () => {
 
                                 {/* Review Text Area */}
                                 {r.text ? (
-                                    <div className="bg-black/20 p-3.5 rounded-xl border border-white/5 mt-2">
+                                    <div className="bg-black/20 py-1.5 px-3 rounded-lg border border-white/5 mt-1.5">
                                         <p className="text-xs text-white/70 leading-relaxed italic">
                                             "{r.text}"
                                         </p>
