@@ -3,8 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useTenant } from '../context/TenantContext';
 import { 
     Star, MessageSquare, AlertCircle, 
-    ThumbsUp, CalendarClock, Filter,
-    CheckCircle2, Share2, Search, ArrowUpDown, Quote, Sparkles
+    ThumbsUp, CheckCircle2, Share2, Search, ArrowUpDown, Sparkles
 } from 'lucide-react';
 import { showToast } from './ui/ToastNotification';
 import { Skeleton } from './ui/Skeleton';
@@ -161,7 +160,7 @@ export const Reviews: React.FC = () => {
         showToast('Review invite link copied to clipboard! 🚀');
     };
 
-    const renderStars = (rating: number, sizeClass = "w-3.5 h-3.5") => {
+    const renderStars = (rating: number, sizeClass = "w-3 h-3") => {
         return (
             <div className="flex items-center gap-0.5">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -182,9 +181,9 @@ export const Reviews: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
+        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
             {/* Header */}
-            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-4 mb-4">
+            <div className="flex items-center justify-between gap-4 border-b border-white/5 pb-3 mb-2">
                 <div className="flex items-center gap-2.5 flex-shrink-0">
                     <div className="p-2 bg-luxe-gold/10 rounded-xl border border-luxe-gold/20">
                         <Star className="w-5 h-5 text-luxe-gold fill-luxe-gold" />
@@ -204,125 +203,114 @@ export const Reviews: React.FC = () => {
                 </button>
             </div>
 
-            {/* Quick Metrics Row & Distribution Bar */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Visual Distribution Column */}
-                <div className="glass-panel p-5 border border-white/5 relative overflow-hidden group lg:col-span-2 flex flex-col md:flex-row items-center gap-6">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-luxe-gold/5 rounded-full blur-3xl pointer-events-none"></div>
-                    
-                    {/* Big Average Card inside Distribution */}
-                    <div className="text-center md:border-r md:border-white/5 md:pr-8 shrink-0 min-w-[150px] relative z-10">
-                        <p className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-2">Average Rating</p>
-                        <h1 className="text-5xl font-black text-white mb-2 font-serif">{loading ? '—' : stats.average}</h1>
-                        <div className="flex justify-center mb-1.5">
-                            {renderStars(parseFloat(stats.average.toString()) || 5, "w-4 h-4")}
-                        </div>
-                        <p className="text-xs text-white/40">{stats.total} verified reviews</p>
-                    </div>
-
-                    {/* Breakdown bars */}
-                    <div className="flex-1 w-full relative z-10">
-                        <p className="text-[9px] font-black text-luxe-gold uppercase tracking-[0.15em] mb-3 flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-luxe-gold" /> Rating Breakdown
-                        </p>
-                        {loading ? (
-                            <div className="space-y-2">
-                                {[1,2,3,4,5].map(i => <Skeleton key={i} variant="text" width="100%" height={8} />)}
-                            </div>
-                        ) : (
-                            <div className="space-y-2 w-full">
-                                {[5, 4, 3, 2, 1].map((stars) => {
-                                    const count = starCounts[stars as 5 | 4 | 3 | 2 | 1] || 0;
-                                    const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
-                                    return (
-                                        <div key={stars} className="flex items-center gap-3.5 text-[11px]">
-                                            <span className="text-white/40 w-2 font-bold text-right">{stars}</span>
-                                            <Star className="w-3.5 h-3.5 text-luxe-gold/70 fill-luxe-gold/70 shrink-0" />
-                                            <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
-                                                <div 
-                                                    className="h-full bg-gold-gradient rounded-full transition-all duration-700" 
-                                                    style={{ width: `${pct}%` }} 
-                                                />
-                                            </div>
-                                            <span className="text-white/35 w-10 text-right font-medium">{count} ({pct}%)</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
+            {/* Compact Symmetrical Metrics Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Average Rating Card */}
+                <div className="glass-panel p-4 flex flex-col items-center justify-center text-center border border-white/5 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-luxe-gold/5 rounded-full blur-3xl pointer-events-none"></div>
+                    <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider mb-1">Average Rating</p>
+                    <h1 className="text-4xl font-black text-white mb-1.5 font-serif">{loading ? '—' : stats.average}</h1>
+                    <div className="mb-2">{renderStars(parseFloat(stats.average.toString()) || 5, "w-3.5 h-3.5")}</div>
+                    <span className="text-[9px] bg-luxe-gold/10 text-luxe-gold px-2.5 py-0.5 rounded-full font-bold">{stats.total} Total Reviews</span>
                 </div>
 
-                {/* Individual Metric Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
-                    <div className="glass-panel p-4.5 border border-white/5 flex items-center gap-4 relative overflow-hidden group">
-                        <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
-                            <ThumbsUp className="w-5 h-5" />
+                {/* Rating Distribution */}
+                <div className="glass-panel p-4 border border-white/5 flex flex-col justify-center">
+                    <p className="text-[9px] font-black text-luxe-gold uppercase tracking-[0.12em] mb-2.5 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-luxe-gold" /> Rating Breakdown
+                    </p>
+                    {loading ? (
+                        <div className="space-y-1.5">
+                            {[1,2,3].map(i => <Skeleton key={i} variant="text" width="100%" height={6} />)}
                         </div>
-                        <div>
-                            <p className="text-[9px] text-white/30 font-bold uppercase tracking-wider">5-Star Ratio</p>
-                            <h4 className="text-2xl font-black text-white">{loading ? '—' : `${stats.fiveStarPct}%`}</h4>
+                    ) : (
+                        <div className="space-y-1.5 w-full">
+                            {[5, 4, 3, 2, 1].map((stars) => {
+                                const count = starCounts[stars as 5 | 4 | 3 | 2 | 1] || 0;
+                                const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
+                                return (
+                                    <div key={stars} className="flex items-center gap-2 text-[10px]">
+                                        <span className="text-white/40 w-2 font-bold text-right">{stars}</span>
+                                        <Star className="w-3.5 h-3.5 text-luxe-gold/70 fill-luxe-gold/70 shrink-0" />
+                                        <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                            <div 
+                                                className="h-full bg-gold-gradient rounded-full" 
+                                                style={{ width: `${pct}%` }} 
+                                            />
+                                        </div>
+                                        <span className="text-white/35 w-10 text-right font-medium">{pct}% ({count})</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Stats Columns */}
+                <div className="glass-panel p-4 border border-white/5 flex flex-col justify-center gap-3">
+                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                        <span className="text-[9px] text-white/35 font-bold uppercase tracking-wider">5-Star Ratio</span>
+                        <div className="flex items-center gap-1.5">
+                            <ThumbsUp className="w-3.5 h-3.5 text-blue-400" />
+                            <span className="text-sm font-black text-white">{loading ? '—' : `${stats.fiveStarPct}%`}</span>
                         </div>
                     </div>
-
-                    <div className="glass-panel p-4.5 border border-white/5 flex items-center gap-4 relative overflow-hidden group">
-                        <div className={`p-3 rounded-xl border transition-all ${stats.needsAttention > 0 ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-white/5 border-white/10 text-white/40'}`}>
-                            <AlertCircle className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-[9px] text-white/30 font-bold uppercase tracking-wider">Needs Attention</p>
-                            <h4 className={`text-2xl font-black ${stats.needsAttention > 0 ? 'text-red-400' : 'text-white'}`}>{loading ? '—' : stats.needsAttention}</h4>
+                    <div className="flex justify-between items-center">
+                        <span className="text-[9px] text-white/35 font-bold uppercase tracking-wider">Needs Attention</span>
+                        <div className="flex items-center gap-1.5">
+                            <AlertCircle className={`w-3.5 h-3.5 ${stats.needsAttention > 0 ? 'text-red-400' : 'text-white/20'}`} />
+                            <span className={`text-sm font-black ${stats.needsAttention > 0 ? 'text-red-400' : 'text-white/50'}`}>{loading ? '—' : stats.needsAttention}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Filter, Search & Sorting Panel */}
-            <div className="glass-panel p-4 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 bg-white/[0.01]">
+            {/* Integrated Toolbar */}
+            <div className="glass-panel p-3 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 bg-white/[0.01]">
                 {/* Tabs filter */}
-                <div className="flex bg-black/45 p-1.5 rounded-xl border border-white/5 w-full md:w-auto shrink-0 overflow-x-auto custom-scrollbar">
+                <div className="flex bg-black/45 p-1 rounded-xl border border-white/5 w-full md:w-auto overflow-x-auto custom-scrollbar">
                     <button 
                         onClick={() => setFilter('all')}
-                        className={`px-4.5 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all whitespace-nowrap cursor-pointer ${filter === 'all' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
+                        className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${filter === 'all' ? 'bg-white/10 text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
                     >
                         All
                     </button>
                     <button 
                         onClick={() => setFilter('positive')}
-                        className={`px-4.5 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all whitespace-nowrap cursor-pointer ${filter === 'positive' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' : 'text-white/40 hover:text-white/70'}`}
+                        className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${filter === 'positive' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' : 'text-white/40 hover:text-white/70'}`}
                     >
                         Positive (4-5 ★)
                     </button>
                     <button 
                         onClick={() => setFilter('needs_attention')}
-                        className={`px-4.5 py-2 text-[11px] font-black uppercase tracking-wider rounded-lg transition-all whitespace-nowrap cursor-pointer ${filter === 'needs_attention' ? 'bg-red-500/10 text-red-400 border border-red-500/15' : 'text-white/40 hover:text-white/70'}`}
+                        className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${filter === 'needs_attention' ? 'bg-red-500/10 text-red-400 border border-red-500/15' : 'text-white/40 hover:text-white/70'}`}
                     >
                         Needs Attention (1-3 ★)
                     </button>
                 </div>
 
                 {/* Search & Sort Controls */}
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full md:w-auto">
                     {/* Live Search */}
-                    <div className="relative w-full sm:w-60">
-                        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
+                    <div className="relative w-full sm:w-56">
+                        <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
                         <input
                             type="text"
                             placeholder="Search reviews..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs outline-none focus:border-white/20 transition-all text-white placeholder-white/30"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-1.5 text-xs outline-none focus:border-white/20 transition-all text-white placeholder-white/30"
                         />
                     </div>
 
                     {/* Sorting Select */}
-                    <div className="relative w-full sm:w-44">
-                        <ArrowUpDown className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+                    <div className="relative w-full sm:w-40">
+                        <ArrowUpDown className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
                         <select
                             aria-label="Sort reviews"
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as any)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-xs outline-none focus:border-white/20 text-white/75 cursor-pointer appearance-none"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs outline-none focus:border-white/20 text-white/75 cursor-pointer appearance-none"
                         >
                             <option value="newest" className="bg-luxe-obsidian text-white">Newest First</option>
                             <option value="highest" className="bg-luxe-obsidian text-white">Highest Rated</option>
@@ -332,24 +320,20 @@ export const Reviews: React.FC = () => {
                 </div>
             </div>
 
-            {/* Premium Reviews Card Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* High-density Single-Column Feed */}
+            <div className="space-y-3.5 max-w-4xl mx-auto">
                 {loading ? (
-                    [1,2,3,4].map(i => (
-                        <div key={i} className="glass-panel p-6 flex gap-4 border border-white/5">
-                            <Skeleton variant="rect" width={48} height={48} className="rounded-2xl flex-shrink-0" />
-                            <div className="flex-1 space-y-2.5">
-                                <div className="flex justify-between">
-                                    <Skeleton variant="text" width="40%" />
-                                    <Skeleton variant="text" width="20%" />
-                                </div>
+                    [1,2,3].map(i => (
+                        <div key={i} className="glass-panel p-5 flex gap-4 border border-white/5">
+                            <Skeleton variant="rect" width={40} height={40} className="rounded-xl flex-shrink-0" />
+                            <div className="flex-1 space-y-2">
+                                <Skeleton variant="text" width="30%" />
                                 <Skeleton variant="text" width="60%" />
-                                <Skeleton variant="rect" height={60} className="rounded-xl mt-3" />
                             </div>
                         </div>
                     ))
                 ) : processedReviews.length === 0 ? (
-                    <div className="col-span-full glass-panel p-16 flex flex-col items-center justify-center text-center">
+                    <div className="glass-panel p-16 flex flex-col items-center justify-center text-center">
                         <MessageSquare className="w-12 h-12 text-white/10 mb-4" />
                         <h4 className="font-bold text-base text-white/40">No reviews found</h4>
                         <p className="text-white/25 text-xs mt-1">Try resetting the filters or search query</p>
@@ -360,17 +344,14 @@ export const Reviews: React.FC = () => {
                         return (
                             <div 
                                 key={r.id} 
-                                className="glass-panel p-6 flex gap-4 border border-white/5 hover:border-luxe-gold/30 hover:shadow-[0_4px_20px_-4px_rgba(212,175,55,0.08)] transition-all duration-300 group hover:-translate-y-[2px]"
+                                className="glass-panel p-5 flex gap-4 border border-white/5 hover:border-luxe-gold/25 hover:shadow-[0_4px_15px_-4px_rgba(212,175,55,0.06)] transition-all duration-300 group"
                             >
-                                {/* Left Side: Client Initials & Rating Circular Badging */}
-                                <div className="flex-shrink-0 flex flex-col items-center gap-3">
-                                    {/* Circular Initial Avatar */}
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center font-bold text-sm text-white/80 shadow-inner shadow-white/5">
+                                {/* Client Avatar */}
+                                <div className="flex flex-col items-center gap-2 shrink-0">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center font-bold text-xs text-white/80">
                                         {initials}
                                     </div>
-                                    
-                                    {/* Distinct Numeric Rating Bubble */}
-                                    <div className={`px-2 py-0.5 rounded-lg border text-[10px] font-black ${
+                                    <div className={`px-1.5 py-0.5 rounded text-[8px] font-black ${
                                         r.rating >= 4 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
                                         r.rating === 3 ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' :
                                         'bg-red-500/10 border-red-500/20 text-red-400'
@@ -379,55 +360,46 @@ export const Reviews: React.FC = () => {
                                     </div>
                                 </div>
 
-                                {/* Right Side: Review Content details */}
-                                <div className="flex-1 min-w-0 flex flex-col justify-between">
-                                    <div>
-                                        {/* Row 1: Name, Source Badge & Stars */}
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <h4 className="font-bold text-white tracking-wide truncate text-sm">{r.clientName}</h4>
-                                                {r.source === 'booking' ? (
-                                                    <span className="text-[8px] font-black uppercase tracking-[0.15em] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-0.5 shrink-0">
-                                                        <CheckCircle2 className="w-2.5 h-2.5" /> Verified
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-[8px] font-black uppercase tracking-[0.15em] px-2 py-0.5 rounded bg-white/5 text-white/35 border border-white/10 flex items-center gap-0.5 shrink-0">
-                                                        Public
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="shrink-0">
-                                                {renderStars(r.rating, "w-3 h-3")}
-                                            </div>
+                                {/* Content Details */}
+                                <div className="flex-1 min-w-0">
+                                    {/* Header Info */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h4 className="font-bold text-white text-xs tracking-wide">{r.clientName}</h4>
+                                            
+                                            {r.source === 'booking' ? (
+                                                <span className="text-[7.5px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-0.5 shrink-0">
+                                                    Verified
+                                                </span>
+                                            ) : (
+                                                <span className="text-[7.5px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded bg-white/5 text-white/35 border border-white/10 flex items-center gap-0.5 shrink-0">
+                                                    Public
+                                                </span>
+                                            )}
+
+                                            {r.source === 'booking' && r.serviceName && (
+                                                <span className="text-[7.5px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded bg-luxe-gold/5 border border-luxe-gold/15 text-luxe-gold shrink-0">
+                                                    {r.serviceName}
+                                                </span>
+                                            )}
                                         </div>
 
-                                        {/* Row 2: Service / Booking Details */}
-                                        {r.source === 'booking' && r.serviceName && (
-                                            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-luxe-gold/5 border border-luxe-gold/15 text-luxe-gold text-[9px] font-bold uppercase tracking-wider mb-3">
-                                                <CalendarClock className="w-2.5 h-2.5" /> {r.serviceName}
-                                            </div>
-                                        )}
-
-                                        {/* Row 3: Review Text */}
-                                        {r.text ? (
-                                            <div className="bg-black/30 p-4 rounded-xl border border-white/5 relative group-hover:bg-black/40 transition-colors">
-                                                <Quote className="w-7 h-7 text-white/[0.03] absolute right-3 top-2 rotate-180" />
-                                                <p className="text-xs text-white/70 leading-relaxed italic relative z-10">
-                                                    "{r.text}"
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            <p className="text-[11px] text-white/30 italic mt-1.5">No written feedback provided.</p>
-                                        )}
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {renderStars(r.rating, "w-2.5 h-2.5")}
+                                            <span className="text-[8.5px] text-white/30 font-semibold tracking-wider uppercase">
+                                                {r.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                            </span>
+                                        </div>
                                     </div>
 
-                                    {/* Footer: Date */}
-                                    <div className="mt-3.5 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-white/30 uppercase tracking-widest font-semibold">
-                                        <span>Feedback Received</span>
-                                        <span>
-                                            {r.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </span>
-                                    </div>
+                                    {/* Quote Text */}
+                                    {r.text ? (
+                                        <p className="text-xs text-white/80 leading-relaxed bg-white/[0.01] p-3 rounded-xl border border-white/5 mt-1.5 italic">
+                                            "{r.text}"
+                                        </p>
+                                    ) : (
+                                        <p className="text-[10px] text-white/30 italic mt-1.5">No written feedback provided.</p>
+                                    )}
                                 </div>
                             </div>
                         );
