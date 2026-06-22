@@ -244,7 +244,7 @@ export const Reviews: React.FC = () => {
             </div>
 
             {/* Cohesive Controls Toolbar */}
-            <div className="glass-panel p-3 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 bg-white/[0.01]">
+            <div className="glass-panel p-3 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-3 bg-white/[0.01] max-w-4xl mx-auto w-full">
                 {/* Filter tabs */}
                 <div className="flex bg-black/45 p-1 rounded-xl border border-white/5 w-full md:w-auto overflow-x-auto custom-scrollbar">
                     <button 
@@ -297,7 +297,7 @@ export const Reviews: React.FC = () => {
             </div>
 
             {/* Full-width List of Review Items */}
-            <div className="space-y-3.5">
+            <div className="space-y-3.5 max-w-4xl mx-auto w-full">
                 {loading ? (
                     [1,2,3].map(i => (
                         <div key={i} className="glass-panel p-5 flex gap-4 border border-white/5">
