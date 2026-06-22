@@ -54,8 +54,7 @@ const TEMPLATES = [
     { icon: '📅', name: 'Last-Minute Slot', color: 'from-red-500/20 to-rose-500/20 border-red-500/30', msg: 'Hey {name}! A last-minute slot just opened up at {salon}! Book now before it\'s gone! 📅' },
 ];
 
-const selectStyle: React.CSSProperties = { backgroundColor: '#1A1A1F', color: '#E0E0E0' };
-const optionStyle: React.CSSProperties = { backgroundColor: '#1A1A1F', color: '#E0E0E0' };
+// Dropdown styles managed via Tailwind classes
 
 export const Marketing: React.FC = () => {
     const { tenantId, salonName: tenantSalonName, slug } = useTenant();
@@ -360,11 +359,10 @@ export const Marketing: React.FC = () => {
                                     aria-label="Select audience"
                                     value={form.audience}
                                     onChange={(e) => setForm(p => ({ ...p, audience: e.target.value }))}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50"
-                                    style={selectStyle}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 text-white cursor-pointer"
                                 >
                                     {Object.entries(AUDIENCE_LABELS).map(([k, v]) => (
-                                        <option key={k} value={k} style={optionStyle}>{v}</option>
+                                        <option key={k} value={k} className="bg-luxe-obsidian text-white">{v}</option>
                                     ))}
                                 </select>
                             </div>
@@ -374,12 +372,11 @@ export const Marketing: React.FC = () => {
                                     aria-label="Select channel"
                                     value={form.channel}
                                     onChange={(e) => setForm(p => ({ ...p, channel: e.target.value }))}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50"
-                                    style={selectStyle}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-luxe-gold/50 text-white cursor-pointer"
                                 >
-                                    <option value="sms" style={optionStyle}>SMS</option>
-                                    <option value="email" style={optionStyle}>Email</option>
-                                    <option value="both" style={optionStyle}>SMS + Email</option>
+                                    <option value="sms" className="bg-luxe-obsidian text-white">SMS</option>
+                                    <option value="email" className="bg-luxe-obsidian text-white">Email</option>
+                                    <option value="both" className="bg-luxe-obsidian text-white">SMS + Email</option>
                                 </select>
                             </div>
                         </div>
@@ -416,17 +413,18 @@ export const Marketing: React.FC = () => {
                 </div>
             ) : (
                 <div className="glass-panel overflow-hidden border border-white/5">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-white/5 border-b border-white/5">
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Campaign</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Audience</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Channel</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Status</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Sent</th>
-                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-right">Actions</th>
-                            </tr>
-                        </thead>
+                    <div className="overflow-x-auto custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-white/5 border-b border-white/5">
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Campaign</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Audience</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Channel</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Status</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center">Sent</th>
+                                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-right">Actions</th>
+                                </tr>
+                            </thead>
                         <tbody className="divide-y divide-white/5">
                             {campaigns.map((c) => {
                                 const ChannelIcon = CHANNEL_ICONS[c.channel] ?? Send;
@@ -485,39 +483,46 @@ export const Marketing: React.FC = () => {
                                 );
                             })}
                         </tbody>
-                    </table>
+                        </table>
+                    </div>
                 </div>
             )}
 
             {/* Client Selection Modal */}
             {showClientList && launchTarget && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowClientList(false); setLaunchTarget(null); }}>
-                    <div className="bg-[#141417] border border-luxe-gold/20 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowClientList(false); setLaunchTarget(null); }}>
+                    <div className="bg-luxe-obsidian border border-white/10 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
                         {/* Modal Header */}
-                        <div className="p-5 border-b border-white/10">
-                            <div className="flex items-center justify-between mb-2">
-                                <h3 className="font-bold text-lg flex items-center gap-2">
-                                    <Rocket className="w-5 h-5 text-green-400" />
-                                    Launch: {launchTarget.name}
-                                </h3>
-                                <button onClick={() => { setShowClientList(false); setLaunchTarget(null); }} className="text-white/30 hover:text-white transition">
-                                    <X className="w-5 h-5" />
-                                </button>
+                        <div className="p-5 border-b border-white/5 flex items-center justify-between shrink-0 bg-white/[0.01]">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-luxe-gold/10 border border-luxe-gold/20 text-luxe-gold">
+                                    <Rocket className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                                        Launch: {launchTarget.name}
+                                    </h3>
+                                    <p className="text-[10px] text-white/40 mt-0.5">
+                                        {AUDIENCE_LABELS[launchTarget.audience]} • {launchTarget.channel.toUpperCase()}
+                                    </p>
+                                </div>
                             </div>
-                            <p className="text-xs text-white/40">
-                                {AUDIENCE_LABELS[launchTarget.audience]} • {launchTarget.channel.toUpperCase()}
-                            </p>
-                            <div className="flex items-center justify-between mt-3">
-                                <button
-                                    onClick={toggleAll}
-                                    className="text-xs text-luxe-gold hover:text-luxe-gold/80 font-bold transition"
-                                >
-                                    {selectedIds.size === clients.length ? '☐ Deselect All' : '☑ Select All'}
-                                </button>
-                                <span className="text-xs bg-luxe-gold/10 text-luxe-gold px-3 py-1 rounded-full font-bold">
-                                    {selectedIds.size} of {clients.length} selected
-                                </span>
-                            </div>
+                            <button onClick={() => { setShowClientList(false); setLaunchTarget(null); }} className="p-2 hover:bg-white/5 rounded-xl border border-white/10 text-white/40 hover:text-white transition-all cursor-pointer">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Sub-Header controls */}
+                        <div className="px-5 py-3 border-b border-white/5 bg-white/[0.005] flex items-center justify-between shrink-0">
+                            <button
+                                onClick={toggleAll}
+                                className="text-[10px] text-luxe-gold hover:underline font-bold transition cursor-pointer"
+                            >
+                                {selectedIds.size === clients.length ? '☐ DESELECT ALL' : '☑ SELECT ALL'}
+                            </button>
+                            <span className="text-[9px] bg-luxe-gold/20 text-luxe-gold px-2.5 py-0.5 rounded-full font-bold">
+                                {selectedIds.size} of {clients.length} selected
+                            </span>
                         </div>
 
                         {/* Client List */}
@@ -555,11 +560,11 @@ export const Marketing: React.FC = () => {
                         </div>
 
                         {/* Send Button */}
-                        <div className="p-4 border-t border-white/10">
+                        <div className="p-4 border-t border-white/5 bg-white/[0.01]">
                             <button
                                 onClick={handleLaunch}
                                 disabled={!!launching || selectedIds.size === 0}
-                                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-green-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className="w-full bg-gold-gradient text-luxe-obsidian font-black py-3.5 rounded-xl shadow-lg shadow-luxe-gold/15 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-xs uppercase tracking-widest"
                             >
                                 {launching
                                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending...</>

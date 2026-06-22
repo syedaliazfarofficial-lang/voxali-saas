@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
             if ((channel === 'email' || channel === 'both') && client.email) {
                 const html = buildCampaignEmail(salonName, client.name || 'there', personalizedMsg, campaign.name);
                 const emailResult = await sendEmail(
-                    `${salonName} <onboarding@resend.dev>`,
+                    `${salonName} <noreply@voxali.net>`,
                     client.email,
                     `${campaign.name} - ${salonName}`,
                     html
