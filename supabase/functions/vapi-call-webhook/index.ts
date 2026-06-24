@@ -50,7 +50,19 @@ Deno.serve(async (req) => {
                     }
                 }
 
-                // ============= PHASE 2: AI QUOTA ENFORCEMENT =============
+                let isAgentActive = true;
+                if (tenantId) {
+                    const { data: agentConfig } = await supabase
+                        .from('ai_agent_config')
+                        .select('is_active')
+                        .eq('tenant_id', tenantId)
+                        .maybeSingle();
+                    if (agentConfig) {
+                        isAgentActive = agentConfig.is_active !== false;
+                    }
+                }
+
+                // ============= PHASE 2: AI QUOTA ENFORCEMENT & STATUS CHECK =============
                 if (tenantData) {
                     const aiIncluded = tenantData.ai_minutes_included || 0;
                     const aiTopup = tenantData.ai_minutes_topup_balance || 0;
@@ -63,14 +75,14 @@ Deno.serve(async (req) => {
                     // Allow grace period bypass if substatus is past_due but within grace
                     const isAllowedStatus = ['active', 'trialing', 'past_due'].includes(subStatus);
                     
-                    if (!isAllowedStatus || isPaused || effectiveMinutes <= 0) {
-                        console.log(`[QUOTA EXHAUSTED] Tenant ${tenantId} has ${effectiveMinutes} mins. Routing to fallback.`);
+                    if (!isAllowedStatus || isPaused || !isAgentActive || effectiveMinutes <= 0) {
+                        console.log(`[FALLBACK ACTIVE] Tenant ${tenantId} | statusAllowed: ${isAllowedStatus}, paused: ${isPaused}, active: ${isAgentActive}, minutes: ${effectiveMinutes}. Routing to fallback.`);
                         const fallbackPhone = tenantData.fallback_number || tenantData.business_phone || tenantData.phone_number;
                         
                         const msg = fallbackPhone 
                             ? `Thanks for calling ${tenantName}. Our AI receptionist is currently unavailable. Please hold while we route your call.`
                             : `Thanks for calling ${tenantName}. Please leave a message or call back shortly.`;
-
+                        
                         // Reconfigure VAPI agent on-the-fly to become a simple Transfer/Hangup bot
                         return jsonResponse({
                             assistantOverrides: {

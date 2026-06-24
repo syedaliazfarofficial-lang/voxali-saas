@@ -455,9 +455,9 @@ Your warmth and personality carry through the language fully.`;
             serverUrl: `${functionsUrl}/vapi-call-webhook`,
         };
 
-        // Real call transfer — if transfer phone is set
+        // Real call transfer — transfer phone is configured via system prompt to avoid Vapi 400 errors
         if (transferPhone) {
-            vapiPayload.forwardingPhoneNumber = transferPhone;
+            console.log(`📞 Transfer phone configured (via system prompt): ${transferPhone}`);
         }
 
         // Create assistant in Vapi
