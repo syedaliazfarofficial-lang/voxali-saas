@@ -9,6 +9,7 @@ import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { Skeleton } from './ui/Skeleton';
 import { FeatureLock } from './ui/FeatureLock';
+import { getEdgeFunctionUrl, TOOLS_KEY } from '../config/constants';
 
 const TIMEZONES = [
     { value: 'America/New_York', label: 'Eastern Time (New York)' },
@@ -130,12 +131,12 @@ const IntegrationsTab: React.FC<IntegrationsTabProps> = ({
                     <div className="flex-1 overflow-hidden">
                         <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-2">Calendar Feed URL</p>
                         <p className="text-sm font-mono text-white/80 truncate select-all px-3 py-2 bg-white/5 rounded-lg border border-white/5">
-                            https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/calendar-feed?tenant={tenantId}
+                            {getEdgeFunctionUrl('calendar-feed')}?tenant={tenantId}
                         </p>
                     </div>
                     <button
                         onClick={() => {
-                            navigator.clipboard.writeText(`https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/calendar-feed?tenant=${tenantId}`);
+                            navigator.clipboard.writeText(`${getEdgeFunctionUrl('calendar-feed')}?tenant=${tenantId}`);
                             setCopied(true);
                             setTimeout(() => setCopied(false), 2000);
                             showToast('Calendar link copied! Paste this in Google/Apple Calendar.');
@@ -216,15 +217,7 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Not authenticated');
 
-            const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
-            let functionUrl = 'https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/create-checkout-session';
-            if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
-                functionUrl = envUrl.replace(':54321', ':54321/functions/v1/create-checkout-session');
-            } else if (envUrl.includes('supabase.co')) {
-                functionUrl = envUrl.replace('.supabase.co', '.supabase.co/functions/v1/create-checkout-session');
-            }
-
-            const res = await fetch(functionUrl, {
+            const res = await fetch(getEdgeFunctionUrl('create-checkout-session'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ plan: plan, email: session.user.email, flow: 'upgrade' })
@@ -281,21 +274,12 @@ const BillingTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Not authenticated');
 
-            const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
-            let functionUrl = 'https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/charge-coins';
-            if (envUrl.includes('localhost') || envUrl.includes('127.0.0.1')) {
-                functionUrl = envUrl.replace(':54321', ':54321/functions/v1/charge-coins');
-            } else if (envUrl.includes('supabase.co')) {
-                functionUrl = envUrl.replace('.supabase.co', '.supabase.co/functions/v1/charge-coins');
-            }
-            const toolsKey = 'LUXE-AUREA-SECRET-2026';
-
-            const res = await fetch(functionUrl, {
+            const res = await fetch(getEdgeFunctionUrl('charge-coins'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${session.access_token}`,
-                    'X-TOOLS-KEY': toolsKey
+                    'X-TOOLS-KEY': TOOLS_KEY
                 },
                 body: JSON.stringify({ tenant_id: tenantId, topup_type: type, quantity })
             });
@@ -651,11 +635,11 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
                 // Check live status from Stripe
                 try {
                     const { data: { session } } = await supabase.auth.getSession();
-                    const r = await fetch('https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/stripe-connect-onboard', {
+                    const r = await fetch(getEdgeFunctionUrl('stripe-connect-onboard'), {
                         method: 'POST',
                         headers: { 
                             'Content-Type': 'application/json', 
-                            'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026',
+                            'X-TOOLS-KEY': TOOLS_KEY,
                             'Authorization': `Bearer ${session?.access_token}`
                         },
                         body: JSON.stringify({ tenant_id: tenantId, action: 'status' }),
@@ -676,11 +660,11 @@ const PaymentsTab: React.FC<{ tenantId: string }> = ({ tenantId }) => {
         setConnecting(true);
         try {
             const { data: { session } } = await supabase.auth.getSession();
-            const r = await fetch('https://sjzxgjimbcoqsylrglkm.supabase.co/functions/v1/stripe-connect-onboard', {
+            const r = await fetch(getEdgeFunctionUrl('stripe-connect-onboard'), {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json', 
-                    'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026',
+                    'X-TOOLS-KEY': TOOLS_KEY,
                     'Authorization': `Bearer ${session?.access_token}`
                 },
                 body: JSON.stringify({ tenant_id: tenantId, action: 'create', return_url: window.location.href + '?stripe=success', refresh_url: window.location.href + '?stripe=refresh' }),

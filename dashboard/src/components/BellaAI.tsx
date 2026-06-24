@@ -27,6 +27,7 @@ import { useTenant } from '../context/TenantContext';
 import { showToast } from './ui/ToastNotification';
 import { PageSkeleton } from './ui/Skeleton';
 import { FeatureLock } from './ui/FeatureLock';
+import { getEdgeFunctionUrl, TOOLS_KEY } from '../config/constants';
 
 interface AgentConfig {
     id: string;
@@ -79,7 +80,6 @@ const AI_LANGUAGES = [
     { value: 'zh', label: 'Chinese (中文)' },
 ];
 
-const SUPABASE_FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_URL + '/functions/v1';
 
 export const BellaAI: React.FC = () => {
     const [config, setConfig] = useState<AgentConfig | null>(null);
@@ -189,9 +189,9 @@ export const BellaAI: React.FC = () => {
         if (!tenantId) return;
         setProvisioning(true);
         try {
-            const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/provision-vapi-agent`, {
+            const res = await fetch(getEdgeFunctionUrl('provision-vapi-agent'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': 'LUXE-AUREA-SECRET-2026' },
+                headers: { 'Content-Type': 'application/json', 'X-TOOLS-KEY': TOOLS_KEY },
                 body: JSON.stringify({
                     tenantId,
                     salonName: tenantSalonName || 'My Salon',
@@ -263,12 +263,11 @@ export const BellaAI: React.FC = () => {
 
         // Sync to Vapi
         try {
-            const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
-            const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/sync-vapi-agent`, {
+            const res = await fetch(getEdgeFunctionUrl('sync-vapi-agent'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${serviceKey}`,
+                    'X-TOOLS-KEY': TOOLS_KEY,
                 },
                 body: JSON.stringify({
                     tenantId,
