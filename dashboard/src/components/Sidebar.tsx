@@ -226,112 +226,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div style={{
                     width: '100%',
                     borderTop: `1px solid ${DIVIDER}`,
-                    padding: '8px 0 14px',
+                    padding: isSidebarHovered ? '10px 14px' : '10px 0',
                     display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'stretch',
-                    gap: 4,
+                    flexDirection: isSidebarHovered ? 'row' : 'column',
+                    alignItems: 'center',
+                    justifyContent: isSidebarHovered ? 'space-between' : 'center',
+                    gap: isSidebarHovered ? 8 : 10,
                     flexShrink: 0,
                 }}>
-                    {/* Theme toggle */}
-                    <div style={{
-                        position: 'relative',
-                        width: '100%',
-                        height: 40,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        flexShrink: 0,
-                    }}>
-                        <button
-                            onClick={toggleTheme}
-                            onMouseEnter={() => setThemeHovered(true)}
-                            onMouseLeave={() => setThemeHovered(false)}
-                            style={{
-                                width: 'calc(100% - 24px)',
-                                height: 40,
-                                margin: '0 12px',
-                                borderRadius: 10,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-start',
-                                padding: '0 11px',
-                                background: themeHovered ? HOVER_BG : 'transparent',
-                                border: 'none',
-                                color: themeHovered ? '#ffffff' : ICON_COLOR,
-                                cursor: 'pointer',
-                                transition: 'background 0.15s, color 0.15s, transform 0.1s',
-                                overflow: 'hidden',
-                                transform: themeHovered ? 'scale(1.02)' : 'scale(1)',
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, flexShrink: 0 }}>
-                                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                            </div>
-                            <span style={{
-                                marginLeft: 12,
-                                opacity: isSidebarHovered ? 1 : 0,
-                                transition: 'opacity 0.15s ease-in-out',
-                                whiteSpace: 'nowrap',
-                                fontWeight: 600,
-                                fontSize: 13,
-                                color: '#ffffff',
-                                pointerEvents: 'none',
-                            }}>
-                                {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-                            </span>
-                        </button>
-                    </div>
-
                     {/* Logout */}
-                    <div style={{
-                        position: 'relative',
-                        width: '100%',
-                        height: 40,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        flexShrink: 0,
-                    }}>
-                        <button
-                            onClick={handleLogout}
-                            onMouseEnter={() => setLogoutHovered(true)}
-                            onMouseLeave={() => setLogoutHovered(false)}
-                            style={{
-                                width: 'calc(100% - 24px)',
-                                height: 40,
-                                margin: '0 12px',
-                                borderRadius: 10,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'flex-start',
-                                padding: '0 11px',
-                                background: logoutHovered ? 'rgba(239,68,68,0.15)' : 'transparent',
-                                border: 'none',
-                                color: logoutHovered ? '#fca5a5' : 'rgba(255,200,200,0.6)',
-                                cursor: 'pointer',
-                                transition: 'background 0.15s, color 0.15s, transform 0.1s',
-                                overflow: 'hidden',
-                                transform: logoutHovered ? 'scale(1.02)' : 'scale(1)',
-                            }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, flexShrink: 0 }}>
-                                <LogOut size={18} />
-                            </div>
+                    <button
+                        onClick={handleLogout}
+                        onMouseEnter={() => setLogoutHovered(true)}
+                        onMouseLeave={() => setLogoutHovered(false)}
+                        style={{
+                            width: isSidebarHovered ? 'auto' : 40,
+                            height: 40,
+                            borderRadius: 10,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: isSidebarHovered ? 'flex-start' : 'center',
+                            padding: isSidebarHovered ? '0 12px' : '0',
+                            background: logoutHovered ? 'rgba(239,68,68,0.15)' : 'transparent',
+                            border: 'none',
+                            color: logoutHovered ? '#fca5a5' : 'rgba(255,200,200,0.6)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            flexGrow: isSidebarHovered ? 1 : 0,
+                            transform: logoutHovered ? 'scale(1.02)' : 'scale(1)',
+                        }}
+                        title="Log Out"
+                    >
+                        <LogOut size={18} />
+                        {isSidebarHovered && (
                             <span style={{
-                                marginLeft: 12,
-                                opacity: isSidebarHovered ? 1 : 0,
-                                transition: 'opacity 0.15s ease-in-out',
-                                whiteSpace: 'nowrap',
+                                marginLeft: 10,
                                 fontWeight: 600,
                                 fontSize: 13,
                                 color: '#fca5a5',
-                                pointerEvents: 'none',
+                                whiteSpace: 'nowrap',
                             }}>
                                 Log Out
                             </span>
-                        </button>
-                    </div>
+                        )}
+                    </button>
+
+                    {/* Theme toggle */}
+                    <button
+                        onClick={toggleTheme}
+                        onMouseEnter={() => setThemeHovered(true)}
+                        onMouseLeave={() => setThemeHovered(false)}
+                        style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 10,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: themeHovered ? HOVER_BG : 'transparent',
+                            border: 'none',
+                            color: themeHovered ? '#ffffff' : ICON_COLOR,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            transform: themeHovered ? 'scale(1.05)' : 'scale(1)',
+                            flexShrink: 0,
+                        }}
+                        title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
+                    >
+                        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                    </button>
                 </div>
             </div>
         </div>
